@@ -85,7 +85,45 @@ We welcome all contributions! 🎉
 
 ---
 
+### **📜 511 Data Usage & Compliance**  
+MuniBuddy uses real-time transit data provided by **511 SF Bay Transit API**, which is managed by the **Metropolitan Transportation Commission (MTC)**. Our use of this data follows the **511 Data Disseminator Agreement**, ensuring proper attribution and compliance with data usage terms.  
+
+#### **⚠️ Important Compliance Points:**  
+- **Attribution Requirement**:  
+  - The app must include the tagline **"Powered by 511.org"** or **"Data provided by 511.org"** near any display of transit data.  
+  - A **link to 511.org** must be provided in a visible location.  
+
+- **Data Usage Rules**:  
+  - We do not sell or redistribute **raw** 511 data as a standalone product.  
+  - Our app updates transit information in a **timely and accurate manner** to ensure users receive the latest data.  
+  - We do not modify or falsify transit data provided by 511.  
+
+- **Intellectual Property & Branding**:  
+  - We do not use **511’s logo, trademarks, or branding** in our app or marketing materials unless explicitly approved by MTC.  
+  - Any use of **Muni, BART, or other transit agency branding** must comply with their respective intellectual property policies.  
+
+- **Data Documentation Requirement**:  
+  - Within **30 days of launch**, we must provide **MTC with documentation** proving our app uses their data.  
+  - This can include screenshots, press releases, or a live URL of the app.  
+
+- **Future Data Fees**:  
+  - 511 data is currently **free**, but MTC reserves the right to charge a fee in the future with a **90-day notice**.  
+
+For full details on 511's data policies, visit: **[511 Data Agreement](https://511.org/open-data/transit)**.  
+
+---
+
+### **📢 How to Contribute While Following Data Policies**  
+If you contribute to this project, ensure that:  
+1. **All transit data displayed respects 511’s attribution requirements.**  
+2. **You do not use unauthorized branding (Muni, BART, etc.).**  
+3. **Your code updates comply with the latest 511 API terms.**  
+
+🚀 With **MuniBuddy**, we aim to provide **accurate, real-time transit information** while respecting data provider policies!  
+
+---
+
 ## **📜 License**  
 This project is licensed under the **MIT License**.  
 
-🚀 **Never miss your Muni bus again with MuniBuddy!** 🚌💨  
+🚀 **Never miss your Muni bus again with MuniBuddy!** 🚌💨
