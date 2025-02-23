@@ -130,3 +130,5 @@ If you contribute to this project, ensure that:
 This project is licensed under the **MIT License**.  
 
 🚀 **Never miss your Muni bus again with MuniBuddy!** 🚌💨  
+
+
