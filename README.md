@@ -83,9 +83,6 @@ Want to contribute? Follow these steps:
 
 We welcome all contributions! 🎉  
 
-
-Based on the **511 Data Disseminator Agreement**, you should add the following key points to your **README.md** to comply with the terms:
-
 ---
 
 ### **📜 511 Data Usage & Compliance**  
@@ -129,6 +126,4 @@ If you contribute to this project, ensure that:
 ## **📜 License**  
 This project is licensed under the **MIT License**.  
 
-🚀 **Never miss your Muni bus again with MuniBuddy!** 🚌💨  
-
-
+🚀 **Never miss your Muni bus again with MuniBuddy!** 🚌💨
