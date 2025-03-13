@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SF Transit Planner</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css">
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+</head>
+<body>
+    <div class="container">
+        <div id="errorMessage" class="alert alert-danger hidden"></div>
+        <header>
+            <h1>🚌 SF Transit Planner</h1>
+        </header>
+
+        <main>
+            <div class="route-planner">
+                <h2>Start Point</h2>
+                <div class="location-input">
+                    <button id="useCurrentLocation" class="btn btn-primary">
+                        📍 Use Current Location
+                    </button>
+                    <div class="input-group">
+                        <input type="text" id="startAddress" placeholder="Enter your start point...">
+                        <button class="search-btn">🔍</button>
+                    </div>
+                </div>
+
+                <h2>Destination</h2>
+                <div class="location-input">
+                    <div class="input-group">
+                        <input type="text" id="endAddress" placeholder="Enter your destination...">
+                        <button class="search-btn">🔍</button>
+                    </div>
+                </div>
+
+                <button id="planRoute" class="btn btn-success">
+                    🗺 Find a Best Route
+                    <span class="spinner hidden"></span>
+                </button>
+            </div>
+            <div class="map-container">
+                <div id="map"></div>
+                <div class="bus-controls">
+                    <button id="updateBusPositions" class="btn btn-info">
+                        🚌 Update the bus position
+                        <span id="updateStatus" class="status-text"></span>
+                    </button>
+                    <button id="toggleAutoUpdate" class="btn btn-warning">
+                        ▶️ Start to auto update
+                    </button>
+                </div>
+            </div>
+
+            <div id="routeDetails" class="route-details hidden">
+                <h3>Route Details</h3>
+                <div id="routeSteps"></div>
+                <div id="routeStats"></div>
+            </div>
+        </main>
+    </div>
+
+    <script src="js/map.js"></script>
+    <script src="js/app.js"></script>
+    <script src="js/bus-tracker.js"></script>
+</body>
+</html>
