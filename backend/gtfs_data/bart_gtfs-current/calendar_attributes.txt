@@ -1,0 +1,10 @@
+service_id,service_description
+72953,Weekday
+72954,Saturday
+72955,Sunday
+75396,Weekday
+75397,Saturday
+75398,Sunday
+75724,Weekday
+75725,Saturday
+75726,Sunday
