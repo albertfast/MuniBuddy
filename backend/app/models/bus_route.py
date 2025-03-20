@@ -1,5 +1,8 @@
 from sqlalchemy import Column, String, Integer, Float
-from app.database import Base
+from sqlalchemy.orm import Session
+from fastapi import FastAPI, Depends
+from app.db.database import Base, get_db
+from app.config import settings
 
 class BusRoute(Base):
     __tablename__ = "bus_routes"
