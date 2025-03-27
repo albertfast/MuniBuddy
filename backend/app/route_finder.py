@@ -1,3 +1,8 @@
+# Add parent directory to path
+import os
+import sys
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import text, create_engine
 from sqlalchemy.orm import Session, sessionmaker
@@ -6,7 +11,7 @@ import requests
 from datetime import datetime
 from redis import Redis
 from geopy.distance import great_circle
-from app.database import get_db
+from app.db.database import get_db
 from app.models.bus_route import BusRoute
 import networkx as nx
 from geopy.geocoders import Nominatim
@@ -15,7 +20,7 @@ from app.config import settings
 API_KEY = settings.API_KEY
 REDIS_HOST = settings.REDIS_HOST
 REDIS_PORT = settings.REDIS_PORT
-print(f"[DEBUG] API_KEY: {API_KEY}, Redis: {REDIS_HOST}:{REDIS_PORT}")
+print(f"[DEBUG] Redis: {REDIS_HOST}:{REDIS_PORT}")
 
 # Database connection
 engine = create_engine(settings.DATABASE_URL)

@@ -1,6 +1,11 @@
-from fastapi import APIRouter, Depends
+# Add parent directory to path
+import os
+import sys
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from ..database import get_db
+from app.db.database import get_db
 from app.models.bus_route import BusRoute
 
 router = APIRouter()

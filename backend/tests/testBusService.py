@@ -38,9 +38,10 @@ async def test_bus_service():
     print(f"Muni GTFS Path: {bus_service.muni_gtfs_path}")
     print()
     
-    print("=== Testing Bus Service for location: 37.773, -122.4939 ===\n")
+    print("=== Testing Bus Service for location: 37.7257, 122.4511 ===\n")
     print("=== Finding nearby stops ===\n")
     
+    # 37.7257° N, 122.4511° W. (CCSF coords)
     nearby_buses = await bus_service.get_nearby_buses(37.773, -122.4939, radius_miles=0.1)
     
     if nearby_buses:

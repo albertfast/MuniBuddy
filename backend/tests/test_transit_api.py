@@ -14,7 +14,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 from unittest.mock import patch, MagicMock
 from app.main import app
-from app.database import get_db
+from app.db.database import get_db
 from app.schemas.transit import TransitMode
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -37,7 +37,7 @@ client = TestClient(app)
 @pytest.fixture
 def db():
     """Test database session"""
-    from app.database import SessionLocal
+    from app.db.database import SessionLocal
     db = SessionLocal()
     try:
         yield db

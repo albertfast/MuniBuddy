@@ -35,10 +35,16 @@ router = APIRouter()
 
 @router.get("/route", response_model=RouteResponse)
 async def find_route(
-    # ... existing parameters ...
+    start_lat: float = Query(..., description="Starting point latitude"),
+    start_lon: float = Query(..., description="Starting point longitude"),
+    end_lat: float = Query(..., description="Ending point latitude"),
+    end_lon: float = Query(..., description="Ending point longitude"),
+    preferences: Optional[RoutePreferences] = None,
+    db: Session = Depends(get_db)
 ):
     try:
-        # ... existing validation code ...
+        if not preferences:
+            preferences = RoutePreferences()
 
         # Calculate route
         route = get_optimal_route(
