@@ -9,6 +9,14 @@ import os
 import pandas as pd
 from redis import Redis
 import json
+from typing import Optional
+from math import radians, sin, cos, sqrt, atan2
+import logging
+from app.services.bus_service import BusService
+
+# Configure logging
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -17,6 +25,35 @@ redis = Redis(host=settings.REDIS_HOST, port=settings.REDIS_PORT, decode_respons
 API_KEY = settings.API_KEY
 AGENCY_ID = settings.AGENCY_ID
 BASE_API_URL = "http://api.511.org/transit"
+
+def calculate_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Calculate distance between two points using Haversine formula."""
+    R = 3959.87433  # Earth's radius in miles
+
+    lat1, lon1, lat2, lon2 = map(radians, [lat1, lon1, lat2, lon2])
+    dlat = lat2 - lat1
+    dlon = lon2 - lon1
+
+    a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
+    c = 2 * atan2(sqrt(a), sqrt(1-a))
+    distance = R * c
+
+    return distance
+
+@router.get("/api/nearby-stops")
+async def get_nearby_stops(
+    lat: float = Query(..., description="Latitude of the location"),
+    lon: float = Query(..., description="Longitude of the location"),
+    radius_miles: float = Query(0.5, description="Search radius in miles"),
+    db: Session = Depends(get_db)
+):
+    """Get nearby bus stops within the specified radius."""
+    try:
+        bus_service = BusService()
+        return await bus_service.find_nearby_stops(lat, lon, radius_miles)
+    except Exception as e:
+        logger.error(f"Error getting nearby stops: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/routes")
 def get_routes(db: Session = Depends(get_db)):
@@ -100,3 +137,20 @@ def get_cached_bus_positions(bus_number: str, agency: str):
     redis.setex(cache_key, 300, json.dumps(bus_data))
     
     return bus_data
+
+@router.get("/api/stop-schedule/{stop_id}")
+async def get_stop_schedule(stop_id: str, db: Session = Depends(get_db)):
+    """Get real-time bus schedule for a specific stop."""
+    try:
+        bus_service = BusService()
+        logger.debug(f"Fetching stop schedule from: http://api.511.org/transit/StopMonitoring?api_key={bus_service.api_key}&agency=SF&stopId={stop_id}&format=json")
+        schedule = await bus_service.get_stop_schedule(stop_id)
+        if not schedule:
+            raise HTTPException(status_code=404, detail="Schedule not found")
+        return schedule
+    except json.JSONDecodeError as e:
+        logger.error(f"Error decoding JSON response: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error processing transit service response")
+    except Exception as e:
+        logger.error(f"Error getting stop schedule: {str(e)}")
+        raise HTTPException(status_code=503, detail="Error connecting to transit service")

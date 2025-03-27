@@ -39,10 +39,11 @@ class Settings(BaseSettings):
     TRANSIT_511_BASE_URL: str = os.getenv("TRANSIT_511_BASE_URL", "http://api.511.org/transit")
     DEFAULT_AGENCY: str = os.getenv("DEFAULT_AGENCY", "SFMTA")
 
-    # GTFS API Configuration
+    # GTFS Configuration
     AGENCY_ID_RAW: str = os.getenv("AGENCY_ID", '["SFMTA"]')
     AGENCY_ID: List[str] = eval(AGENCY_ID_RAW)  # Parse JSON array string
     GTFS_FEED_URL: str = f"http://api.511.org/transit/gtfsfeed?api_key={API_KEY}&agency={{agency}}"
+    MUNI_GTFS_PATH: str = os.getenv("MUNI_GTFS_PATH", os.path.join(os.path.dirname(os.path.dirname(__file__)), "gtfs_data", "muni_gtfs-current"))
 
     def __init__(self, **data):
         super().__init__(**data)
@@ -51,6 +52,9 @@ class Settings(BaseSettings):
             f"postgresql://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}"
             f"@{self.POSTGRES_SERVER}/{self.POSTGRES_DB}"
         )
+        
+        # Ensure GTFS directory exists
+        os.makedirs(self.MUNI_GTFS_PATH, exist_ok=True)
 
     class Config:
         env_file = ".env"
@@ -61,3 +65,4 @@ settings = Settings()
 # For debugging
 print(f"[DEBUG] Config loaded. Redis: {settings.REDIS_HOST}:{settings.REDIS_PORT}, DB: {settings.SQLALCHEMY_DATABASE_URI}")
 print(f"[DEBUG] Config loaded. Agencies: {settings.AGENCY_ID}")
+print(f"[DEBUG] GTFS Path: {settings.MUNI_GTFS_PATH}")

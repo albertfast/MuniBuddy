@@ -3,6 +3,9 @@ import os
 import sys
 import json
 
+# Add parent directory to path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 # Third-party imports
 import requests
 import redis
@@ -12,13 +15,11 @@ from fastapi.middleware.cors import CORSMiddleware
 # Local application imports
 from app.config import settings
 from app.router.bus import router as bus_router
+from app.router.nearby_stops import router as nearby_stops_router
+from app.router.stop_schedule import router as stop_schedule_router
 from app.db.database import engine, Base, init_db
 from app.api import api_router
 from app.utils.json_cleaner import clean_api_response
-
-# Add parent directory to path
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 # Constants
 API_VERSION = "1.0.0"
@@ -51,6 +52,8 @@ app.config = {
 # Router includes
 app.include_router(bus_router)
 app.include_router(api_router, prefix=settings.API_V1_STR)
+app.include_router(nearby_stops_router)
+app.include_router(stop_schedule_router)
 
 # Environment variables
 API_KEY = settings.API_KEY

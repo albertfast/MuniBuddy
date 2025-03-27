@@ -7,7 +7,7 @@ from datetime import datetime, time
 from typing import List, Dict
 import logging
 import json
-from app.database import SessionLocal
+from app.db.database import SessionLocal
 from app.config import settings
 
 logging.basicConfig(level=logging.INFO)
