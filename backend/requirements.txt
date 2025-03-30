@@ -34,6 +34,7 @@ starlette>=0.14.0
 # Type Checking and Validation
 pydantic>=1.8.0
 email-validator>=1.1.0
+pydantic-settings
 
 # Security
 python-jose[cryptography]>=3.3.0
