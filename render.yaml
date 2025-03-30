@@ -4,11 +4,13 @@ services:
     env: docker
     repo: https://github.com/albertfast/MuniBuddy.git
     branch: main
-    dockerfilePath: backend/Dockerfile
+    dockerfilePath: backend/dockerfile
     buildFilter:
       paths:
         - backend/**/*
         - docker-compose.yml
+        - backend/gtfs_data/**/*
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port 8000
     envVars:
       - key: DATABASE_URL
         value: postgresql://myuser:mypassword@postgres_db:5432/munibuddy_db
@@ -24,7 +26,7 @@ services:
     env: docker
     repo: https://github.com/albertfast/MuniBuddy.git
     branch: main
-    dockerfilePath: frontend/Dockerfile
+    dockerfilePath: frontend/dockerfile
     buildFilter:
       paths:
         - frontend/**/*
