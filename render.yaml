@@ -32,10 +32,11 @@ services:
       - key: VITE_API_URL
         value: https://munibuddy-backend.onrender.com
       - key: VITE_GOOGLE_MAPS_API_KEY
-        sync: false  # Elle girilecek
+        sync: false
 
   - type: redis
     name: redis
+    ipAllowList: []
 
   - type: pserv
     name: postgres_db
