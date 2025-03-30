@@ -1,0 +1,56 @@
+version: '3.9'
+
+services:
+  backend:
+    build: ./backend
+    env_file:
+    - ./backend/.env
+    container_name: munibuddy_backend
+    ports:
+      - "8000:8000"
+    environment:
+      - API_KEY=${API_KEY}
+      - DATABASE_URL=postgresql://myuser:mypassword@db:5432/munibuddy_db
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - TZ=America/Los_Angeles
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - ./backend:/app
+
+  frontend:
+    build: ./frontend
+    env_file:
+    - ./frontend/.env
+    container_name: munibuddy_frontend
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_BASE=http://localhost:8000/api
+    volumes:
+      - ./frontend:/app
+    depends_on:
+      - backend
+
+  db:
+    image: postgres:13
+    container_name: postgres_db
+    environment:
+      POSTGRES_USER: myuser
+      POSTGRES_PASSWORD: mypassword
+      POSTGRES_DB: munibuddy_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7
+    container_name: redis_cache
+    ports:
+      - "6379:6379"
+
+volumes:
+  postgres_data:
