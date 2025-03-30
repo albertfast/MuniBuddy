@@ -5,8 +5,8 @@ def load_gtfs_data():
     """Loads GTFS data into pandas DataFrames"""
     try:
         # GTFS paths (relative to backend folder)
-        bart_path = "gtfs_data/bart_gtfs-current"
-        muni_path = "gtfs_data/muni_gtfs-current"
+        bart_path = "backend/gtfs_data/bart_gtfs-current"
+        muni_path = "backend/gtfs_data/muni_gtfs-current"
         
         # Load BART data
         bart_routes_df = pd.read_csv(os.path.join(bart_path, "routes.txt"), dtype={'route_id': str, 'route_short_name': str})
