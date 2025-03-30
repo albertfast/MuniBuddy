@@ -1,0 +1,43 @@
+services:
+  - type: web
+    name: munibuddy-backend
+    env: docker
+    repo: https://github.com/albertfast/MuniBuddy.git
+    branch: main
+    dockerfilePath: backend/Dockerfile
+    buildFilter:
+      paths:
+        - backend/**/*
+        - docker-compose.yml
+    envVars:
+      - key: DATABASE_URL
+        value: postgresql://myuser:mypassword@postgres_db:5432/munibuddy_db
+      - key: REDIS_HOST
+        value: redis
+      - key: REDIS_PORT
+        value: 6379
+      - key: API_KEY
+        sync: false
+
+  - type: web
+    name: munibuddy-frontend
+    env: docker
+    repo: https://github.com/albertfast/MuniBuddy.git
+    branch: main
+    dockerfilePath: frontend/Dockerfile
+    buildFilter:
+      paths:
+        - frontend/**/*
+    envVars:
+      - key: VITE_API_URL
+        value: https://munibuddy-backend.onrender.com
+      - key: VITE_GOOGLE_MAPS_API_KEY
+        sync: false  # Elle girilecek
+
+  - type: redis
+    name: redis
+
+  - type: pserv
+    name: postgres_db
+    env: docker
+    plan: free
