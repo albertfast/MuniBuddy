@@ -53,10 +53,10 @@ app.config = {
 }
 
 # Router includes
-app.include_router(bus_router)
-app.include_router(api_router, prefix="")
-app.include_router(nearby_stops_router)
-app.include_router(stop_schedule_router)
+app.include_router(bus_router, prefix="/api")
+app.include_router(api_router, prefix="/api")
+app.include_router(nearby_stops_router, prefix="/api")
+app.include_router(stop_schedule_router, prefix="/api")
 
 # Environment variables
 API_KEY = settings.API_KEY
