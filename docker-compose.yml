@@ -2,7 +2,8 @@ version: '3.9'
 
 services:
   backend:
-    build: ./backend
+    build:
+      context: ./backend
     env_file:
       - ./backend/.env
     container_name: munibuddy_backend
