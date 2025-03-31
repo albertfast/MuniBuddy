@@ -59,6 +59,7 @@ const App = () => {
   const fetchNearbyStops = async (location) => {
     try {
       setError(null);
+  
       const response = await axios.get(`${import.meta.env.VITE_API_URL}/api/nearby-stops`, {
         params: {
           lat: location.lat,
@@ -66,9 +67,10 @@ const App = () => {
           radius_miles: radius
         }
       });
-
+  
       if (response.data) {
         setNearbyStops(response.data);
+  
         const newMarkers = Object.entries(response.data).map(([stopId, stop]) => ({
           position: {
             lat: parseFloat(stop.stop_lat),
@@ -81,7 +83,7 @@ const App = () => {
             scaledSize: { width: 32, height: 32 }
           }
         }));
-
+  
         if (userLocation) {
           newMarkers.push({
             position: userLocation,
@@ -92,20 +94,20 @@ const App = () => {
             }
           });
         }
-
+  
         setMarkers(newMarkers);
       }
     } catch (error) {
       console.error('Error fetching nearby stops:', error);
       if (error.response) {
-        // Sunucudan hata yanıtı geldi
-        setError(`Duraklar alınamadı: ${error.response.data.detail || 'Bilinmeyen hata'}`);
+        // Server responded with an error
+        setError(`Failed to fetch stops: ${error.response.data.detail || 'Unknown error'}`);
       } else if (error.request) {
-        // İstek yapıldı ama yanıt alınamadı
-        setError('Sunucuya bağlanılamadı. Lütfen internet bağlantınızı kontrol edin.');
+        // Request was made but no response received
+        setError('Unable to connect to the server. Please check your internet connection.');
       } else {
-        // İstek oluşturulurken hata oluştu
-        setError('Duraklar alınamadı. Lütfen daha sonra tekrar deneyin.');
+        // Error occurred while setting up the request
+        setError('An error occurred while fetching stops. Please try again later.');
       }
     }
   };
