@@ -6,13 +6,13 @@ export default defineConfig({
     server: {
         host: true,
         port: 5173,
-        allowedHosts: ['munibuddy.live'],
         proxy: {
             '/api': {
                 target: 'http://munibuddy_backend:8000',
                 changeOrigin: true,
-                rewrite: (path) => path.replace(/^\/api/, ''),
-            },
+                rewrite: (path) => path.replace(/^\/api/, '')
+            }
         },
-    },
+        allowedHosts: ['munibuddy.live', 'www.munibuddy.live']
+    }
 });
