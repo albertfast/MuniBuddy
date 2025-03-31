@@ -36,7 +36,10 @@ router = APIRouter()
 # CORS settings
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://165.232.140.152:5173"],  # For production, specify allowed domains for security
+    allow_origins=[
+        "https://munibuddy.live",
+        "http://localhost:5173",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
