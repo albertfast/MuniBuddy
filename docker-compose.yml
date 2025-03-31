@@ -22,8 +22,7 @@ services:
       - ./frontend/.env
     container_name: munibuddy_frontend
     ports:
-      - "80:5173" # HTTP
-      - "443:443" # HTTPS
+      - "5173"
     environment:
       - VITE_API_BASE=http://localhost:8000/api
     volumes:
@@ -34,7 +33,7 @@ services:
   
   caddy:
     build: 
-      context: ./frontend
+      context: ./caddy
     container_name: munibuddy_caddy
     ports:
       - "80:80"
