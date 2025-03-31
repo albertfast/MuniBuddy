@@ -38,7 +38,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "https://munibuddy.live",
-        "http://localhost:5173",
+        "http://165.232.140.152",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -54,7 +54,7 @@ app.config = {
 
 # Router includes
 app.include_router(bus_router)
-app.include_router(api_router, prefix=settings.API_V1_STR)
+app.include_router(api_router, prefix="")
 app.include_router(nearby_stops_router)
 app.include_router(stop_schedule_router)
 
