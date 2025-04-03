@@ -83,12 +83,6 @@ def get_routes(db: Session = Depends(get_db)):
     """Fetch all bus routes from the database."""
     return db.query(BusRoute).all()
 
-@router.get("/bus-positions")
-def get_bus_positions(bus_number: str, agency: str):
-    """Returns real-time bus positions."""
-    return {"bus_number": bus_number, "agency": agency}
-
-
 @router.get("/get-route-details")
 def get_route_details(db: Session = Depends(get_db), route_short_name: str = Query(..., description="Bus route short name")):
     """Fetch route details from GTFS or 511 API if not found."""

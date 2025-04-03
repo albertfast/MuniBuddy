@@ -5,7 +5,6 @@ FROM node:20 AS builder
 WORKDIR /app
 
 # Copy .env and package files
-COPY .env .env
 COPY package*.json ./
 
 RUN npm install
