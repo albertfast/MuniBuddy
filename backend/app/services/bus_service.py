@@ -3,6 +3,7 @@ import requests
 from dotenv import load_dotenv
 from typing import List, Dict, Any, Optional
 from datetime import datetime, timedelta
+from backend.app.config import settings
 import math
 import pandas as pd
 from colorama import init, Fore, Style
@@ -20,58 +21,28 @@ AGENCY_IDS = os.getenv("AGENCY_ID", "SFMTA").split(',')
 
 class BusService:
     def __init__(self):
+        if hasattr(self, 'gtfs_data') and self.gtfs_data:
+            return  # Don't reload if already loaded
+
+        print("[DEBUG] Initializing BusService and loading GTFS data...")
         self.api_key = API_KEY
         self.base_url = "http://api.511.org/transit"
         self.agency_ids = AGENCY_IDS
         self.stops_cache = None
         self.gtfs_data = {}
 
-        # Load GTFS data
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        self.muni_gtfs_path = os.path.normpath(os.path.join(base_dir, "../../gtfs_data/muni_gtfs-current"))
-        self.bart_gtfs_path = os.path.normpath(os.path.join(base_dir, "../../gtfs_data/bart_gtfs-current"))
-
-        print(f"[DEBUG] Muni GTFS path: {self.muni_gtfs_path}")
-        print(f"[DEBUG] BART GTFS path: {self.bart_gtfs_path}")
+        # GTFS paths
+        muni_path = os.path.join(os.path.dirname(__file__), "../../gtfs_data/muni_gtfs-current")
 
         try:
-            self.gtfs_data['routes'] = pd.read_csv(
-                os.path.join(self.muni_gtfs_path, 'routes.txt'),
-                dtype={'route_id': str}
-            )
-            self.gtfs_data['trips'] = pd.read_csv(
-                os.path.join(self.muni_gtfs_path, 'trips.txt'),
-                dtype={'trip_id': str, 'route_id': str, 'service_id': str}
-            )
-            self.gtfs_data['stops'] = pd.read_csv(
-                os.path.join(self.muni_gtfs_path, 'stops.txt'),
-                dtype={'stop_id': str}
-            )
-            self.gtfs_data['stop_times'] = pd.read_csv(
-                os.path.join(self.muni_gtfs_path, 'stop_times.txt'),
-                dtype={'stop_id': str, 'trip_id': str, 'arrival_time': str}
-            )
-            self.gtfs_data['calendar'] = pd.read_csv(
-                os.path.join(self.muni_gtfs_path, 'calendar.txt'),
-                dtype={
-                    'service_id': str,
-                    'monday': int,
-                    'tuesday': int,
-                    'wednesday': int,
-                    'thursday': int,
-                    'friday': int,
-                    'saturday': int,
-                    'sunday': int,
-                    'start_date': int,
-                    'end_date': int
-                }
-            )
-
-            print(f"{Fore.GREEN}✓ GTFS data loaded successfully!{Style.RESET_ALL}")
-
+            self.gtfs_data['routes'] = pd.read_csv(os.path.join(muni_path, 'routes.txt'), dtype=str)
+            self.gtfs_data['trips'] = pd.read_csv(os.path.join(muni_path, 'trips.txt'), dtype=str)
+            self.gtfs_data['stops'] = pd.read_csv(os.path.join(muni_path, 'stops.txt'), dtype=str)
+            self.gtfs_data['stop_times'] = pd.read_csv(os.path.join(muni_path, 'stop_times.txt'), dtype=str)
+            self.gtfs_data['calendar'] = pd.read_csv(os.path.join(muni_path, 'calendar.txt'), dtype=str)
         except Exception as e:
-            print(f"{Fore.RED}✗ Error loading GTFS data: {str(e)}{Style.RESET_ALL}")
-            self.gtfs_data = {}  
+            print(f"[ERROR] Failed to load GTFS data: {e}")
+            self.gtfs_data = {}
                 
     def _get_static_schedule(self, stop_id: str) -> Dict[str, Any]:
         """Get static schedule from GTFS data."""
@@ -474,17 +445,34 @@ class BusService:
         
         Args:
             stop_id (str): The ID of the stop to get schedule for
-            
+
         Returns:
-            Optional[Dict[str, Any]]: Stop schedule or None if error
+            Optional[Dict[str, Any]]: Stop schedule or None if both sources fail
         """
-        # Try real-time data first
-        real_time_data = await self.fetch_stop_data(stop_id)
-        if real_time_data and (real_time_data['inbound'] or real_time_data['outbound']):
-            return real_time_data
-            
-        # Fall back to static GTFS data
-        return self._get_static_schedule(stop_id)
+        try:
+            print(f"[DEBUG] Trying real-time data for stop_id: {stop_id}")
+            real_time_data = await self.fetch_stop_data(stop_id)
+
+            if real_time_data:
+                has_data = real_time_data.get('inbound') or real_time_data.get('outbound')
+                if has_data:
+                    print(f"[DEBUG] Real-time data found for stop {stop_id}")
+                    return real_time_data
+                else:
+                    print(f"[INFO] Real-time data is empty for stop {stop_id}, falling back to GTFS...")
+
+            # Fall back to static GTFS
+            print(f"[DEBUG] Fetching GTFS static schedule for stop {stop_id}")
+            static_data = self._get_static_schedule(stop_id)
+            if static_data:
+                print(f"[DEBUG] Static schedule loaded for stop {stop_id}")
+            else:
+                print(f"[WARN] No static schedule available for stop {stop_id}")
+
+            return static_data
+        except Exception as e:
+            print(f"[ERROR] Failed to get stop schedule for {stop_id}: {e}")
+            return None
 
     async def get_next_buses(self, stop_id: str, direction: str = "both", limit: int = 5) -> Optional[Dict[str, Any]]:
         """
