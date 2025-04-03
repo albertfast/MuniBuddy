@@ -224,7 +224,7 @@ class BusService:
     async def find_nearby_stops(self, lat: float, lon: float, radius_miles: float = 0.1, limit: int = 3) -> List[Dict[str, Any]]:
         stops = await self._load_stops()
         nearby_stops = []
-        
+
         for stop in stops:
             distance = self._calculate_distance(lat, lon, stop['stop_lat'], stop['stop_lon'])
             if distance <= radius_miles:
@@ -232,51 +232,53 @@ class BusService:
                 stop_times = self.gtfs_data['stop_times'][
                     self.gtfs_data['stop_times']['stop_id'] == stop['stop_id']
                 ]
-                
+
                 trips = self.gtfs_data['trips'][
                     self.gtfs_data['trips']['trip_id'].isin(stop_times['trip_id'])
                 ]
-                
+
                 routes = self.gtfs_data['routes'][
                     self.gtfs_data['routes']['route_id'].isin(trips['route_id'])
                 ].drop_duplicates()
-                
+
                 # Prepare route information for the stop
                 route_info = []
                 for _, route in routes.iterrows():
                     # Get the final destination (last part of route name)
                     destination = route['route_long_name'].split(' - ')[-1] if ' - ' in route['route_long_name'] else route['route_long_name']
-                    
+
                     route_info.append({
                         'route_id': route['route_id'],
                         'route_number': route['route_short_name'],
                         'destination': destination
                     })
-                
+
                 stop_info = stop.copy()
                 stop_info['distance_miles'] = round(distance, 2)
                 stop_info['routes'] = route_info
                 nearby_stops.append(stop_info)
-        
+
         # Sort by distance
         nearby_stops.sort(key=lambda x: x['distance_miles'])
         return nearby_stops[:limit]
 
+
     async def get_nearby_buses(self, lat: float, lon: float, radius_miles: float = 0.1) -> Dict[str, Any]:
         nearby_stops = await self.find_nearby_stops(lat, lon, radius_miles)
         result = {}
-        
+
         for stop in nearby_stops:
-            stop_id = stop['stop_id']
+            stop_id = stop['stop_id']  # USE FULL GTFS STOP ID (e.g., 14212, do not strip)
             schedule = await self.get_stop_schedule(stop_id)
             if schedule:
                 result[stop_id] = {
+                    'stop_id': stop_id,
                     'stop_name': stop['stop_name'],
                     'distance_miles': stop['distance_miles'],
                     'routes': stop.get('routes', []),
                     'schedule': schedule
                 }
-        
+
         return result
 
     async def fetch_stop_data(self, stop_id: str) -> Optional[Dict[str, Any]]:
