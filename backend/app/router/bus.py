@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from app.db.database import get_db
+from app.services.bus_service import BusService
 from app.models.bus_route import BusRoute
 from app.utils.xml_parser import xml_to_json
 from app.config import settings
@@ -19,6 +20,7 @@ logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+bus_service = BusService()
 
 redis = Redis(host=settings.REDIS_HOST, port=settings.REDIS_PORT, decode_responses=True)
 
@@ -54,6 +56,27 @@ async def get_nearby_stops(
     except Exception as e:
         logger.error(f"Error getting nearby stops: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/nearby-stops-with-schedule")
+async def get_nearby_stops_with_schedule(
+    lat: float = Query(...),
+    lon: float = Query(...),
+    radius_miles: float = 0.15
+):
+    nearby_stops = await bus_service.find_nearby_stops(lat, lon, radius_miles)
+    results = []
+
+    for stop in nearby_stops:
+        schedule = await bus_service.get_stop_schedule(stop['stop_id'])
+
+        # frontend için gerekli alanlar
+        stop['schedule'] = schedule
+        stop['stop_lat'] = stop.get('stop_lat')
+        stop['stop_lon'] = stop.get('stop_lon')
+
+        results.append(stop)
+
+    return results
 
 @router.get("/routes")
 def get_routes(db: Session = Depends(get_db)):
