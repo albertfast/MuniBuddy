@@ -15,7 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.db.database import init_db
 from app.api.routes import transit
-from app import route_finder
+from app.route_finder import router as route_router
 from app.router.bus import router as bus_router
 from app.router.nearby_stops import router as nearby_stops_router
 from app.router.stop_schedule import router as stop_schedule_router
@@ -79,7 +79,7 @@ app.include_router(stop_schedule_router, prefix="/api/v1")          # /api/v1/st
 app.include_router(deploy_router, prefix="/api")                    # /api/deploy
 
 app.include_router(transit.router, prefix="/api/transit")           # /api/transit/...
-app.include_router(route_finder.router, prefix="/api")              # /api/optimized-route
+app.include_router(route_router, prefix="/api/v1")            # /api/optimized-route
 
 # Optional legacy
 # app.include_router(api_router, prefix="/api")

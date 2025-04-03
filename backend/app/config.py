@@ -1,9 +1,10 @@
 import os
 from pydantic_settings import BaseSettings
 from dotenv import load_dotenv
-from typing import List, Optional
+from typing import List, Optional, Tuple
+from app.services.gtfs_service import load_gtfs_data  # GTFS loader function
 
-# Load environment variables from .env
+# Load environment variables
 load_dotenv()
 
 class Settings(BaseSettings):
@@ -43,33 +44,46 @@ class Settings(BaseSettings):
     AGENCY_ID_RAW: str = os.getenv("AGENCY_ID", '["SFMTA"]')
     AGENCY_ID: List[str] = eval(AGENCY_ID_RAW)
 
-    # GTFS Path (was ClassVar, now part of model to avoid validation error)
     MUNI_GTFS_PATH: str = os.getenv(
         "MUNI_GTFS_PATH",
         os.path.abspath(os.path.join(os.path.dirname(__file__), "gtfs_data/muni_gtfs-current"))
     )
 
+    # GTFS data attributes (to be loaded)
+    gtfs_data: Optional[Tuple] = None
+
     def __init__(self, **data):
         super().__init__(**data)
 
-        # SQLAlchemy connection string
+        # Build SQLAlchemy URI
         self.SQLALCHEMY_DATABASE_URI = self.DATABASE_URL or (
-            f"postgresql://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}"
-            f"@{self.POSTGRES_SERVER}/{self.POSTGRES_DB}"
+            f"postgresql://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_SERVER}/{self.POSTGRES_DB}"
         )
 
-        # Ensure GTFS path directory exists
+        # Ensure GTFS directory exists
         os.makedirs(self.MUNI_GTFS_PATH, exist_ok=True)
+
+        # Load GTFS data once here
+        self.gtfs_data = load_gtfs_data()
+
+        # Log loaded data lengths for confirmation
+        if self.gtfs_data:
+            routes_df, trips_df, stops_df, stop_times_df, calendar_df = self.gtfs_data
+            print(f"[DEBUG] Loaded {len(stops_df)} stops")
+            print(f"[DEBUG] Loaded {len(stop_times_df)} stop times")
+            print(f"[DEBUG] Loaded {len(trips_df)} trips")
+            print(f"[DEBUG] Loaded {len(routes_df)} routes")
+            print(f"[DEBUG] Loaded {len(calendar_df)} calendar entries")
 
     class Config:
         env_file = ".env"
         case_sensitive = True
 
 
-# Initialize once
+# Singleton settings instance
 settings = Settings()
 
-# Debug logs
+# Debug info
 print(f"[DEBUG] Config loaded. Redis: {settings.REDIS_HOST}:{settings.REDIS_PORT}, DB: {settings.SQLALCHEMY_DATABASE_URI}")
 print(f"[DEBUG] Config loaded. Agencies: {settings.AGENCY_ID}")
 print(f"[DEBUG] GTFS Path: {settings.MUNI_GTFS_PATH}")
