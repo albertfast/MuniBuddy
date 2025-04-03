@@ -1,18 +1,26 @@
-# Build aşaması
+# Dockerfile (frontend)
+
 FROM node:20 AS builder
 
 WORKDIR /app
+
+# Copy .env and package files
+COPY .env .env
 COPY package*.json ./
+
 RUN npm install
 COPY . .
+
+# Set API base at build time
+ARG VITE_API_BASE
+ENV VITE_API_BASE=$VITE_API_BASE
+
 RUN npm run build
 
-# Serve için basit bir static server kullan (alternatif olarak nginx de olur)
+# Serve with lightweight server
 FROM node:20-alpine
-
 WORKDIR /app
 RUN npm install -g serve
 COPY --from=builder /app/dist /app/dist
 EXPOSE 80
-
 CMD ["serve", "-s", "dist", "-l", "80"]
