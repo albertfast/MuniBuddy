@@ -7,6 +7,7 @@ import math
 import pandas as pd
 from colorama import init, Fore, Style
 import json
+import asyncio
 from .gtfs_service import load_gtfs_data
 
 # Initialize colorama for colored output
@@ -24,28 +25,54 @@ class BusService:
         self.agency_ids = AGENCY_IDS
         self.stops_cache = None
         self.gtfs_data = {}
-        
-        # GTFS paths (relative to backend folder)
-        self.bart_gtfs_path = "gtfs_data/bart_gtfs-current"
-        self.muni_gtfs_path = "gtfs_data/muni_gtfs-current"
-        
-        # Load GTFS data
-        try:
-            routes_df = pd.read_csv('routes.txt', dtype={'route_id': str})
-            trips_df = pd.read_csv('trips.txt', dtype={'trip_id': str, 'route_id': str})
-            stops_df = pd.read_csv('stops.txt', dtype={'stop_id': str})
-            stop_times_df = pd.read_csv('stop_times.txt', dtype={'stop_id': str, 'trip_id': str})
-            calendar_df = pd.read_csv('calendar.txt')
 
-            self.gtfs_data['routes'] = routes_df
-            self.gtfs_data['trips'] = trips_df
-            self.gtfs_data['stops'] = stops_df
-            self.gtfs_data['stop_times'] = stop_times_df
-            self.gtfs_data['calendar'] = calendar_df
+        # Load GTFS data
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        self.muni_gtfs_path = os.path.normpath(os.path.join(base_dir, "../../gtfs_data/muni_gtfs-current"))
+        self.bart_gtfs_path = os.path.normpath(os.path.join(base_dir, "../../gtfs_data/bart_gtfs-current"))
+
+        print(f"[DEBUG] Muni GTFS path: {self.muni_gtfs_path}")
+        print(f"[DEBUG] BART GTFS path: {self.bart_gtfs_path}")
+
+        try:
+            self.gtfs_data['routes'] = pd.read_csv(
+                os.path.join(self.muni_gtfs_path, 'routes.txt'),
+                dtype={'route_id': str}
+            )
+            self.gtfs_data['trips'] = pd.read_csv(
+                os.path.join(self.muni_gtfs_path, 'trips.txt'),
+                dtype={'trip_id': str, 'route_id': str, 'service_id': str}
+            )
+            self.gtfs_data['stops'] = pd.read_csv(
+                os.path.join(self.muni_gtfs_path, 'stops.txt'),
+                dtype={'stop_id': str}
+            )
+            self.gtfs_data['stop_times'] = pd.read_csv(
+                os.path.join(self.muni_gtfs_path, 'stop_times.txt'),
+                dtype={'stop_id': str, 'trip_id': str, 'arrival_time': str}
+            )
+            self.gtfs_data['calendar'] = pd.read_csv(
+                os.path.join(self.muni_gtfs_path, 'calendar.txt'),
+                dtype={
+                    'service_id': str,
+                    'monday': int,
+                    'tuesday': int,
+                    'wednesday': int,
+                    'thursday': int,
+                    'friday': int,
+                    'saturday': int,
+                    'sunday': int,
+                    'start_date': int,
+                    'end_date': int
+                }
+            )
+
+            print(f"{Fore.GREEN}✓ GTFS data loaded successfully!{Style.RESET_ALL}")
+
         except Exception as e:
             print(f"{Fore.RED}✗ Error loading GTFS data: {str(e)}{Style.RESET_ALL}")
-            self.gtfs_data = {}
-
+            self.gtfs_data = {}  
+                
     def _get_static_schedule(self, stop_id: str) -> Dict[str, Any]:
         """Get static schedule from GTFS data."""
         try:
@@ -271,19 +298,28 @@ class BusService:
 
     async def get_nearby_buses(self, lat: float, lon: float, radius_miles: float = 0.1) -> Dict[str, Any]:
         nearby_stops = await self.find_nearby_stops(lat, lon, radius_miles)
-        result = {}
 
-        for stop in nearby_stops:
-            stop_id = stop['stop_id']  # USE FULL GTFS STOP ID (e.g., 14212, do not strip)
-            schedule = await self.get_stop_schedule(stop_id)
-            if schedule:
-                result[stop_id] = {
-                    'stop_id': stop_id,
-                    'stop_name': stop['stop_name'],
-                    'distance_miles': stop['distance_miles'],
-                    'routes': stop.get('routes', []),
-                    'schedule': schedule
-                }
+        tasks = [
+            self.get_stop_schedule(stop['stop_id'])
+            for stop in nearby_stops
+        ]
+
+        schedules = await asyncio.gather(*tasks, return_exceptions=True)
+
+        result = {}
+        for stop, schedule in zip(nearby_stops, schedules):
+            # Eğer görev hata döndürdüyse, logla ve atla
+            if isinstance(schedule, Exception):
+                print(f"✗ Error for stop {stop['stop_id']}: {schedule}")
+                continue
+
+            result[stop['stop_id']] = {
+                'stop_id': stop['stop_id'],
+                'stop_name': stop['stop_name'],
+                'distance_miles': stop['distance_miles'],
+                'routes': stop.get('routes', []),
+                'schedule': schedule
+            }
 
         return result
 
