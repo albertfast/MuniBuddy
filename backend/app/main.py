@@ -1,4 +1,4 @@
-# Standard library imports
+router = APIRouter()
 import os
 import sys
 import json
@@ -39,12 +39,6 @@ app = FastAPI(
     docs_url="/docs",
     openapi_url="/openapi.json"
 )
-
-app.include_router(deploy_router)
-app.include_router(transit.router, prefix="/api")
-app.include_router(router, prefix="/api")
-
-router = APIRouter()
 
 # CORS settings
 app.add_middleware(
@@ -173,3 +167,7 @@ def get_cached_bus_positions(bus_number: str, agency: str):
         redis_client.setex(cache_key, 300, json.dumps(buses))
 
     return {"bus_positions": buses}
+
+app.include_router(deploy_router)
+app.include_router(transit.router, prefix="/api/transit")
+app.include_router(router, prefix="/api")
