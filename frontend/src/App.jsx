@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { 
   Container, 
   Box, 
@@ -14,7 +14,9 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  IconButton
+  IconButton,
+  CircularProgress,
+  Snackbar
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
@@ -22,6 +24,24 @@ import MyLocationIcon from '@mui/icons-material/MyLocation';
 import axios from 'axios';
 import Map from './components/Map';
 import TransitInfo from './components/TransitInfo';
+// import { debounce } from 'lodash'; -- lodash kütüphanesini kaldırıyoruz
+
+// Kendi debounce fonksiyonumuzu oluşturuyoruz
+const debounce = (func, delay) => {
+  let timeoutId;
+  return (...args) => {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+    timeoutId = setTimeout(() => {
+      func(...args);
+    }, delay);
+  };
+};
+
+// Add request caching and cancel token
+const API_CACHE = {};
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes in milliseconds
 
 const App = () => {
   const [userLocation, setUserLocation] = useState(null);
@@ -31,8 +51,20 @@ const App = () => {
   const [searchAddress, setSearchAddress] = useState('');
   const [radius, setRadius] = useState(0.15);
   const [showLocationDialog, setShowLocationDialog] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [notification, setNotification] = useState({ open: false, message: '', severity: 'info' });
+
+  // Create a debounced search function
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const debouncedFetchNearbyStops = useCallback(
+    debounce((location) => {
+      fetchNearbyStops(location);
+    }, 500),
+    []
+  );
 
   const requestLocation = () => {
+    setLoading(true);
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
@@ -41,73 +73,147 @@ const App = () => {
             lng: position.coords.longitude
           };
           setUserLocation(location);
-          fetchNearbyStops(location);
+          debouncedFetchNearbyStops(location);
           setShowLocationDialog(false);
+          setLoading(false);
         },
         (error) => {
           console.error('Error getting location:', error);
           setError('Please enable location services or enter an address manually.');
           setShowLocationDialog(false);
+          setLoading(false);
+          setNotification({
+            open: true,
+            message: 'Could not get your location. Please try searching for an address.',
+            severity: 'warning'
+          });
         }
       );
     } else {
       setError('Geolocation is not supported by your browser. Please enter an address manually.');
       setShowLocationDialog(false);
+      setLoading(false);
+      setNotification({
+        open: true,
+        message: 'Your browser does not support geolocation. Please search for an address.',
+        severity: 'error'
+      });
     }
   };
 
+  const getCachedData = (key) => {
+    const cachedItem = API_CACHE[key];
+    if (cachedItem && (Date.now() - cachedItem.timestamp < CACHE_TTL)) {
+      console.log('Using cached data for:', key);
+      return cachedItem.data;
+    }
+    return null;
+  };
+
+  const setCachedData = (key, data) => {
+    API_CACHE[key] = {
+      data,
+      timestamp: Date.now()
+    };
+  };
+
   const fetchNearbyStops = async (location) => {
+    setLoading(true);
     try {
       setError(null);
-      const response = await axios.get(`${import.meta.env.VITE_API_URL}/api/nearby-stops`, {
+      
+      // Generate cache key
+      const cacheKey = `stops_${location.lat.toFixed(6)}_${location.lng.toFixed(6)}_${radius}`;
+      
+      // Check cache first
+      const cachedData = getCachedData(cacheKey);
+      if (cachedData) {
+        setNearbyStops(cachedData);
+        updateMarkers(cachedData, location);
+        setLoading(false);
+        return;
+      }
+      
+      // If not in cache, fetch from API
+      const startTime = performance.now();
+      // API URL yapısını düzeltiyoruz - /api/api/ sorunu için çözüm
+      const apiBaseUrl = import.meta.env.VITE_API_BASE || '/api';
+      const response = await axios.get(`${apiBaseUrl}/nearby-stops`, {
         params: {
           lat: location.lat,
           lon: location.lng,
           radius_miles: radius
-        }
+        },
+        timeout: 10000 // 10 second timeout
       });
+      const endTime = performance.now();
+      console.log(`API request took ${endTime - startTime}ms`);
 
       if (response.data) {
+        // Cache the response
+        setCachedData(cacheKey, response.data);
+        
         setNearbyStops(response.data);
-        const newMarkers = Object.entries(response.data).map(([stopId, stop]) => ({
-          position: {
-            lat: parseFloat(stop.stop_lat),
-            lng: parseFloat(stop.stop_lon)
-          },
-          title: stop.stop_name,
-          stopId: stopId,
-          icon: {
-            url: '/images/bus-stop-icon.png',
-            scaledSize: { width: 32, height: 32 }
-          }
-        }));
-
-        if (userLocation) {
-          newMarkers.push({
-            position: userLocation,
-            title: 'Your Location',
-            icon: {
-              url: '/images/user-location-icon.png',
-              scaledSize: { width: 32, height: 32 }
-            }
-          });
-        }
-
-        setMarkers(newMarkers);
+        updateMarkers(response.data, location);
       }
     } catch (error) {
       console.error('Error fetching nearby stops:', error);
       if (error.response) {
-        // Sunucudan hata yanıtı geldi
-        setError(`Duraklar alınamadı: ${error.response.data.detail || 'Bilinmeyen hata'}`);
+        // Server error response
+        setError(`Could not get stops: ${error.response.data.detail || 'Unknown error'}`);
+        setNotification({
+          open: true,
+          message: 'Server error. Please try again later.',
+          severity: 'error'
+        });
       } else if (error.request) {
-        // İstek yapıldı ama yanıt alınamadı
-        setError('Sunucuya bağlanılamadı. Lütfen internet bağlantınızı kontrol edin.');
+        // No response received
+        setError('Could not connect to server. Please check your internet connection.');
+        setNotification({
+          open: true,
+          message: 'Connection error. Please check your internet and try again.',
+          severity: 'error'
+        });
       } else {
-        // İstek oluşturulurken hata oluştu
-        setError('Duraklar alınamadı. Lütfen daha sonra tekrar deneyin.');
+        // Request setup error
+        setError('Could not get stops. Please try again later.');
+        setNotification({
+          open: true,
+          message: 'An error occurred. Please try again.',
+          severity: 'error'
+        });
       }
+    } finally {
+      setLoading(false);
     }
+  };
+
+  const updateMarkers = (stopsData, location) => {
+    const newMarkers = Object.entries(stopsData).map(([stopId, stop]) => ({
+      position: {
+        lat: parseFloat(stop.stop_lat),
+        lng: parseFloat(stop.stop_lon)
+      },
+      title: stop.stop_name,
+      stopId: stopId,
+      icon: {
+        url: '/images/bus-stop-icon.png',
+        scaledSize: { width: 32, height: 32 }
+      }
+    }));
+
+    if (location) {
+      newMarkers.push({
+        position: location,
+        title: 'Your Location',
+        icon: {
+          url: '/images/user-location-icon.png',
+          scaledSize: { width: 32, height: 32 }
+        }
+      });
+    }
+
+    setMarkers(newMarkers);
   };
 
   const handleMapClick = (event) => {
@@ -116,17 +222,37 @@ const App = () => {
       lng: event.latLng.lng()
     };
     setUserLocation(clickedLocation);
-    fetchNearbyStops(clickedLocation);
+    debouncedFetchNearbyStops(clickedLocation);
   };
 
   const handleAddressSearch = async () => {
-    if (!searchAddress) return;
+    if (!searchAddress.trim()) {
+      setNotification({
+        open: true,
+        message: 'Please enter an address to search',
+        severity: 'info'
+      });
+      return;
+    }
     
+    setLoading(true);
     try {
       setError(null);
+      const cacheKey = `address_${searchAddress.toLowerCase().trim()}`;
+      
+      // Check cache first
+      const cachedLocation = getCachedData(cacheKey);
+      if (cachedLocation) {
+        setUserLocation(cachedLocation);
+        debouncedFetchNearbyStops(cachedLocation);
+        setLoading(false);
+        return;
+      }
+      
       const formattedAddress = encodeURIComponent(`${searchAddress}, San Francisco, CA`);
       const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${formattedAddress}&limit=1`
+        `https://nominatim.openstreetmap.org/search?format=json&q=${formattedAddress}&limit=1`,
+        { timeout: 5000 }
       );
 
       const data = await response.json();
@@ -135,23 +261,57 @@ const App = () => {
           lat: parseFloat(data[0].lat),
           lng: parseFloat(data[0].lon)
         };
+        
+        // Cache the location
+        setCachedData(cacheKey, location);
+        
         setUserLocation(location);
-        fetchNearbyStops(location);
+        debouncedFetchNearbyStops(location);
       } else {
         setError('Address not found in San Francisco. Please try a different address.');
+        setNotification({
+          open: true,
+          message: 'Address not found. Try a more specific address in San Francisco.',
+          severity: 'warning'
+        });
       }
     } catch (error) {
       console.error('Error searching address:', error);
       setError('Failed to search address. Please try again.');
+      setNotification({
+        open: true,
+        message: 'Error searching address. Please check your connection and try again.',
+        severity: 'error'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Execute search when user presses Enter
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      handleAddressSearch();
     }
   };
 
   const handleRadiusChange = (event, newValue) => {
     setRadius(newValue);
     if (userLocation) {
-      fetchNearbyStops(userLocation);
+      debouncedFetchNearbyStops(userLocation);
     }
   };
+
+  const handleNotificationClose = () => {
+    setNotification({ ...notification, open: false });
+  };
+
+  useEffect(() => {
+    // Clean up debounce on component unmount
+    return () => {
+      debouncedFetchNearbyStops.cancel();
+    };
+  }, [debouncedFetchNearbyStops]);
 
   return (
     <Container maxWidth="lg">
@@ -174,7 +334,8 @@ const App = () => {
                 placeholder="Enter an address in San Francisco"
                 value={searchAddress}
                 onChange={(e) => setSearchAddress(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleAddressSearch()}
+                onKeyPress={handleKeyPress}
+                disabled={loading}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
@@ -196,6 +357,7 @@ const App = () => {
               <IconButton 
                 color="primary" 
                 onClick={requestLocation}
+                disabled={loading}
                 sx={{ bgcolor: 'background.paper' }}
               >
                 <MyLocationIcon />
@@ -203,9 +365,10 @@ const App = () => {
               <Button 
                 variant="contained" 
                 onClick={handleAddressSearch}
-                startIcon={<SearchIcon />}
+                startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <SearchIcon />}
+                disabled={loading || !searchAddress.trim()}
               >
-                Search
+                {loading ? 'Searching...' : 'Search'}
               </Button>
             </Box>
           </Grid>
@@ -227,6 +390,7 @@ const App = () => {
                 ]}
                 valueLabelDisplay="auto"
                 valueLabelFormat={(value) => `${value} mi`}
+                disabled={loading}
               />
             </Box>
           </Grid>
@@ -239,6 +403,27 @@ const App = () => {
             onMapClick={handleMapClick}
             zoom={16}
           />
+          {loading && (
+            <Box 
+              sx={{ 
+                position: 'absolute', 
+                top: 0, 
+                left: 0, 
+                right: 0, 
+                bottom: 0, 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                backgroundColor: 'rgba(255, 255, 255, 0.7)',
+                zIndex: 10
+              }}
+            >
+              <Box sx={{ textAlign: 'center' }}>
+                <CircularProgress size={50} />
+                <Typography variant="body2" sx={{ mt: 2 }}>Loading transit data...</Typography>
+              </Box>
+            </Box>
+          )}
         </Paper>
 
         {Object.keys(nearbyStops).length > 0 ? (
@@ -262,11 +447,34 @@ const App = () => {
           <Button onClick={() => setShowLocationDialog(false)}>
             No, thanks
           </Button>
-          <Button onClick={requestLocation} variant="contained" color="primary">
-            Enable Location
+          <Button 
+            onClick={requestLocation} 
+            variant="contained" 
+            color="primary"
+            disabled={loading}
+            startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <LocationOnIcon />}
+          >
+            {loading ? 'Getting Location...' : 'Enable Location'}
           </Button>
         </DialogActions>
       </Dialog>
+
+      <Snackbar
+        open={notification.open}
+        autoHideDuration={6000}
+        onClose={handleNotificationClose}
+        message={notification.message}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert 
+          onClose={handleNotificationClose} 
+          severity={notification.severity} 
+          variant="filled"
+          sx={{ width: '100%' }}
+        >
+          {notification.message}
+        </Alert>
+      </Snackbar>
     </Container>
   );
 };
