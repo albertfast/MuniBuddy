@@ -5,7 +5,6 @@ from typing import List, Optional, ClassVar
 
 # Load environment variables
 load_dotenv()
-
 class Settings(BaseSettings):
     # API Configuration
     API_V1_STR: str = "/api/v1"
@@ -44,7 +43,10 @@ class Settings(BaseSettings):
     AGENCY_ID: List[str] = eval(AGENCY_ID_RAW)
     
     # NOTE: This is a ClassVar and must be accessed via Settings.MUNI_GTFS_PATH
-    MUNI_GTFS_PATH: ClassVar[str] = os.getenv("MUNI_GTFS_PATH", "/app/gtfs_data/muni_gtfs-current")
+    
+    MUNI_GTFS_PATH: ClassVar[str] = os.path.abspath(
+        os.getenv("MUNI_GTFS_PATH", os.path.join(os.path.dirname(__file__), "gtfs_data/muni_gtfs-current"))
+    )
 
     def __init__(self, **data):
         super().__init__(**data)

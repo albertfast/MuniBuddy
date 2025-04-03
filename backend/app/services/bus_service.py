@@ -3,7 +3,7 @@ import requests
 from dotenv import load_dotenv
 from typing import List, Dict, Any, Optional
 from datetime import datetime, timedelta
-from backend.app.config import Settings
+from app.config import Settings
 import math
 import pandas as pd
 from colorama import init, Fore, Style

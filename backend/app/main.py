@@ -15,7 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.db.database import init_db
 from app.api.routes import transit
-from app.api.routes import route_finder
+from app import route_finder
 from app.router.bus import router as bus_router
 from app.router.nearby_stops import router as nearby_stops_router
 from app.router.stop_schedule import router as stop_schedule_router
