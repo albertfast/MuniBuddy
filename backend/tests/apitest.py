@@ -4,9 +4,9 @@ from rich.console import Console
 from rich.traceback import install
 from rich.panel import Panel
 from rich.syntax import Syntax
-from app.database import get_db
+from app.db import get_db
 from app.config import settings
-from app.route_finder2 import *
+from app.route_finder import *
 from fastapi import FastAPI, APIRouter, Depends
 from app.route_api import router as route_api_router
 from app.router.bus import router as bus_router

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Container, 
   Box, 
@@ -14,7 +14,9 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  IconButton
+  IconButton,
+  AlertTitle,
+  CircularProgress
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import MyLocationIcon from '@mui/icons-material/MyLocation';
@@ -24,12 +26,16 @@ import TransitInfo from './components/TransitInfo';
 
 const App = () => {
   const [userLocation, setUserLocation] = useState(null);
-  const [nearbyStops, setNearbyStops] = useState([]);
+  const [nearbyStops, setNearbyStops] = useState({});
   const [error, setError] = useState(null);
   const [markers, setMarkers] = useState([]);
   const [searchAddress, setSearchAddress] = useState('');
   const [radius, setRadius] = useState(0.15);
   const [showLocationDialog, setShowLocationDialog] = useState(true);
+  const [locationStatus, setLocationStatus] = useState('');
+  const [locatingInProgress, setLocatingInProgress] = useState(false);
+  const [fetchingStops, setFetchingStops] = useState(false);
+  const [fetchTimeout, setFetchTimeout] = useState(null);
 
   const requestLocation = () => {
     if (navigator.geolocation) {
@@ -58,23 +64,60 @@ const App = () => {
   const fetchNearbyStops = async (location) => {
     try {
       setError(null);
-      const response = await axios.get(`${import.meta.env.VITE_API_URL}/api/nearby-stops`, {
+      setFetchingStops(true);
+      
+      // Set a timeout to show a message if the fetch takes too long
+      const timeoutId = setTimeout(() => {
+        console.log('Fetch is taking longer than expected...');
+        setError('Fetching stops is taking longer than expected. Please wait...');
+      }, 5000); // Show message after 5 seconds
+      
+      setFetchTimeout(timeoutId);
+      
+      console.log('Fetching stops at:', location);
+      const response = await axios.get(`${import.meta.env.VITE_API_BASE}/nearby-stops`, {
         params: {
           lat: location.lat,
           lon: location.lng,
-          radius_miles: radius
-        }
+          radius: radius
+        },
+        timeout: 15000 // Set a 15 second timeout for the request
       });
 
+      // Clear the timeout since the fetch completed
+      clearTimeout(timeoutId);
+      setFetchTimeout(null);
+
       if (response.data) {
-        setNearbyStops(response.data);
-        const newMarkers = response.data.map((stop) => ({
+        console.log('Received data:', response.data);
+        
+        // Normalize stop IDs - prefer the 14xxx format over 4xxx
+        const normalizedStops = {};
+        Object.entries(response.data).forEach(([stopId, stop]) => {
+          // Make sure we're using the "id" format with the '1' prefix where appropriate
+          const displayId = stop.gtfs_stop_id && stop.id ? stop.id : stopId;
+          
+          // Format IDs properly - ensure we have 14xxx format instead of 4xxx
+          const formattedId = displayId.length === 4 && /^\d+$/.test(displayId) ? `1${displayId}` : displayId;
+          
+          // If we have both stop_id and gtfs_stop_id fields, use the longer one (likely 14xxx format)
+          normalizedStops[formattedId] = {
+            ...stop,
+            id: formattedId, // Ensure id is consistent
+            // For display purposes, ensure we show the full ID (14xxx) not the shortened one (4xxx)
+            display_id: formattedId
+          };
+        });
+        
+        setNearbyStops(normalizedStops);
+        
+        const newMarkers = Object.entries(normalizedStops).map(([stopId, stop]) => ({
           position: {
             lat: parseFloat(stop.stop_lat),
             lng: parseFloat(stop.stop_lon)
           },
           title: stop.stop_name,
-          stopId: stop.stop_id,
+          stopId: stopId,
           icon: {
             url: '/images/bus-stop-icon.png',
             scaledSize: { width: 32, height: 32 }
@@ -88,20 +131,32 @@ const App = () => {
             icon: {
               url: '/images/user-location-icon.png',
               scaledSize: { width: 32, height: 32 }
-            }
+            },
+            description: 'This is your current location. Click on the map to change it.'
           });
         }
 
         setMarkers(newMarkers);
+        setError(null); // Clear any error messages
       }
     } catch (error) {
       console.error('Error fetching nearby stops:', error);
       if (error.response) {
-        setError(`Failed to fetch stops: ${error.response.data.detail || 'Unknown error'}`);
+        setError(`Stops could not be retrieved: ${error.response.data.detail || 'Unknown error'}`);
       } else if (error.request) {
-        setError('Unable to connect to the server. Please check your internet connection.');
+        if (error.code === 'ECONNABORTED') {
+          setError('Request timed out. The server is taking too long to respond. Please try again later.');
+        } else {
+          setError('Server connection failed. Please check your internet connection.');
+        }
       } else {
-        setError('An error occurred while fetching stops. Please try again later.');
+        setError('Stops could not be retrieved. Please try again later.');
+      }
+    } finally {
+      setFetchingStops(false);
+      if (fetchTimeout) {
+        clearTimeout(fetchTimeout);
+        setFetchTimeout(null);
       }
     }
   };
@@ -146,6 +201,15 @@ const App = () => {
       fetchNearbyStops(userLocation);
     }
   };
+
+  // Cleanup any pending timeouts when component unmounts
+  useEffect(() => {
+    return () => {
+      if (fetchTimeout) {
+        clearTimeout(fetchTimeout);
+      }
+    };
+  }, [fetchTimeout]);
 
   return (
     <Container maxWidth="lg">
@@ -207,11 +271,23 @@ const App = () => {
           />
         </Paper>
 
-        {nearbyStops.length > 0 ? (
+        {fetchingStops && !error && (
+          <Alert severity="info" sx={{ mb: 2 }}>
+            <AlertTitle>Fetching Nearby Stops...</AlertTitle>
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <CircularProgress size={20} sx={{ mr: 1 }} />
+              <Typography>Looking for bus stops in this area. This may take a moment...</Typography>
+            </Box>
+          </Alert>
+        )}
+
+        {Object.keys(nearbyStops).length > 0 ? (
           <TransitInfo stops={nearbyStops} />
         ) : (
-          <Typography variant="body1" color="textSecondary" align="center">
-            No transit stops found nearby. Try a different location or increase the search radius.
+          <Typography variant="body1" color="text.secondary" align="center">
+            {userLocation
+              ? "No stops found nearby. Try a different location or increase the search radius."
+              : "Select a location on the map to see nearby stops."}
           </Typography>
         )}
       </Box>
