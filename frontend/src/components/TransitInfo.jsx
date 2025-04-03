@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import {
   Card,
@@ -30,7 +31,6 @@ const TransitInfo = ({ stops }) => {
   const [stopSchedule, setStopSchedule] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  // Convert stops object to array
   const stopsArray = Object.entries(stops).map(([id, stop]) => ({
     id,
     ...stop
@@ -47,7 +47,7 @@ const TransitInfo = ({ stops }) => {
     setLoading(true);
 
     try {
-      const response = await axios.get(`${import.meta.env.VITE_API_URL}/api/stop-schedule/${stop.id}`);
+      const response = await axios.get(`${import.meta.env.VITE_API_URL}/api/stop-schedule/${stop.stop_id || stop.id}`);
       setStopSchedule(response.data);
     } catch (error) {
       console.error('Error fetching stop schedule:', error);
@@ -59,8 +59,8 @@ const TransitInfo = ({ stops }) => {
   const formatTime = (isoTime) => {
     if (!isoTime || isoTime === "Unknown") return "Unknown";
     const date = new Date(isoTime);
-    return date.toLocaleTimeString('tr-TR', { 
-      hour: '2-digit', 
+    return isNaN(date) ? "Invalid Date" : date.toLocaleTimeString('tr-TR', {
+      hour: '2-digit',
       minute: '2-digit'
     });
   };
@@ -82,7 +82,7 @@ const TransitInfo = ({ stops }) => {
       <Stack direction="row" alignItems="center" spacing={1} sx={{ mt: 0.5 }}>
         <DirectionsBusIcon fontSize="small" />
         <Typography variant="body2">
-          Stop ID: {stop.id}
+          Stop ID: {stop.stop_id || stop.id}
         </Typography>
       </Stack>
     </>
@@ -94,7 +94,7 @@ const TransitInfo = ({ stops }) => {
         <Typography variant="body1" sx={{ fontWeight: 'medium' }}>
           Route {route.route_number} to {route.destination}
         </Typography>
-        <Chip 
+        <Chip
           size="small"
           label={route.status}
           color={getStatusColor(route.status)}
@@ -118,7 +118,7 @@ const TransitInfo = ({ stops }) => {
         <List>
           {stopsArray.map((stop, stopIndex) => (
             <React.Fragment key={stop.id}>
-              <ListItemButton 
+              <ListItemButton
                 onClick={() => handleStopClick(stop)}
                 selected={selectedStop?.id === stop.id}
               >
@@ -222,4 +222,4 @@ const TransitInfo = ({ stops }) => {
   );
 };
 
-export default TransitInfo; 
+export default TransitInfo;
