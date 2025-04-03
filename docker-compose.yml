@@ -24,7 +24,8 @@ services:
     ports:
       - "3000:80"
     environment:
-      - VITE_API_BASE=http://localhost:8000/api
+      - environment:
+      - VITE_API_BASE=https://munibuddy.live/api
     volumes:
       - ./frontend:/app
       - /app/node_modules
