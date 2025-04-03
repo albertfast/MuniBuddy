@@ -23,7 +23,8 @@ const TransitInfo = ({ stops }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const stopsArray = Array.isArray(stops) ? stops : Object.entries(stops).map(([id, stop]) => ({ id, ...stop }));
+  // Use correct format for incoming stops (array vs object)
+  const stopsArray = Array.isArray(stops) ? stops : Object.values(stops);
 
   const getCachedSchedule = (stopId) => {
     const cacheItem = SCHEDULE_CACHE[stopId];
@@ -85,7 +86,7 @@ const TransitInfo = ({ stops }) => {
       const apiBaseUrl = import.meta.env.VITE_API_BASE || '/api';
       const response = await axios.get(`${apiBaseUrl}/stop-schedule/${selectedStop.id}`, {
         timeout: 10000,
-        params: { _t: Date.now() } // Bypass cache
+        params: { _t: Date.now() }
       });
 
       setCachedSchedule(selectedStop.id, response.data);
@@ -128,7 +129,7 @@ const TransitInfo = ({ stops }) => {
         <Box display="flex" alignItems="center">
           <DirectionsBusIcon fontSize="small" sx={{ mr: 0.5 }} />
           <Typography variant="body2" color="text.secondary">
-            Stop ID: {stop.id}
+            Stop ID: {stop.stop_id || stop.id}
           </Typography>
         </Box>
         <Chip
@@ -170,7 +171,7 @@ const TransitInfo = ({ stops }) => {
         </Typography>
         <List>
           {stopsArray.map((stop, index) => (
-            <React.Fragment key={stop.id}>
+            <React.Fragment key={stop.stop_id || stop.id}>
               <ListItemButton
                 onClick={() => handleStopClick(stop)}
                 selected={selectedStop?.id === stop.id}
