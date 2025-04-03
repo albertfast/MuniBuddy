@@ -75,6 +75,12 @@ async def test_bus_service():
             "lat": 37.7599,
             "lon": -122.5118,
             "radius": 0.5
+        },
+        {
+            "name": "Home",
+            "lat": 37.7729361,
+            "lon": -122.4966348,
+            "radius": 0.15
         }
     ]
     
