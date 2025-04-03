@@ -10,7 +10,7 @@ from app.services.bus_service import BusService
 router = APIRouter()
 bus_service = BusService()
 
-@router.get("/api/nearby-stops")
+@router.get("/nearby-stops")
 async def get_nearby_stops(
     lat: float,
     lon: float,

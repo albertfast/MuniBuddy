@@ -23,10 +23,10 @@ mock_route = ["stop_123", "stop_456", "stop_789"]
 # Patch Redis and external dependencies
 @pytest.fixture(autouse=True)
 def patch_dependencies():
-    with patch("app.api.routes.route_finder.redis") as mock_redis, \
-         patch("app.api.routes.route_finder.get_live_bus_positions") as mock_live, \
-         patch("app.api.routes.route_finder.find_nearest_stop") as mock_nearest, \
-         patch("app.api.routes.route_finder.a_star_search") as mock_astar:
+    with patch("app.route_finder.redis") as mock_redis, \
+         patch("app.route_finder.get_live_bus_positions") as mock_live, \
+         patch("app.route_finder.find_nearest_stop") as mock_nearest, \
+         patch("app.route_finder.a_star_search") as mock_astar:
 
         # Mock Redis behavior
         mock_redis.get.return_value = None
@@ -42,7 +42,7 @@ def patch_dependencies():
         mock_live.return_value = [{"vehicle_id": "bus_01"}]
 
         # Mock A* route
-        mock_astar.return_value = mock_route
+        mock_astar.return_value = ["stop_123", "stop_456", "stop_789"]
 
         yield
 
