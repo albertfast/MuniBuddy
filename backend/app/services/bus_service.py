@@ -254,6 +254,7 @@ class BusService:
                     })
 
                 stop_info = stop.copy()
+                stop_info['stop_id'] = str(stop['stop_id'])
                 stop_info['distance_miles'] = round(distance, 2)
                 stop_info['routes'] = route_info
                 nearby_stops.append(stop_info)
