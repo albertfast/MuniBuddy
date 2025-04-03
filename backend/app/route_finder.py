@@ -1,4 +1,3 @@
-# Add parent directory to path
 import os
 import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -31,6 +30,8 @@ G = nx.DiGraph()
 
 # Initialize Redis cache
 redis = Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
+
+@router.get("/optimized-route", tags=["Best Route"])
 
 def load_gtfs_data():
     """Loads GTFS data and displays summary information."""
