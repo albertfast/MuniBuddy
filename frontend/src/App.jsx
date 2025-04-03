@@ -1,3 +1,5 @@
+const BASE_URL = import.meta.env.VITE_API_BASE;
+
 import React, { useState } from 'react';
 import { 
   Container, 
@@ -59,7 +61,7 @@ const App = () => {
   const fetchNearbyStops = async (location) => {
     try {
       setError(null);
-      const response = await axios.get(`${import.meta.env.VITE_API_URL}/api/nearby-stops`, {
+       const response = await axios.get(`${BASE_URL}/nearby-stops`, {
         params: {
           lat: location.lat,
           lon: location.lng,
