@@ -31,7 +31,12 @@ class BusService:
         
         # Load GTFS data
         try:
-            routes_df, trips_df, stops_df, stop_times_df, calendar_df = load_gtfs_data()
+            routes_df = pd.read_csv('routes.txt', dtype={'route_id': str})
+            trips_df = pd.read_csv('trips.txt', dtype={'trip_id': str, 'route_id': str})
+            stops_df = pd.read_csv('stops.txt', dtype={'stop_id': str})
+            stop_times_df = pd.read_csv('stop_times.txt', dtype={'stop_id': str, 'trip_id': str})
+            calendar_df = pd.read_csv('calendar.txt')
+
             self.gtfs_data['routes'] = routes_df
             self.gtfs_data['trips'] = trips_df
             self.gtfs_data['stops'] = stops_df

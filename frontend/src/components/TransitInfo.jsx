@@ -47,7 +47,7 @@ const TransitInfo = ({ stops }) => {
     setLoading(true);
 
     try {
-      const response = await axios.get(`${import.meta.env.VITE_API_URL}/api/stop-schedule/${stop.stop_id || stop.id}`);
+      const response = await axios.get(`${import.meta.env.VITE_API_URL}/api/stop-schedule/${stop.stop_id}`);
       setStopSchedule(response.data);
     } catch (error) {
       console.error('Error fetching stop schedule:', error);
