@@ -56,18 +56,19 @@ const TransitInfo = ({ stops }) => {
     }
   };
 
-  const formatTime = (isoTime) => {
-    if (!isoTime || isoTime === "Unknown") return "Unknown";
-    const date = new Date(isoTime);
-    return isNaN(date) ? "Invalid Date" : date.toLocaleTimeString('tr-TR', {
+  const formatTime = (timeStr) => {
+    if (!timeStr || timeStr === 'Unknown') return 'Unknown';
+    const date = new Date(timeStr);
+    return isNaN(date) ? timeStr : date.toLocaleTimeString('en-US', {
       hour: '2-digit',
       minute: '2-digit'
     });
   };
 
   const getStatusColor = (status) => {
-    if (status.includes('late')) return 'error';
-    if (status === 'Early') return 'warning';
+    if (!status) return 'default';
+    if (status.toLowerCase().includes('late')) return 'error';
+    if (status.toLowerCase().includes('early')) return 'warning';
     return 'success';
   };
 
@@ -88,24 +89,24 @@ const TransitInfo = ({ stops }) => {
     </>
   );
 
-  const renderRouteInfo = (route) => (
+  const renderRouteInfo = (bus) => (
     <Box>
       <Stack direction="row" alignItems="center" spacing={1}>
         <Typography variant="body1" sx={{ fontWeight: 'medium' }}>
-          Route {route.route_number} to {route.destination}
+          Route {bus.route_number}
         </Typography>
         <Chip
           size="small"
-          label={route.status}
-          color={getStatusColor(route.status)}
+          label={bus.status}
+          color={getStatusColor(bus.status)}
         />
       </Stack>
-      <Stack direction="row" alignItems="center" spacing={1} sx={{ mt: 0.5 }}>
-        <Typography variant="body2" color="text.secondary">
-          Arrival: {formatTime(route.arrival_time)}
-          {route.stops_away && ` • ${route.stops_away} stops away`}
-        </Typography>
-      </Stack>
+      <Typography variant="body2" color="text.secondary">
+        ⏰ Arrival: {formatTime(bus.arrival_time)}
+      </Typography>
+      <Typography variant="body2" color="text.secondary">
+        🏁 Destination: {bus.destination}
+      </Typography>
     </Box>
   );
 
@@ -157,10 +158,10 @@ const TransitInfo = ({ stops }) => {
                             </Typography>
                           </Stack>
                           <List dense>
-                            {stopSchedule.inbound.map((route, index) => (
+                            {stopSchedule.inbound.map((bus, index) => (
                               <ListItem key={index}>
                                 <ListItemText
-                                  primary={renderRouteInfo(route)}
+                                  primary={renderRouteInfo(bus)}
                                 />
                               </ListItem>
                             ))}
@@ -177,10 +178,10 @@ const TransitInfo = ({ stops }) => {
                             </Typography>
                           </Stack>
                           <List dense>
-                            {stopSchedule.outbound.map((route, index) => (
+                            {stopSchedule.outbound.map((bus, index) => (
                               <ListItem key={index}>
                                 <ListItemText
-                                  primary={renderRouteInfo(route)}
+                                  primary={renderRouteInfo(bus)}
                                 />
                               </ListItem>
                             ))}
