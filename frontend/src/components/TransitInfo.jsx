@@ -83,7 +83,7 @@ const TransitInfo = ({ stops }) => {
     setError(null);
 
     try {
-      const apiBaseUrl = import.meta.env.VITE_API_BASE || '/api';
+      const apiBaseUrl = import.meta.env.VITE_API_BASE ?? 'https://munibuddy.live/api/v1';
       const response = await axios.get(`${apiBaseUrl}/stop-schedule/${selectedStop.id}`, {
         timeout: 10000,
         params: { _t: Date.now() }
