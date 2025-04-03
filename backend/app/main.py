@@ -17,9 +17,12 @@ from app.config import settings
 from app.router.bus import router as bus_router
 from app.router.nearby_stops import router as nearby_stops_router
 from app.router.stop_schedule import router as stop_schedule_router
+from app.router.deploy import router as deploy_router
 from app.db.database import engine, Base, init_db
 from app.api import api_router
 from app.utils.json_cleaner import clean_api_response
+
+app.include_router(deploy_router)
 
 # Constants
 API_VERSION = "1.0.0"
