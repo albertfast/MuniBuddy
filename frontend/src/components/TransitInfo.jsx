@@ -23,10 +23,7 @@ const TransitInfo = ({ stops }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const stopsArray = Object.entries(stops).map(([id, stop]) => ({
-    id,
-    ...stop
-  }));
+  const stopsArray = Array.isArray(stops) ? stops : Object.entries(stops).map(([id, stop]) => ({ id, ...stop }));
 
   const getCachedSchedule = (stopId) => {
     const cacheItem = SCHEDULE_CACHE[stopId];
