@@ -13,5 +13,10 @@ munibuddy.live, www.munibuddy.live {
     }
     reverse_proxy @docs backend:8000
 
-    reverse_proxy frontend:5173
+    @openapi {
+        path /openapi.json
+    }
+    reverse_proxy @openapi backend:8000
+
+    reverse_proxy frontend:80
 }
