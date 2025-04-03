@@ -1,13 +1,13 @@
-import React from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { GoogleMap, useJsApiLoader, InfoWindow } from '@react-google-maps/api';
-import { Box, CircularProgress } from '@mui/material';
+import { Box, CircularProgress, Typography } from '@mui/material';
 
 const libraries = ['marker'];
 
-const Map = ({ center = { lat: 37.7749, lng: -122.4194 }, markers, onMapClick, zoom = 16 }) => {
-  const [selectedMarker, setSelectedMarker] = React.useState(null);
-  const [map, setMap] = React.useState(null);
-  const markersRef = React.useRef([]);
+const Map = ({ center = { lat: 37.7749, lng: -122.4194 }, markers = [], onMapClick, zoom = 16 }) => {
+  const [selectedMarker, setSelectedMarker] = useState(null);
+  const [map, setMap] = useState(null);
+  const markersRef = useRef([]);
 
   const { isLoaded, loadError } = useJsApiLoader({
     googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
@@ -15,20 +15,17 @@ const Map = ({ center = { lat: 37.7749, lng: -122.4194 }, markers, onMapClick, z
     mapIds: ['munibuddy_map']
   });
 
-  const mapStyles = {
-    height: "100%",
-    width: "100%"
-  };
+  const mapStyles = { height: "100%", width: "100%" };
 
   const handleMarkerClick = (marker) => {
     setSelectedMarker(marker);
   };
 
-  const onLoad = React.useCallback((map) => {
-    setMap(map);
+  const onLoad = useCallback((mapInstance) => {
+    setMap(mapInstance);
   }, []);
 
-  const onUnmount = React.useCallback(() => {
+  const onUnmount = useCallback(() => {
     markersRef.current.forEach(marker => {
       if (marker) marker.map = null;
     });
@@ -36,14 +33,14 @@ const Map = ({ center = { lat: 37.7749, lng: -122.4194 }, markers, onMapClick, z
     setMap(null);
   }, []);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!map || !window.google || !window.google.maps.marker) return;
 
-    markersRef.current.forEach(marker => {
-      if (marker) marker.map = null;
-    });
+    // Clear existing markers
+    markersRef.current.forEach(marker => marker?.map = null);
     markersRef.current = [];
 
+    // Add new markers
     markers.forEach(markerData => {
       try {
         const markerElement = document.createElement('div');
@@ -59,32 +56,34 @@ const Map = ({ center = { lat: 37.7749, lng: -122.4194 }, markers, onMapClick, z
         const advancedMarker = new window.google.maps.marker.AdvancedMarkerElement({
           position: markerData.position,
           content: markerElement,
-          map: map,
+          map,
           title: markerData.title
         });
 
         advancedMarker.addListener('gmp-click', () => handleMarkerClick(markerData));
         markersRef.current.push(advancedMarker);
       } catch (error) {
-        console.error('Error creating marker:', error);
+        console.error('Failed to create marker:', error);
       }
     });
 
     return () => {
-      markersRef.current.forEach(marker => {
-        if (marker) marker.map = null;
-      });
+      markersRef.current.forEach(marker => marker?.map = null);
       markersRef.current = [];
     };
   }, [map, markers]);
 
   if (loadError) {
-    return <Box sx={{ p: 2 }}>Harita yüklenirken bir hata oluştu.</Box>;
+    return <Box p={2}>Failed to load the map. Please try again later.</Box>;
   }
 
   if (!isLoaded) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px' }}>
+      <Box
+        sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px' }}
+        role="status"
+        aria-label="Loading map"
+      >
         <CircularProgress />
       </Box>
     );
@@ -112,9 +111,11 @@ const Map = ({ center = { lat: 37.7749, lng: -122.4194 }, markers, onMapClick, z
             position={selectedMarker.position}
             onCloseClick={() => setSelectedMarker(null)}
           >
-            <div>
-              <h3>{selectedMarker.title}</h3>
-            </div>
+            <Box>
+              <Typography variant="subtitle1" fontWeight="bold">
+                {selectedMarker.title}
+              </Typography>
+            </Box>
           </InfoWindow>
         )}
       </GoogleMap>
@@ -122,4 +123,4 @@ const Map = ({ center = { lat: 37.7749, lng: -122.4194 }, markers, onMapClick, z
   );
 };
 
-export default Map; 
+export default Map;

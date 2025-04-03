@@ -1,3 +1,4 @@
+// TransitInfo.jsx
 import React, { useState, useCallback } from 'react';
 import {
   Card, CardContent, Typography, List, ListItem, ListItemText, ListItemButton,
@@ -13,9 +14,8 @@ import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import axios from 'axios';
 
-// Local cache for fetched schedules
 const SCHEDULE_CACHE = {};
-const CACHE_TTL = 2 * 60 * 1000; // 2 minutes
+const CACHE_TTL = 2 * 60 * 1000;
 
 const TransitInfo = ({ stops }) => {
   const [selectedStop, setSelectedStop] = useState(null);
@@ -23,7 +23,6 @@ const TransitInfo = ({ stops }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Use correct format for incoming stops (array vs object)
   const stopsArray = Array.isArray(stops) ? stops : Object.values(stops);
 
   const getCachedSchedule = (stopId) => {
@@ -35,10 +34,7 @@ const TransitInfo = ({ stops }) => {
   };
 
   const setCachedSchedule = (stopId, data) => {
-    SCHEDULE_CACHE[stopId] = {
-      data,
-      timestamp: Date.now()
-    };
+    SCHEDULE_CACHE[stopId] = { data, timestamp: Date.now() };
   };
 
   const handleStopClick = async (stop) => {
@@ -60,13 +56,10 @@ const TransitInfo = ({ stops }) => {
         return;
       }
 
-      const apiBaseUrl = import.meta.env.VITE_API_URL ?? 'https://munibuddy.live/api/v1';
+      const apiBaseUrl = import.meta.env.VITE_API_BASE ?? 'https://munibuddy.live/api/v1';
       const response = await axios.get(`${apiBaseUrl}/stop-schedule/${stop.id}`, { timeout: 10000 });
 
-      if (response.data) {
-        setCachedSchedule(stop.id, response.data);
-      }
-
+      if (response.data) setCachedSchedule(stop.id, response.data);
       setStopSchedule(response.data);
     } catch (error) {
       setError('Failed to load stop schedule. Please check your internet connection.');
@@ -83,7 +76,7 @@ const TransitInfo = ({ stops }) => {
     setError(null);
 
     try {
-      const apiBaseUrl = import.meta.env.VITE_API_URL ?? 'https://munibuddy.live/api/v1';
+      const apiBaseUrl = import.meta.env.VITE_API_BASE ?? 'https://munibuddy.live/api/v1';
       const response = await axios.get(`${apiBaseUrl}/stop-schedule/${selectedStop.id}`, {
         timeout: 10000,
         params: { _t: Date.now() }
@@ -91,7 +84,7 @@ const TransitInfo = ({ stops }) => {
 
       setCachedSchedule(selectedStop.id, response.data);
       setStopSchedule(response.data);
-    } catch (error) {
+    } catch {
       setError('Failed to refresh schedule. Please check your connection.');
     } finally {
       setLoading(false);
@@ -233,7 +226,7 @@ const TransitInfo = ({ stops }) => {
                         </Box>
                       )}
 
-                      {(!stopSchedule.inbound?.length && !stopSchedule.outbound?.length) && (
+                      {!stopSchedule.inbound?.length && !stopSchedule.outbound?.length && (
                         <Typography textAlign="center" color="text.secondary" py={2}>
                           No scheduled routes at this time.
                         </Typography>

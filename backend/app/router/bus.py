@@ -13,7 +13,6 @@ import json
 from typing import Optional
 from math import radians, sin, cos, sqrt, atan2
 import logging
-from app.services.bus_service import BusService
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -95,10 +94,7 @@ def get_route_details(
     logger.info(f"Searching route details for: {route_short_name}")
 
     # Try GTFS database
-    route = db.query(BusRoute).filter(
-        (BusRoute.route_id == route_short_name) | 
-        (BusRoute.route_short_name == route_short_name)
-    ).first()
+    route = db.query(BusRoute).filter(BusRoute.route_short_name == route_short_name).first()
 
     if route:
         logger.debug(f"Route found in GTFS: {route.route_id}")
@@ -176,30 +172,18 @@ def get_bus_positions(bus_number: str, agency: str):
 
 @router.get("/cached-bus-positions")
 def get_cached_bus_positions(bus_number: str, agency: str):
-    """Fetch bus positions from Redis cache or fallback to live API."""
+    cache_key = f"bus:{bus_number}:{agency}"
+    cached_data = redis.get(cache_key)
+
+    if cached_data:
+        return json.loads(cached_data)
+
     try:
-        cache_key = f"bus:{bus_number}:{agency}"
-        cached_data = redis.get(cache_key)
-
-        if cached_data:
-            try:
-                return json.loads(cached_data)
-            except json.JSONDecodeError:
-                logger.warning(f"Invalid cached JSON for {cache_key}, ignoring.")
-
-        # Fallback to API
-        bus_data = get_bus_positions(bus_number, agency)
-
-        # If the data is valid and has positions, cache it
-        if isinstance(bus_data, dict) and "bus_positions" in bus_data:
-            redis.setex(cache_key, 300, json.dumps(bus_data))
-
-        return bus_data
-
+        live_data = bus_service.get_live_bus_positions(bus_number, agency)
+        redis.setex(cache_key, 300, json.dumps(live_data))
+        return live_data
     except Exception as e:
-        logger.exception("Error in get_cached_bus_positions")
-        raise HTTPException(status_code=500, detail="Failed to fetch cached bus data")
-
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/stop-schedule/{stop_id}")
 async def get_stop_schedule(stop_id: str, db: Session = Depends(get_db)):
