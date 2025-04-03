@@ -84,11 +84,24 @@ def get_routes(db: Session = Depends(get_db)):
     return db.query(BusRoute).all()
 
 @router.get("/get-route-details")
-def get_route_details(db: Session = Depends(get_db), route_short_name: str = Query(..., description="Bus route short name")):
-    """Fetch route details from GTFS or 511 API if not found."""
-    
-    route = db.query(BusRoute).filter(BusRoute.route_id == route_short_name).first()
+def get_route_details(
+    db: Session = Depends(get_db), 
+    route_short_name: str = Query(..., description="Bus route short name")
+):
+    """
+    Fetch route details from GTFS database, or fallback to 511 API if not found.
+    """
+
+    logger.info(f"Searching route details for: {route_short_name}")
+
+    # Try GTFS database
+    route = db.query(BusRoute).filter(
+        (BusRoute.route_id == route_short_name) | 
+        (BusRoute.route_short_name == route_short_name)
+    ).first()
+
     if route:
+        logger.debug(f"Route found in GTFS: {route.route_id}")
         return {
             "route_id": route.route_id,
             "route_name": route.route_name,
@@ -96,78 +109,115 @@ def get_route_details(db: Session = Depends(get_db), route_short_name: str = Que
             "destination": route.destination
         }
 
-    # If not found in GTFS, fetch from 511 API
-    api_url = f"http://api.511.org/transit/RouteDetails?api_key={API_KEY}&agency={AGENCY_ID}&route_id={route_short_name}&format=json"
-    response = requests.get(api_url)
+    # Fallback to 511 API
+    logger.info(f"Route not found in GTFS. Fetching from 511 API: {route_short_name}")
     
-    if response.status_code != 200:
-        raise HTTPException(status_code=404, detail="Route not found in GTFS or 511 API")
+    api_url = f"http://api.511.org/transit/RouteDetails"
+    params = {
+        "api_key": API_KEY,
+        "agency": AGENCY_ID,
+        "route_id": route_short_name,
+        "format": "json"
+    }
 
-    return response.json()
+    try:
+        response = requests.get(api_url, params=params, timeout=10)
 
+        if response.status_code != 200 or not response.content:
+            logger.warning(f"511 API failed: {response.status_code} - {response.text}")
+            raise HTTPException(status_code=404, detail="Route not found in GTFS or 511 API")
+
+        return response.json()
+
+    except requests.RequestException as e:
+        logger.error(f"511 API request error: {e}")
+        raise HTTPException(status_code=503, detail="Failed to fetch from 511 API")
 
 @router.get("/bus-positions")
 def get_bus_positions(bus_number: str, agency: str):
     """Get real-time bus positions from 511 API."""
-    
-    api_url = f"{BASE_API_URL}/VehicleMonitoring?api_key={API_KEY}&agency={agency}"
-    response = requests.get(api_url)
+    try:
+        api_url = f"{BASE_API_URL}/VehicleMonitoring?api_key={API_KEY}&agency={agency}"
+        response = requests.get(api_url, timeout=10)
 
-    if response.status_code != 200:
-        raise HTTPException(status_code=500, detail="511 API request failed.")
+        if response.status_code != 200:
+            raise HTTPException(status_code=500, detail="511 API request failed.")
 
-    data = xml_to_json(response.text)  # Convert XML to JSON
-    vehicles = data.get("Siri", {}).get("ServiceDelivery", {}).get("VehicleMonitoringDelivery", {}).get("VehicleActivity", [])
+        data = xml_to_json(response.text)  # Convert XML to JSON
 
-    if not vehicles:
-        return {"message": "No live bus data available"}
+        vehicles = data.get("Siri", {}).get("ServiceDelivery", {}).get("VehicleMonitoringDelivery", {}).get("VehicleActivity", [])
 
-    buses = []
-    for vehicle in vehicles:
-        journey = vehicle.get("MonitoredVehicleJourney", {})
-        if journey.get("LineRef") == bus_number:
-            buses.append({
-                "bus_number": journey.get("LineRef"),
-                "current_stop": journey.get("MonitoredCall", {}).get("StopPointName", "Unknown"),
-                "latitude": journey.get("VehicleLocation", {}).get("Latitude"),
-                "longitude": journey.get("VehicleLocation", {}).get("Longitude"),
-                "expected_arrival": journey.get("MonitoredCall", {}).get("ExpectedArrivalTime"),
-            })
+        if not vehicles:
+            return {"message": "No live bus data available"}
 
-    if not buses:
-        return {"message": "Bus not found in live data"}
+        buses = []
+        for vehicle in vehicles:
+            journey = vehicle.get("MonitoredVehicleJourney", {})
+            line_ref = journey.get("LineRef", "")
 
-    return {"bus_positions": buses}
+            if bus_number in line_ref:  # More flexible matching
+                buses.append({
+                    "bus_number": line_ref,
+                    "current_stop": journey.get("MonitoredCall", {}).get("StopPointName", "Unknown"),
+                    "latitude": journey.get("VehicleLocation", {}).get("Latitude"),
+                    "longitude": journey.get("VehicleLocation", {}).get("Longitude"),
+                    "expected_arrival": journey.get("MonitoredCall", {}).get("ExpectedArrivalTime"),
+                })
+
+        if not buses:
+            return {"message": "Bus not found in live data"}
+
+        return {"bus_positions": buses}
+
+    except Exception as e:
+        logger.exception("Error in get_bus_positions")
+        raise HTTPException(status_code=500, detail="Failed to fetch real-time bus positions")
+
 
 @router.get("/cached-bus-positions")
 def get_cached_bus_positions(bus_number: str, agency: str):
-    """Fetches bus positions from cache if available, otherwise fetch from API."""
-    
-    cache_key = f"bus:{bus_number}:{agency}"
-    cached_data = redis.get(cache_key)
-    
-    if cached_data:
-        return json.loads(cached_data)
-    
-    # If not in cache, get live data
-    bus_data = get_bus_positions(bus_number, agency) 
-    redis.setex(cache_key, 300, json.dumps(bus_data))
-    
-    return bus_data
+    """Fetch bus positions from Redis cache or fallback to live API."""
+    try:
+        cache_key = f"bus:{bus_number}:{agency}"
+        cached_data = redis.get(cache_key)
+
+        if cached_data:
+            try:
+                return json.loads(cached_data)
+            except json.JSONDecodeError:
+                logger.warning(f"Invalid cached JSON for {cache_key}, ignoring.")
+
+        # Fallback to API
+        bus_data = get_bus_positions(bus_number, agency)
+
+        # If the data is valid and has positions, cache it
+        if isinstance(bus_data, dict) and "bus_positions" in bus_data:
+            redis.setex(cache_key, 300, json.dumps(bus_data))
+
+        return bus_data
+
+    except Exception as e:
+        logger.exception("Error in get_cached_bus_positions")
+        raise HTTPException(status_code=500, detail="Failed to fetch cached bus data")
+
 
 @router.get("/stop-schedule/{stop_id}")
 async def get_stop_schedule(stop_id: str, db: Session = Depends(get_db)):
-    """Get real-time bus schedule for a specific stop."""
+    """Get real-time bus schedule for a specific stop from 511 API."""
     try:
         bus_service = BusService()
-        logger.debug(f"Fetching stop schedule from: http://api.511.org/transit/StopMonitoring?api_key={bus_service.api_key}&agency=SF&stopId={stop_id}&format=json")
+        logger.debug(f"Fetching stop schedule for stop_id={stop_id}")
         schedule = await bus_service.get_stop_schedule(stop_id)
+
         if not schedule:
             raise HTTPException(status_code=404, detail="Schedule not found")
+
         return schedule
+
     except json.JSONDecodeError as e:
-        logger.error(f"Error decoding JSON response: {str(e)}")
-        raise HTTPException(status_code=500, detail="Error processing transit service response")
+        logger.error(f"JSON decode error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error decoding schedule data")
+
     except Exception as e:
-        logger.error(f"Error getting stop schedule: {str(e)}")
-        raise HTTPException(status_code=503, detail="Error connecting to transit service")
+        logger.exception("Unhandled error in stop schedule")
+        raise HTTPException(status_code=503, detail="Could not connect to transit service")
