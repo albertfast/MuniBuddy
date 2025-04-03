@@ -17,7 +17,10 @@ from app.config import settings
 from app.router.bus import *
 from app.router.nearby_stops import router as nearby_stops_router
 from app.router.stop_schedule import router as stop_schedule_router
+from app.router.bus import router as bus_router
 from app.router.deploy import router as deploy_router
+from app.services.bus_service import BusService
+from app.api.routes import transit
 from app.db.database import engine, Base, init_db
 from app.api import api_router
 from app.utils.json_cleaner import clean_api_response
@@ -38,6 +41,7 @@ app = FastAPI(
 )
 
 app.include_router(deploy_router)
+app.include_router(transit.router, prefix="/api")
 
 router = APIRouter()
 
@@ -83,6 +87,12 @@ except redis.ConnectionError as e:
 @app.get("/")
 async def root():
     return {"message": "Welcome to MuniBuddy API!"}
+
+@router.get("/nearby-stops")
+async def get_nearby_stops(lat: float, lon: float, radius_miles: float = 0.1):
+    bus_service = BusService()
+    return await bus_service.get_nearby_buses(lat, lon, radius_miles)
+
 
 @router.get("/cached-bus-positions")
 def get_cached_bus_positions(bus_number: str, agency: str):
