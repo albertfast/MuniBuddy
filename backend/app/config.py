@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     POSTGRES_PASSWORD: str = os.getenv("POSTGRES_PASSWORD", "mypassword")
     POSTGRES_DB: str = os.getenv("POSTGRES_DB", "munibuddy_db")
     SQLALCHEMY_DATABASE_URI: Optional[str] = None
+    
+    # GitHub Webhook Secret
+    GITHUB_SECRET: str = os.getenv("GITHUB_SECRET") 
 
     # Redis Configuration
     REDIS_HOST: str = os.getenv("REDIS_HOST", "localhost")
