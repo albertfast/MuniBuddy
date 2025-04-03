@@ -1,12 +1,10 @@
-const BASE_URL = import.meta.env.VITE_API_BASE;
-
 import React, { useState } from 'react';
-import { 
-  Container, 
-  Box, 
-  Paper, 
-  Typography, 
-  Alert, 
+import {
+  Container,
+  Box,
+  Paper,
+  Typography,
+  Alert,
   TextField,
   InputAdornment,
   Slider,
@@ -19,11 +17,11 @@ import {
   IconButton
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
-import LocationOnIcon from '@mui/icons-material/LocationOn';
 import MyLocationIcon from '@mui/icons-material/MyLocation';
-import axios from 'axios';
 import Map from './components/Map';
 import TransitInfo from './components/TransitInfo';
+
+const BASE_URL = import.meta.env.VITE_API_BASE;
 
 const App = () => {
   const [userLocation, setUserLocation] = useState(null);
@@ -46,14 +44,13 @@ const App = () => {
           fetchNearbyStops(location);
           setShowLocationDialog(false);
         },
-        (error) => {
-          console.error('Error getting location:', error);
-          setError('Please enable location services or enter an address manually.');
+        () => {
+          setError('Please enable location services or enter coordinates manually.');
           setShowLocationDialog(false);
         }
       );
     } else {
-      setError('Geolocation is not supported by your browser. Please enter an address manually.');
+      setError('Geolocation is not supported by your browser.');
       setShowLocationDialog(false);
     }
   };
@@ -61,23 +58,18 @@ const App = () => {
   const fetchNearbyStops = async (location) => {
     try {
       setError(null);
-       const response = await axios.get(`${BASE_URL}/nearby-stops`, {
-        params: {
-          lat: location.lat,
-          lon: location.lng,
-          radius_miles: radius
-        }
-      });
+      const response = await fetch(`${BASE_URL}/nearby-stops?lat=${location.lat}&lon=${location.lng}&radius_miles=${radius}`);
+      const data = await response.json();
 
-      if (response.data) {
-        setNearbyStops(response.data);
-        const newMarkers = Object.entries(response.data).map(([stopId, stop]) => ({
+      if (data) {
+        setNearbyStops(data);
+        const newMarkers = Object.entries(data).map(([stopId, stop]) => ({
           position: {
             lat: parseFloat(stop.stop_lat),
             lng: parseFloat(stop.stop_lon)
           },
           title: stop.stop_name,
-          stopId: stopId,
+          stopId,
           icon: {
             url: '/images/bus-stop-icon.png',
             scaledSize: { width: 32, height: 32 }
@@ -97,55 +89,18 @@ const App = () => {
 
         setMarkers(newMarkers);
       }
-    } catch (error) {
-      console.error('Error fetching nearby stops:', error);
-      if (error.response) {
-        // Sunucudan hata yanıtı geldi
-        setError(`Duraklar alınamadı: ${error.response.data.detail || 'Bilinmeyen hata'}`);
-      } else if (error.request) {
-        // İstek yapıldı ama yanıt alınamadı
-        setError('Sunucuya bağlanılamadı. Lütfen internet bağlantınızı kontrol edin.');
-      } else {
-        // İstek oluşturulurken hata oluştu
-        setError('Duraklar alınamadı. Lütfen daha sonra tekrar deneyin.');
-      }
+    } catch (err) {
+      setError('Could not load nearby stops. Please try again later.');
     }
   };
 
   const handleMapClick = (event) => {
-    const clickedLocation = {
+    const location = {
       lat: event.latLng.lat(),
       lng: event.latLng.lng()
     };
-    setUserLocation(clickedLocation);
-    fetchNearbyStops(clickedLocation);
-  };
-
-  const handleAddressSearch = async () => {
-    if (!searchAddress) return;
-    
-    try {
-      setError(null);
-      const formattedAddress = encodeURIComponent(`${searchAddress}, San Francisco, CA`);
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${formattedAddress}&limit=1`
-      );
-
-      const data = await response.json();
-      if (data && data.length > 0) {
-        const location = {
-          lat: parseFloat(data[0].lat),
-          lng: parseFloat(data[0].lon)
-        };
-        setUserLocation(location);
-        fetchNearbyStops(location);
-      } else {
-        setError('Address not found in San Francisco. Please try a different address.');
-      }
-    } catch (error) {
-      console.error('Error searching address:', error);
-      setError('Failed to search address. Please try again.');
-    }
+    setUserLocation(location);
+    fetchNearbyStops(location);
   };
 
   const handleRadiusChange = (event, newValue) => {
@@ -155,10 +110,21 @@ const App = () => {
     }
   };
 
+  const handleManualLocation = () => {
+    const [lat, lon] = searchAddress.split(',').map((x) => parseFloat(x.trim()));
+    if (!isNaN(lat) && !isNaN(lon)) {
+      const location = { lat, lng: lon };
+      setUserLocation(location);
+      fetchNearbyStops(location);
+    } else {
+      setError('Please enter valid coordinates like: 37.7749, -122.4194');
+    }
+  };
+
   return (
     <Container maxWidth="lg">
       <Box sx={{ my: 4 }}>
-        <Typography variant="h4" component="h1" gutterBottom>
+        <Typography variant="h4" gutterBottom>
           MuniBuddy - SF Transit Finder
         </Typography>
 
@@ -173,49 +139,30 @@ const App = () => {
             <Box sx={{ display: 'flex', gap: 1 }}>
               <TextField
                 fullWidth
-                placeholder="Enter an address in San Francisco"
+                placeholder="Enter coordinates (lat, lon)"
                 value={searchAddress}
                 onChange={(e) => setSearchAddress(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleAddressSearch()}
+                onKeyPress={(e) => e.key === 'Enter' && handleManualLocation()}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
                       <SearchIcon />
                     </InputAdornment>
-                  ),
-                }}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    backgroundColor: 'background.paper',
-                    '&:hover': {
-                      '& > fieldset': {
-                        borderColor: 'primary.main',
-                      },
-                    },
-                  },
+                  )
                 }}
               />
-              <IconButton 
-                color="primary" 
-                onClick={requestLocation}
-                sx={{ bgcolor: 'background.paper' }}
-              >
+              <IconButton color="primary" onClick={requestLocation}>
                 <MyLocationIcon />
               </IconButton>
-              <Button 
-                variant="contained" 
-                onClick={handleAddressSearch}
-                startIcon={<SearchIcon />}
-              >
+              <Button variant="contained" onClick={handleManualLocation}>
                 Search
               </Button>
             </Box>
           </Grid>
+
           <Grid item xs={12} md={6}>
             <Box sx={{ px: 2 }}>
-              <Typography gutterBottom>
-                Search Radius: {radius} miles
-              </Typography>
+              <Typography>Search Radius: {radius} miles</Typography>
               <Slider
                 value={radius}
                 onChange={handleRadiusChange}
@@ -225,48 +172,42 @@ const App = () => {
                 marks={[
                   { value: 0.1, label: '0.1' },
                   { value: 0.5, label: '0.5' },
-                  { value: 1.0, label: '1.0' },
+                  { value: 1.0, label: '1.0' }
                 ]}
                 valueLabelDisplay="auto"
-                valueLabelFormat={(value) => `${value} mi`}
               />
             </Box>
           </Grid>
         </Grid>
 
-        <Paper elevation={3} sx={{ mb: 3, height: '400px', position: 'relative' }}>
+        <Paper elevation={3} sx={{ height: '400px', position: 'relative', mb: 4 }}>
           <Map
             center={userLocation || { lat: 37.7749, lng: -122.4194 }}
             markers={markers}
             onMapClick={handleMapClick}
-            zoom={16}
+            zoom={15}
           />
         </Paper>
 
         {Object.keys(nearbyStops).length > 0 ? (
           <TransitInfo stops={nearbyStops} />
         ) : (
-          <Typography variant="body1" color="textSecondary" align="center">
-            No transit stops found nearby. Try a different location or increase the search radius.
+          <Typography align="center" color="textSecondary">
+            No stops found nearby. Try a different location or increase the radius.
           </Typography>
         )}
       </Box>
 
       <Dialog open={showLocationDialog} onClose={() => setShowLocationDialog(false)}>
-        <DialogTitle>Enable Location Services</DialogTitle>
+        <DialogTitle>Use Your Location?</DialogTitle>
         <DialogContent>
           <Typography>
-            Would you like to enable location services to find transit stops near you? 
-            You can also search for an address manually.
+            Allow MuniBuddy to use your current location to find nearby transit stops?
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setShowLocationDialog(false)}>
-            No, thanks
-          </Button>
-          <Button onClick={requestLocation} variant="contained" color="primary">
-            Enable Location
-          </Button>
+          <Button onClick={() => setShowLocationDialog(false)}>No</Button>
+          <Button onClick={requestLocation} variant="contained">Yes</Button>
         </DialogActions>
       </Dialog>
     </Container>

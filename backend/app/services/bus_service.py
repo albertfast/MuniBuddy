@@ -43,7 +43,46 @@ class BusService:
         except Exception as e:
             print(f"[ERROR] Failed to load GTFS data: {e}")
             self.gtfs_data = {}
-                
+            
+    def get_live_bus_positions(self, bus_number: str, agency: str) -> Dict[str, Any]:
+        url = f"{self.base_url}/VehicleMonitoring?api_key={self.api_key}&agency={agency}"
+        response = requests.get(url)
+
+        if response.status_code != 200:
+            raise Exception("511 API request failed")
+
+        from xml.etree import ElementTree as ET
+
+        def xml_to_json(xml_string):
+            """Convert XML string to JSON-like dictionary."""
+            root = ET.fromstring(xml_string)
+            
+            def parse_element(element):
+                parsed = {}
+                for child in element:
+                    if len(child):
+                        parsed[child.tag] = parse_element(child)
+                    else:
+                        parsed[child.tag] = child.text
+                return parsed
+            
+            return {root.tag: parse_element(root)}
+
+        data = xml_to_json(response.text)
+        vehicles = data.get("Siri", {}).get("ServiceDelivery", {}).get("VehicleMonitoringDelivery", {}).get("VehicleActivity", [])
+
+        return [
+            {
+                "bus_number": v["MonitoredVehicleJourney"]["LineRef"],
+                "current_stop": v["MonitoredVehicleJourney"]["MonitoredCall"].get("StopPointName", "Unknown"),
+                "latitude": v["MonitoredVehicleJourney"]["VehicleLocation"].get("Latitude"),
+                "longitude": v["MonitoredVehicleJourney"]["VehicleLocation"].get("Longitude"),
+                "expected_arrival": v["MonitoredVehicleJourney"]["MonitoredCall"].get("ExpectedArrivalTime"),
+            }
+            for v in vehicles
+            if v["MonitoredVehicleJourney"]["LineRef"] == bus_number
+        ]
+
     def _get_static_schedule(self, stop_id: str) -> Dict[str, Any]:
         """Get static schedule from GTFS data."""
         try:
