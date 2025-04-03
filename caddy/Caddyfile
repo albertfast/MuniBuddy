@@ -1,5 +1,6 @@
 {
     acme_ca https://acme-staging-v02.api.letsencrypt.org/directory
+    email asainer@mail.ccsf.edu
 }
 
 munibuddy.live, www.munibuddy.live {
@@ -7,6 +8,11 @@ munibuddy.live, www.munibuddy.live {
         path /api/*
     }
     reverse_proxy @api backend:8000
+
+    @docs {
+        path /docs*
+    }
+    reverse_proxy @docs backend:8000
 
     reverse_proxy frontend:5173
 }
