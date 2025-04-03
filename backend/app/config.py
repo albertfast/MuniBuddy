@@ -43,7 +43,8 @@ class Settings(BaseSettings):
     AGENCY_ID_RAW: str = os.getenv("AGENCY_ID", '["SFMTA"]')
     AGENCY_ID: List[str] = eval(AGENCY_ID_RAW)  # Parse JSON array string
     GTFS_FEED_URL: str = f"http://api.511.org/transit/gtfsfeed?api_key={API_KEY}&agency={{agency}}"
-    MUNI_GTFS_PATH: str = os.getenv("MUNI_GTFS_PATH", os.path.join(os.path.dirname(os.path.dirname(__file__)), "gtfs_data", "muni_gtfs-current"))
+    MUNI_GTFS_PATH = os.getenv("MUNI_GTFS_PATH", "/app/gtfs_data/muni_gtfs-current")
+
 
     def __init__(self, **data):
         super().__init__(**data)
