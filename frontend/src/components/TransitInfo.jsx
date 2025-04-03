@@ -1,109 +1,91 @@
-import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+// Simplified TransitInfo component
+// Displays real-time outbound schedule data only
+
+import React, { useState } from 'react';
 import {
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
-  Typography,
-  CircularProgress,
-  Box,
-  Chip,
-  Divider,
-  Stack
+  Card, CardContent, Typography, List, ListItem, ListItemText,
+  CircularProgress, Chip, Box, Stack
 } from '@mui/material';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import axios from 'axios';
 
 const TransitInfo = ({ stops }) => {
-  const [stopSchedules, setStopSchedules] = useState({});
-  const [loadingStops, setLoadingStops] = useState([]);
+  const [selectedStop, setSelectedStop] = useState(null);
+  const [stopSchedule, setStopSchedule] = useState(null);
+  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    const fetchSchedules = async () => {
-      const schedules = {};
-      const loading = [];
-
-      for (const stop of stops) {
-        loading.push(stop.id);
-        try {
-          const response = await axios.get(`${import.meta.env.VITE_API_URL}/api/stop-schedule/${stop.id}`);
-          schedules[stop.id] = response.data;
-        } catch (error) {
-          console.error(`Error fetching schedule for stop ${stop.id}:`, error);
-          schedules[stop.id] = { inbound: [], outbound: [] };
-        }
-      }
-
-      setStopSchedules(schedules);
-      setLoadingStops([]);
-    };
-
-    if (stops.length > 0) {
-      fetchSchedules();
+  const handleStopClick = async (stop) => {
+    if (selectedStop?.id === stop.id) {
+      setSelectedStop(null);
+      setStopSchedule(null);
+      return;
     }
-  }, [stops]);
 
-  const renderBusInfo = (buses, direction) => (
-    <Box mt={2}>
-      <Typography variant="subtitle1">{direction === 'inbound' ? '↙ Inbound Routes' : '↗ Outbound Routes'}</Typography>
-      <Divider sx={{ mb: 1 }} />
-      <Stack spacing={1}>
-        {buses.map((bus, idx) => (
-          <Box key={idx} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Typography>
-              <strong>{bus.route_number}</strong> → {bus.destination}<br />
-              Arrival: <strong>{bus.arrival_time}</strong>
-            </Typography>
-            <Chip
-              label={bus.status}
-              color={bus.status.toLowerCase().includes('delay') ? 'error' : 'success'}
-              size="small"
-            />
-          </Box>
-        ))}
-      </Stack>
-    </Box>
-  );
+    setSelectedStop(stop);
+    setLoading(true);
+
+    try {
+      const stopId = stop.id || stop.stop_id;
+      const response = await axios.get(`${import.meta.env.VITE_API_BASE}/stop-schedule/${stopId}`);
+
+      // Keep only outbound routes
+      const outboundRoutes = response.data.outbound || [];
+      setStopSchedule({ outbound: outboundRoutes });
+    } catch (error) {
+      console.error('Failed to fetch stop schedule:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatTime = (time) => {
+    try {
+      const date = new Date(time);
+      return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    } catch {
+      return time;
+    }
+  };
+
+  const stopsArray = Array.isArray(stops) ? stops : Object.values(stops || {});
 
   return (
-    <Box>
-      <Typography variant="h6" sx={{ mt: 2, mb: 2 }}>
-        Nearby Stops ({stops.length})
-      </Typography>
+    <Card>
+      <CardContent>
+        <Typography variant="h6">Outbound Stop Schedules</Typography>
+        <List>
+          {stopsArray.map((stop) => (
+            <ListItem key={stop.id || stop.stop_id} button onClick={() => handleStopClick(stop)}>
+              <ListItemText primary={stop.stop_name} secondary={`Stop ID: ${stop.id || stop.stop_id}`} />
+            </ListItem>
+          ))}
+        </List>
 
-      {stops.map((stop) => (
-        <Accordion key={stop.id} defaultExpanded={false}>
-          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-            <Box>
-              <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
-                📍 {stop.stop_name}
-              </Typography>
-              <Typography variant="body2" color="textSecondary">
-                🚌 Stop ID: {stop.id} &nbsp;&nbsp; 📏 {stop.distance_miles.toFixed(2)} miles
-              </Typography>
-            </Box>
-          </AccordionSummary>
+        {loading && <CircularProgress size={28} />}
 
-          <AccordionDetails>
-            {loadingStops.includes(stop.id) ? (
-              <CircularProgress size={24} />
-            ) : (
-              <>
-                {stopSchedules[stop.id]?.outbound?.length > 0 &&
-                  renderBusInfo(stopSchedules[stop.id].outbound, 'outbound')}
+        {stopSchedule?.outbound?.length > 0 && (
+          <Box mt={2}>
+            <Typography variant="subtitle1">Outbound Routes</Typography>
+            <List>
+              {stopSchedule.outbound.map((route, index) => (
+                <ListItem key={index}>
+                  <ListItemText
+                    primary={`${route.route_number} → ${route.destination}`}
+                    secondary={`Arrival: ${formatTime(route.arrival_time)}${route.stops_away ? ` • ${route.stops_away} stops` : ''}`}
+                  />
+                  <Chip label={route.status} color="success" size="small" />
+                </ListItem>
+              ))}
+            </List>
+          </Box>
+        )}
 
-                {stopSchedules[stop.id]?.inbound?.length > 0 &&
-                  renderBusInfo(stopSchedules[stop.id].inbound, 'inbound')}
-
-                {stopSchedules[stop.id]?.inbound?.length === 0 &&
-                  stopSchedules[stop.id]?.outbound?.length === 0 && (
-                    <Typography color="textSecondary">No upcoming buses for this stop.</Typography>
-                )}
-              </>
-            )}
-          </AccordionDetails>
-        </Accordion>
-      ))}
-    </Box>
+        {!loading && selectedStop && (!stopSchedule || stopSchedule.outbound?.length === 0) && (
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+            No outbound schedule found for this stop.
+          </Typography>
+        )}
+      </CardContent>
+    </Card>
   );
 };
 
