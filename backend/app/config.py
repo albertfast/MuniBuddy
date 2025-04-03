@@ -1,10 +1,11 @@
 import os
 from pydantic_settings import BaseSettings
 from dotenv import load_dotenv
-from typing import List, Optional, ClassVar
+from typing import List, Optional
 
-# Load environment variables
+# Load environment variables from .env
 load_dotenv()
+
 class Settings(BaseSettings):
     # API Configuration
     API_V1_STR: str = "/api/v1"
@@ -17,8 +18,7 @@ class Settings(BaseSettings):
     POSTGRES_PASSWORD: str = os.getenv("POSTGRES_PASSWORD", "mypassword")
     POSTGRES_DB: str = os.getenv("POSTGRES_DB", "munibuddy_db")
     SQLALCHEMY_DATABASE_URI: Optional[str] = None
-    
-    
+
     # Redis Configuration
     REDIS_HOST: str = os.getenv("REDIS_HOST", "localhost")
     REDIS_PORT: int = int(os.getenv("REDIS_PORT", "6379"))
@@ -42,24 +42,24 @@ class Settings(BaseSettings):
     # GTFS Configuration
     AGENCY_ID_RAW: str = os.getenv("AGENCY_ID", '["SFMTA"]')
     AGENCY_ID: List[str] = eval(AGENCY_ID_RAW)
-    
-    # NOTE: This is a ClassVar and must be accessed via Settings.MUNI_GTFS_PATH
-    
-    MUNI_GTFS_PATH: ClassVar[str] = os.path.abspath(
-        os.getenv("MUNI_GTFS_PATH", os.path.join(os.path.dirname(__file__), "gtfs_data/muni_gtfs-current"))
+
+    # GTFS Path (was ClassVar, now part of model to avoid validation error)
+    MUNI_GTFS_PATH: str = os.getenv(
+        "MUNI_GTFS_PATH",
+        os.path.abspath(os.path.join(os.path.dirname(__file__), "gtfs_data/muni_gtfs-current"))
     )
 
     def __init__(self, **data):
         super().__init__(**data)
 
-        # Build SQL URI if needed
+        # SQLAlchemy connection string
         self.SQLALCHEMY_DATABASE_URI = self.DATABASE_URL or (
             f"postgresql://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}"
             f"@{self.POSTGRES_SERVER}/{self.POSTGRES_DB}"
         )
 
-        # Use Settings.MUNI_GTFS_PATH here instead of self
-        os.makedirs(Settings.MUNI_GTFS_PATH, exist_ok=True)
+        # Ensure GTFS path directory exists
+        os.makedirs(self.MUNI_GTFS_PATH, exist_ok=True)
 
     class Config:
         env_file = ".env"
@@ -69,7 +69,7 @@ class Settings(BaseSettings):
 # Initialize once
 settings = Settings()
 
-# Debug prints
+# Debug logs
 print(f"[DEBUG] Config loaded. Redis: {settings.REDIS_HOST}:{settings.REDIS_PORT}, DB: {settings.SQLALCHEMY_DATABASE_URI}")
 print(f"[DEBUG] Config loaded. Agencies: {settings.AGENCY_ID}")
-print(f"[DEBUG] GTFS Path: {Settings.MUNI_GTFS_PATH}")
+print(f"[DEBUG] GTFS Path: {settings.MUNI_GTFS_PATH}")
