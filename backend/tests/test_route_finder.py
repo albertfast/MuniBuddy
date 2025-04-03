@@ -38,7 +38,7 @@ def patch_dependencies():
 
 
 def test_valid_route():
-    response = client.get("/optimized-route", params={
+    response = client.get("/api/v1/optimized-route", params={
         "start_lat": 37.7749,
         "start_lon": -122.4194,
         "end_lat": 37.7849,
@@ -51,7 +51,7 @@ def test_valid_route():
 
 def test_missing_nearby_stop():
     with patch("app.route_finder.find_nearest_stop", side_effect=[None, None]):
-        response = client.get("/optimized-route", params={
+        response = client.get("/api/v1/optimized-route", params={
             "start_lat": 0.0,
             "start_lon": 0.0,
             "end_lat": 0.0,
@@ -75,7 +75,7 @@ def test_live_data_failure():
 
 def test_route_caching():
     with patch("app.route_finder.redis.get", return_value=json.dumps(mock_route)):
-        response = client.get("/optimized-route", params={
+        response = client.get("/api/v1/optimized-route", params={
             "start_lat": 37.7749,
             "start_lon": -122.4194,
             "end_lat": 37.7849,
@@ -88,7 +88,7 @@ def test_route_caching():
 
 def test_no_optimal_route():
     with patch("app.route_finder.a_star_search", return_value=None):
-        response = client.get("/optimized-route", params={
+        response = client.get("/api/v1/optimized-route", params={
             "start_lat": 37.7749,
             "start_lon": -122.4194,
             "end_lat": 37.7849,

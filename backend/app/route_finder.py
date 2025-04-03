@@ -16,6 +16,8 @@ import networkx as nx
 from geopy.geocoders import Nominatim
 from sqlalchemy.sql import text 
 from app.config import settings
+routes_df, trips_df, stops_df, stop_times_df, calendar_df = settings.gtfs_data
+
 API_KEY = settings.API_KEY
 REDIS_HOST = settings.REDIS_HOST
 REDIS_PORT = settings.REDIS_PORT

@@ -13,6 +13,8 @@ from app.models.bus_route import BusRoute
 from app.utils.xml_parser import xml_to_json
 from app.config import settings
 
+routes_df, trips_df, stops_df, stop_times_df, calendar_df = settings.gtfs_data
+
 # Initialize
 logger = logging.getLogger(__name__)
 router = APIRouter()
