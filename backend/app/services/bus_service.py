@@ -225,7 +225,9 @@ class BusService:
         for stop in stops:
             distance = self._calculate_distance(lat, lon, stop['stop_lat'], stop['stop_lon'])
             if distance <= radius_miles:
-                original_stop_id = stop['stop_id']  # GTFS stop_id kullanılacakS
+                # Get route information from GTFS data
+                original_stop_id = stop['stop_id']
+                api_stop_id = original_stop_id[1:] if original_stop_id.startswith('1') else original_stop_id
 
                 try:
                     stop_times = self.gtfs_data['stop_times'][
@@ -239,10 +241,12 @@ class BusService:
                     routes = self.gtfs_data['routes'][
                         self.gtfs_data['routes']['route_id'].isin(trips['route_id'])
                     ].drop_duplicates()
-
+                    # Prepare route information for the stop
                     route_info = []
                     for _, route in routes.iterrows():
+                        # Get the final destination (last part of route name)
                         destination = route['route_long_name'].split(' - ')[-1] if ' - ' in route['route_long_name'] else route['route_long_name']
+
                         route_info.append({
                             'route_id': route['route_id'],
                             'route_number': route['route_short_name'],
@@ -252,8 +256,9 @@ class BusService:
                     stop_info = stop.copy()
                     stop_info['distance_miles'] = round(distance, 2)
                     stop_info['routes'] = route_info
-                    stop_info['id'] = original_stop_id  # frontend ve API için doğrudan GTFS stop_id
-                    stop_info['stop_id'] = original_stop_id
+                    stop_info['id'] = api_stop_id  # Frontend için
+                    stop_info['stop_id'] = api_stop_id  # API çağrıları için
+                    stop_info['gtfs_stop_id'] = original_stop_id  # GTFS sorguları için
                     nearby_stops.append(stop_info)
 
                 except KeyError as e:
@@ -263,6 +268,7 @@ class BusService:
                     print(f"{Fore.RED}✗ Error while processing stop {original_stop_id}: {e}{Style.RESET_ALL}")
                     continue
 
+        # Sort by distance
         nearby_stops.sort(key=lambda x: x['distance_miles'])
         return nearby_stops[:limit]
 
