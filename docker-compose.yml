@@ -22,7 +22,7 @@ services:
       - ./frontend/.env
     container_name: munibuddy_frontend
     ports:
-      - "80"
+      - "3000:80"
     environment:
       - VITE_API_BASE=http://localhost:8000/api
     volumes:
