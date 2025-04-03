@@ -24,9 +24,6 @@ from app.api import api_router  # Optional legacy
 from app.utils.json_cleaner import clean_api_response
 from app.services.bus_service import BusService
 
-# Initialize DB
-init_db()
-
 # FastAPI App Initialization
 app = FastAPI(
     title="MuniBuddy - SF Transit Finder",
@@ -86,3 +83,6 @@ app.include_router(route_finder.router, prefix="/api")              # /api/optim
 
 # Optional legacy
 # app.include_router(api_router, prefix="/api")
+
+if __name__ == "__main__":
+    init_db()
