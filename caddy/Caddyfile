@@ -1,6 +1,6 @@
 {
     acme_ca https://acme-staging-v02.api.letsencrypt.org/directory
-    email asainer@mail.ccsf.edu  # email opsiyonel ama önerilir
+    email asainer@mail.ccsf.edu
 }
 
 munibuddy.live, www.munibuddy.live {
