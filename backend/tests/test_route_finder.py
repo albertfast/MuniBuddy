@@ -10,6 +10,9 @@ from unittest.mock import MagicMock, patch
 import json
 from app.main import app
 
+api_base_url = 'https://munibuddy.live/api'
+
+
 # Use TestClient to simulate API requests
 client = TestClient(app)
 
