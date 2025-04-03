@@ -3,7 +3,7 @@ import requests
 from dotenv import load_dotenv
 from typing import List, Dict, Any, Optional
 from datetime import datetime, timedelta
-from backend.app.config import settings
+from backend.app.config import Settings
 import math
 import pandas as pd
 from colorama import init, Fore, Style
@@ -18,7 +18,7 @@ load_dotenv()
 API_KEY = os.getenv("API_KEY")
 AGENCY_IDS = os.getenv("AGENCY_ID", "SFMTA").split(',')
 
-
+os.makedirs(Settings.MUNI_GTFS_PATH, exist_ok=True)
 class BusService:
     def __init__(self):
         if hasattr(self, 'gtfs_data') and self.gtfs_data:
