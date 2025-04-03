@@ -42,11 +42,9 @@ const TransitInfo = ({ stops }) => {
     }
   }, [stops]);
 
-  const renderRouteDetails = (buses, label) => (
+  const renderBusInfo = (buses, direction) => (
     <Box mt={2}>
-      <Typography variant="subtitle1" gutterBottom>
-        {label}
-      </Typography>
+      <Typography variant="subtitle1">{direction === 'inbound' ? '↙ Inbound Routes' : '↗ Outbound Routes'}</Typography>
       <Divider sx={{ mb: 1 }} />
       <Stack spacing={1}>
         {buses.map((bus, idx) => (
@@ -55,7 +53,11 @@ const TransitInfo = ({ stops }) => {
               <strong>{bus.route_number}</strong> → {bus.destination}<br />
               Arrival: <strong>{bus.arrival_time}</strong>
             </Typography>
-            <Chip label={bus.status} color={bus.status.includes('Delay') ? 'error' : 'success'} size="small" />
+            <Chip
+              label={bus.status}
+              color={bus.status.toLowerCase().includes('delay') ? 'error' : 'success'}
+              size="small"
+            />
           </Box>
         ))}
       </Stack>
@@ -86,11 +88,11 @@ const TransitInfo = ({ stops }) => {
               <CircularProgress size={24} />
             ) : (
               <>
-                {stopSchedules[stop.id]?.inbound?.length > 0 &&
-                  renderRouteDetails(stopSchedules[stop.id].inbound, 'Inbound Routes')}
-
                 {stopSchedules[stop.id]?.outbound?.length > 0 &&
-                  renderRouteDetails(stopSchedules[stop.id].outbound, 'Outbound Routes')}
+                  renderBusInfo(stopSchedules[stop.id].outbound, 'outbound')}
+
+                {stopSchedules[stop.id]?.inbound?.length > 0 &&
+                  renderBusInfo(stopSchedules[stop.id].inbound, 'inbound')}
 
                 {stopSchedules[stop.id]?.inbound?.length === 0 &&
                   stopSchedules[stop.id]?.outbound?.length === 0 && (
