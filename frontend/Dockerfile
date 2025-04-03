@@ -1,18 +1,16 @@
-# Use official Node image for Vite
-FROM node:20
+# Use official Node image for building
+FROM node:20 AS builder
 
-# Set working directory
 WORKDIR /app
-
-# Copy package.json and install dependencies
 COPY package*.json ./
 RUN npm install
-
-# Copy the rest of the frontend code
 COPY . .
+RUN npm run build
 
-# Expose Vite dev server port
-EXPOSE 5173
+# Serve with nginx
+FROM nginx:alpine
+COPY --from=builder /app/dist /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Start Vite dev server
-CMD ["npx", "vite", "--host"]
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]
