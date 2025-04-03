@@ -23,23 +23,24 @@ from app.utils.json_cleaner import clean_api_response
 
 # Constants
 API_VERSION = "1.0.0"
+API_PREFIX = "/api/v1"
 
 # Initialize database
 init_db()
 
 app = FastAPI(
-    title=settings.PROJECT_NAME,
-    openapi_url=f"{settings.API_V1_STR}/openapi.json"
+    title="MuniBuddy",
+    version="1.0.0",
+    openapi_url=f"{API_PREFIX}/openapi.json",
+    docs_url=f"{API_PREFIX}/docs"
 )
+
 router = APIRouter()
 
 # CORS settings
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://munibuddy.live",
-        "http://165.232.140.152",
-    ],
+    allow_origins=["https://munibuddy.live", "http://165.232.140.152"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -53,10 +54,10 @@ app.config = {
 }
 
 # Router includes
-app.include_router(bus_router, prefix="/api")
 app.include_router(api_router, prefix="/api")
-app.include_router(nearby_stops_router, prefix="/api")
-app.include_router(stop_schedule_router, prefix="/api")
+app.include_router(bus_router, prefix=API_PREFIX)
+app.include_router(nearby_stops_router, prefix=API_PREFIX)
+app.include_router(stop_schedule_router, prefix=API_PREFIX)
 
 # Environment variables
 API_KEY = settings.API_KEY
