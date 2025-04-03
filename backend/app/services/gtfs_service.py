@@ -3,7 +3,7 @@ import os
 from app.config import settings
 
 def load_gtfs_data():
-    muni_path = settings.MUNI_GTFS_PATH
+    muni_path =  os.getenv("BART_GTFS_PATH", "./gtfs_data/bart_gtfs-current")
     bart_path = os.getenv("BART_GTFS_PATH", "./gtfs_data/bart_gtfs-current")
 
     try:
