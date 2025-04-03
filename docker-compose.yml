@@ -23,6 +23,8 @@ services:
     container_name: munibuddy_frontend
     ports:
       - "3000:80"
+    environment:
+      - VITE_API_BASE=https://munibuddy.live/api/v1
     depends_on:
       - backend
   
