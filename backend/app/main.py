@@ -42,6 +42,7 @@ app = FastAPI(
 
 app.include_router(deploy_router)
 app.include_router(transit.router, prefix="/api")
+app.include_router(router, prefix="/api")
 
 router = APIRouter()
 
