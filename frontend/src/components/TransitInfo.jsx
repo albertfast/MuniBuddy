@@ -60,7 +60,7 @@ const TransitInfo = ({ stops }) => {
         return;
       }
 
-      const apiBaseUrl = import.meta.env.VITE_API_BASE || '/api';
+      const apiBaseUrl = import.meta.env.VITE_API_BASE ?? 'https://munibuddy.live/api/v1';
       const response = await axios.get(`${apiBaseUrl}/stop-schedule/${stop.id}`, { timeout: 10000 });
 
       if (response.data) {
