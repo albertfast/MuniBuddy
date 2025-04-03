@@ -1,13 +1,13 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React from 'react';
 import { GoogleMap, useJsApiLoader, InfoWindow } from '@react-google-maps/api';
-import { Box, CircularProgress, Typography } from '@mui/material';
+import { Box, CircularProgress } from '@mui/material';
 
 const libraries = ['marker'];
 
-const Map = ({ center = { lat: 37.7749, lng: -122.4194 }, markers = [], onMapClick, zoom = 16 }) => {
-  const [selectedMarker, setSelectedMarker] = useState(null);
-  const [map, setMap] = useState(null);
-  const markersRef = useRef([]);
+const Map = ({ center = { lat: 37.7749, lng: -122.4194 }, markers, onMapClick, zoom = 16 }) => {
+  const [selectedMarker, setSelectedMarker] = React.useState(null);
+  const [map, setMap] = React.useState(null);
+  const markersRef = React.useRef([]);
 
   const { isLoaded, loadError } = useJsApiLoader({
     googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
@@ -15,17 +15,20 @@ const Map = ({ center = { lat: 37.7749, lng: -122.4194 }, markers = [], onMapCli
     mapIds: ['munibuddy_map']
   });
 
-  const mapStyles = { height: "100%", width: "100%" };
+  const mapStyles = {
+    height: '100%',
+    width: '100%'
+  };
 
   const handleMarkerClick = (marker) => {
     setSelectedMarker(marker);
   };
 
-  const onLoad = useCallback((mapInstance) => {
+  const onLoad = React.useCallback((mapInstance) => {
     setMap(mapInstance);
   }, []);
 
-  const onUnmount = useCallback(() => {
+  const onUnmount = React.useCallback(() => {
     markersRef.current.forEach(marker => {
       if (marker) marker.map = null;
     });
@@ -33,14 +36,15 @@ const Map = ({ center = { lat: 37.7749, lng: -122.4194 }, markers = [], onMapCli
     setMap(null);
   }, []);
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (!map || !window.google || !window.google.maps.marker) return;
 
     // Clear existing markers
-    markersRef.current.forEach(marker => marker?.map = null);
+    markersRef.current.forEach(marker => {
+      if (marker) marker.map = null;
+    });
     markersRef.current = [];
 
-    // Add new markers
     markers.forEach(markerData => {
       try {
         const markerElement = document.createElement('div');
@@ -56,34 +60,32 @@ const Map = ({ center = { lat: 37.7749, lng: -122.4194 }, markers = [], onMapCli
         const advancedMarker = new window.google.maps.marker.AdvancedMarkerElement({
           position: markerData.position,
           content: markerElement,
-          map,
+          map: map,
           title: markerData.title
         });
 
         advancedMarker.addListener('gmp-click', () => handleMarkerClick(markerData));
         markersRef.current.push(advancedMarker);
       } catch (error) {
-        console.error('Failed to create marker:', error);
+        console.error('Error creating marker:', error);
       }
     });
 
     return () => {
-      markersRef.current.forEach(marker => marker?.map = null);
+      markersRef.current.forEach(marker => {
+        if (marker) marker.map = null;
+      });
       markersRef.current = [];
     };
   }, [map, markers]);
 
   if (loadError) {
-    return <Box p={2}>Failed to load the map. Please try again later.</Box>;
+    return <Box sx={{ p: 2 }}>An error occurred while loading the map.</Box>;
   }
 
   if (!isLoaded) {
     return (
-      <Box
-        sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px' }}
-        role="status"
-        aria-label="Loading map"
-      >
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px' }}>
         <CircularProgress />
       </Box>
     );
@@ -111,11 +113,9 @@ const Map = ({ center = { lat: 37.7749, lng: -122.4194 }, markers = [], onMapCli
             position={selectedMarker.position}
             onCloseClick={() => setSelectedMarker(null)}
           >
-            <Box>
-              <Typography variant="subtitle1" fontWeight="bold">
-                {selectedMarker.title}
-              </Typography>
-            </Box>
+            <div>
+              <h3>{selectedMarker.title}</h3>
+            </div>
           </InfoWindow>
         )}
       </GoogleMap>
