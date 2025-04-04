@@ -43,7 +43,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-settings.gtfs_data = load_gtfs_data(settings.MUNI_GTFS_PATH)
+routes_df, trips_df, stops_df, stop_times_df, calendar_df = settings.get_gtfs_data("muni")
 
 # Redis Setup
 try:
