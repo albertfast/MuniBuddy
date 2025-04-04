@@ -6,13 +6,13 @@ from fastapi import APIRouter, HTTPException, Path
 # Add project root to sys.path for local module imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from app.services.bus_service import BusService
+from app.services.scheduler_service import SchedulerService
 
 # Define FastAPI router
 router = APIRouter()
 
-# Create a global instance of BusService
-bus_service = BusService()
+# Create a global instance of SchedulerService
+scheduler_service = SchedulerService()
 
 @router.get(
     "/stop-schedule/{stop_id}",
@@ -46,17 +46,15 @@ async def get_stop_schedule_endpoint(
     print(f"[API /stop-schedule] Request received for stop_id: {stop_id}")
 
     try:
-        schedule = await bus_service.get_stop_schedule(stop_id)
+        schedule = await scheduler_service.get_stop_schedule(stop_id)
         return schedule  # Expected format: {'inbound': [...], 'outbound': [...]}
 
     except HTTPException as http_exc:
         # Propagate known FastAPI exceptions
         raise http_exc
-
+        
+    # Add this missing exception handler:
     except Exception as e:
-        # Unexpected error — log and raise internal server error
-        print(f"[ERROR] Failed to retrieve schedule for stop {stop_id}: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"An internal error occurred while fetching schedule for stop {stop_id}."
-        )
+        print(f"[ERROR /stop-schedule] Internal error: {e}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+        
