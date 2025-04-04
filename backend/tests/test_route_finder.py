@@ -9,15 +9,23 @@ from unittest.mock import patch, MagicMock
 os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.getcwd())
 
-from app.config import Settings  # class
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+#from app.config import Settings  # class
 from app.config import settings  # instance
 from app.main import app
+from app.db.database import Base
 
-class TestSettings(Settings):
-    class Config:
-        env_file = None
+test_engine = create_engine(
+    "postgresql://myuser:mypassword@postgres_db:5432/munibuddy_db",
+    pool_pre_ping=True
+)
 
-# ✅ DOĞRU şekilde erişiyoruz artık
+TestSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
+
+# Test veritabanını oluştur
+Base.metadata.create_all(bind=test_engine)
+
 routes_df, trips_df, stops_df, stop_times_df, calendar_df = settings.get_gtfs_data("muni")
 
 client = TestClient(app)
