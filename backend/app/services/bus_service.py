@@ -1,4 +1,8 @@
 import os
+import sys
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
+
 import requests
 from dotenv import load_dotenv
 from typing import List, Dict, Any, Optional
@@ -10,7 +14,6 @@ from colorama import init, Fore, Style
 import json
 import asyncio
 
-# Initialize colorama for colored output
 init()
 
 load_dotenv()
@@ -18,7 +21,7 @@ API_KEY = os.getenv("API_KEY")
 AGENCY_IDS = os.getenv("AGENCY_ID", "SFMTA").split(',')
 
 from app.config import settings
-settings = Settings()
+
 os.makedirs(settings.MUNI_GTFS_PATH, exist_ok=True)
 class BusService:
     def __init__(self):

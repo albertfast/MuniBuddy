@@ -1,3 +1,9 @@
+import os
+import sys
+
+# Ensure backend/ is in sys.path so 'app' can be found
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
+
 from datetime import datetime
 from typing import Optional, Dict, Any, List
 import requests
@@ -9,7 +15,7 @@ class SchedulerService:
         self.api_key = settings.API_KEY
         self.base_url = settings.TRANSIT_511_BASE_URL
 
-        # Normalize agency ID (convert to key used in GTFS_PATHS)
+        # Normalize agency ID
         agency_map = {
             "SFMTA": "muni",
             "MUNI": "muni",
@@ -17,7 +23,7 @@ class SchedulerService:
             "BART": "bart"
         }
         normalized_agency = agency_map.get(agency_id.upper(), agency_id.lower())
-        self.agency = normalized_agency.upper()  # used for 511 API
+        self.agency = normalized_agency.upper()
 
         gtfs_data = settings.get_gtfs_data(normalized_agency)
         if not gtfs_data:
@@ -30,6 +36,7 @@ class SchedulerService:
             self.stop_times_df,
             self.calendar_df
         ) = gtfs_data
+
 
     def _normalize_time(self, time_str: str) -> str:
         try:

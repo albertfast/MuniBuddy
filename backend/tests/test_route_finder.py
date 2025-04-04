@@ -1,13 +1,13 @@
 import os
 import sys
+import pytest
+import json
+from fastapi.testclient import TestClient
+from unittest.mock import patch, MagicMock
 
 # Go to backend/ directory and set it as root
 os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.getcwd())
-
-import pytest
-from fastapi.testclient import TestClient
-from unittest.mock import patch, MagicMock
 
 from app.config import Settings  # class
 from app.config import settings  # instance
@@ -15,10 +15,10 @@ from app.main import app
 
 class TestSettings(Settings):
     class Config:
-        env_file = None 
+        env_file = None
 
-
-routes_df, trips_df, stops_df, stop_times_df, calendar_df = settings.gtfs_data
+# ✅ DOĞRU şekilde erişiyoruz artık
+routes_df, trips_df, stops_df, stop_times_df, calendar_df = settings.get_gtfs_data("muni")
 
 client = TestClient(app)
 mock_route = ["stop_123", "stop_456", "stop_789"]
