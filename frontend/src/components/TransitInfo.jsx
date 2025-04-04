@@ -15,7 +15,7 @@ import axios from 'axios';
 
 // --- Constants ---
 const SCHEDULE_CACHE = {}; // Simple in-memory cache for stop schedules
-const CACHE_TTL = 2 * 60 * 1000; // Cache Time-To-Live: 2 minutes in milliseconds
+const CACHE_TTL = 5 * 60 * 1000; // Cache Time-To-Live: 2 minutes in milliseconds
 const API_TIMEOUT = 50000; // 50 seconds for API requests
 
 // Retrieve API base URL from environment variables, with a fallback
@@ -84,7 +84,7 @@ const TransitInfo = ({ stops }) => {
   // Ensure stopsArray is always an array, memoized for performance
   const stopsArray = useMemo(() => Array.isArray(stops) ? stops : Object.values(stops), [stops]);
   // Find the full selected stop object based on the ID, memoized
-  const selectedStop = useMemo(() => stopsArray.find(stop => normalizeId(stop) === selectedStopId), [selectedStopId, stopsArray]);
+  // Removed unused variable 'selectedStop' to fix the compile error
 
   // --- Cache Management ---
   const getCachedSchedule = useCallback((stopId) => {

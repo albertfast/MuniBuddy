@@ -4,6 +4,7 @@ import httpx # Asynchronous HTTP client
 import json
 import pandas as pd
 import math
+import redis
 from redis import Redis
 from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime, timedelta, timezone # Added timezone
@@ -58,6 +59,7 @@ except Exception as e:
 
 # --- BusService Class ---
 class BusService:
+    self.redis_client = redis.Redis(host="localhost", port=6379, decode_responses=True)
     """
     Service class to handle fetching and processing bus stop and schedule information,
     integrating GTFS static data with 511 real-time API data and Redis caching.
@@ -422,58 +424,72 @@ class BusService:
             return None
 
 
-    def _get_static_schedule(self, stop_id: str) -> Optional[Dict[str, Any]]:
-        """
-        Gets the static schedule from pre-loaded GTFS DataFrames for a specific stop.
-        This requires your actual efficient Pandas logic.
-        """
-        print(f"[DEBUG _get_static_schedule] Getting static schedule for stop {stop_id}")
-        # --- !!! IMPORTANT: Replace placeholder with your ACTUAL efficient Pandas logic !!! ---
-        # This logic needs to:
-        # 1. Find the stop_id in self.gtfs_data['stops'].
-        # 2. Filter self.gtfs_data['stop_times'] for that stop_id.
-        # 3. Filter self.gtfs_data['trips'] based on service_id active today (using 'calendar').
-        # 4. Merge stop_times with active trips and routes.
-        # 5. Filter merged data for arrivals within the next ~2 hours.
-        # 6. Determine direction (inbound/outbound) based on trip_headsign/direction_id.
-        # 7. Format the output with 'route_number', 'destination', 'arrival_time', 'status' = 'Scheduled'.
-        # 8. Limit results per direction.
+     def _get_static_schedule_from_redis(self, stop_id: str):
         try:
-            # Placeholder Check: Ensure essential DataFrames are loaded
-            required_dfs = ['stops', 'stop_times', 'trips', 'routes', 'calendar']
-            if any(df not in self.gtfs_data or self.gtfs_data[df].empty for df in required_dfs):
-                 print(f"[WARN _get_static_schedule] Missing or empty GTFS DataFrames needed for static schedule.")
-                 return {'inbound': [], 'outbound': []} # Return empty if data is missing
-
-            stop_id_str = str(stop_id) # Ensure comparison is string vs string
-
-            # Example Check: Does stop exist?
-            stop_exists = not self.gtfs_data['stops'][self.gtfs_data['stops']['stop_id'] == stop_id_str].empty
-            if not stop_exists:
-                 print(f"[WARN _get_static_schedule] Stop ID {stop_id_str} not found in GTFS stops.")
-                 return {'inbound': [], 'outbound': []}
-
-            # --- Start of Placeholder Logic ---
-            # --- Replace this section with your optimized Pandas code ---
-            print(f"[INFO _get_static_schedule] Using PLACEHOLDER static schedule logic for stop {stop_id_str}")
-            # Simulate finding some static data for demonstration
             now = datetime.now()
-            placeholder_inbound = []
-            placeholder_outbound = []
-            if stop_id_str == '123': # Example for a specific known stop from tests
-                placeholder_inbound.append({'route_number': 'S1', 'destination': 'Static Downtown', 'arrival_time': (now + timedelta(minutes=45)).strftime("%I:%M %p").lstrip('0'), 'status': 'Scheduled'})
-                placeholder_outbound.append({'route_number': 'S1', 'destination': 'Static Beach', 'arrival_time': (now + timedelta(minutes=75)).strftime("%I:%M %p").lstrip('0'), 'status': 'Scheduled'})
-            elif stop_id_str == '456':
-                 placeholder_outbound.append({'route_number': 'S22', 'destination': 'Static Marina', 'arrival_time': (now + timedelta(minutes=55)).strftime("%I:%M %p").lstrip('0'), 'status': 'Scheduled'})
+            current_time = now.strftime("%H:%M:%S")
 
-            static_schedule = {
-                'inbound': placeholder_inbound[:2],
-                'outbound': placeholder_outbound[:2]
+            # Load data from Redis
+            stop_times = json.loads(self.redis_client.get("gtfs:stop_times"))
+            trips = json.loads(self.redis_client.get("gtfs:trips"))
+            calendar = json.loads(self.redis_client.get("gtfs:calendar"))
+            routes = json.loads(self.redis_client.get("gtfs:routes"))
+
+            # Active service_ids for today
+            weekday = now.strftime("%A").lower()
+            today_str = now.strftime("%Y%m%d")
+            active_services = {
+                row['service_id']
+                for row in calendar
+                if row.get(weekday) == '1' and row['start_date'] <= today_str <= row['end_date']
             }
-            # --- End of Placeholder Logic ---
 
-            print(f"[DEBUG _get_static_schedule] Finished static schedule for stop {stop_id_str}")
-            return static_schedule
+            # Filter stop_times by stop_id
+            relevant_stop_times = [s for s in stop_times if s['stop_id'] == stop_id]
+
+            results = []
+            for stop_time in relevant_stop_times:
+                trip = next((t for t in trips if t['trip_id'] == stop_time['trip_id'] and t['service_id'] in active_services), None)
+                if not trip:
+                    continue
+
+                route = next((r for r in routes if r['route_id'] == trip['route_id']), None)
+                if not route:
+                    continue
+
+                # Filter to next 2 hours
+                arrival_time = stop_time['arrival_time']
+                try:
+                    h, m, s = map(int, arrival_time.split(":"))
+                    if h >= 24:
+                        h = h % 24
+                    arrival_dt = now.replace(hour=h, minute=m, second=s)
+                    if arrival_dt < now:
+                        arrival_dt += timedelta(days=1)
+                    diff_hours = (arrival_dt - now).total_seconds() / 3600
+                    if diff_hours > 2:
+                        continue
+                except:
+                    continue
+
+                results.append({
+                    'route_number': route['route_short_name'],
+                    'destination': trip['trip_headsign'] or route['route_long_name'].split(" - ")[-1],
+                    'arrival_time': arrival_dt.strftime("%I:%M %p"),
+                    'status': 'Scheduled'
+                })
+
+            # Optional: Split inbound/outbound if direction_id is known
+            results.sort(key=lambda x: datetime.strptime(x['arrival_time'], "%I:%M %p"))
+            return {
+                "inbound": results[:2],
+                "outbound": results[2:4]  # Fake split for now
+            }
+
+        except Exception as e:
+            print(f"[ERROR] Redis GTFS schedule error: {e}")
+            return {"inbound": [], "outbound": []}
+
 
         except Exception as e:
             print(f"[ERROR _get_static_schedule] Error calculating static schedule for stop {stop_id}: {e}")

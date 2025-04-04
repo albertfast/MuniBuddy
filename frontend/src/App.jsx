@@ -21,6 +21,8 @@ import SearchIcon from '@mui/icons-material/Search';
 import MyLocationIcon from '@mui/icons-material/MyLocation';
 import Map from './components/Map'; // Assuming Map component is in ./components/Map
 import TransitInfo from './components/TransitInfo'; // Assuming TransitInfo component is in ./components/TransitInfo
+// Import the geocodeAddress function
+import { geocodeAddress, parseCoordinates, formatCoordinates } from './utility/geocode';
 
 // Retrieve environment variables (will be replaced with actual values during build)
 const BASE_URL = import.meta.env.VITE_API_BASE;
@@ -172,70 +174,45 @@ const App = () => {
 
   // Handle search button click or Enter key press in the text field
   const handleManualLocationSearch = async () => {
-    const input = searchAddress.trim();
+    const input = searchAddress?.trim() || "";
+
     if (!input) {
-        setError("Please enter coordinates or an address.");
-        return;
+      setError("Please enter coordinates or an address.");
+      return;
     }
 
     setError(null);
     setIsLoading(true);
 
-    // Check if input looks like coordinates (simple check)
-    const coordsMatch = input.match(/^(-?\d+(\.\d+)?)\s*,\s*(-?\d+(\.\d+)?)$/);
+    // Check if input matches coordinate format
+    const coordinates = parseCoordinates(input);
 
-    if (coordsMatch) {
-      // Input looks like coordinates
-      console.log("Input treated as coordinates:", input);
-      const lat = parseFloat(coordsMatch[1]);
-      const lon = parseFloat(coordsMatch[3]);
-      if (!isNaN(lat) && !isNaN(lon)) {
-        const location = { lat, lng: lon };
+    if (coordinates) {
+      // Valid coordinates
+      setUserLocation(coordinates);
+      fetchNearbyStops(coordinates);
+      setIsLoading(false);
+      return;
+    }
+
+    // Input is treated as an address
+    try {
+      console.log("Input treated as address. Attempting geocoding:", input);
+      const data = await geocodeAddress(input);
+
+      if (data && data.lat && data.lng) {
+        const location = { lat: data.lat, lng: data.lng };
         setUserLocation(location);
-        fetchNearbyStops(location); // setIsLoading handled by fetchNearbyStops
+        setSearchAddress(formatCoordinates(data.lat, data.lng));
+        fetchNearbyStops(location);
       } else {
-        setError('Invalid coordinates format. Use format: 37.7749, -122.4194');
-        setIsLoading(false);
+        setError(`Could not find coordinates for "${input}". Please try a more specific address.`);
       }
-    } else {
-      // Input does not look like coordinates, treat as an address - Use Geocoding
-      console.log("Input treated as address, attempting geocode:", input);
-
-      if (!BASE_URL) {
-          console.error("API Base URL (VITE_API_BASE) is not defined!");
-          setError("Application configuration error. Cannot geocode address.");
-          setIsLoading(false);
-          return;
-      }
-
-      const geocodeUrl = `${BASE_URL}/geocode?address=${encodeURIComponent(input)}`;
-      console.log("Geocoding Request URL:", geocodeUrl);
-
-      try {
-        const response = await fetch(geocodeUrl);
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error("Geocode error response:", response.status, errorText);
-          throw new Error(`Geocoding failed: ${response.statusText} (Status: ${response.status})`);
-        }
-        const data = await response.json();
-        console.log("Geocoding Response:", data);
-
-        if (data && data.lat && data.lng) {
-          const location = { lat: data.lat, lng: data.lng };
-          setUserLocation(location);
-          // Optionally update the input field to show the resolved coordinates
-          setSearchAddress(`${data.lat.toFixed(5)}, ${data.lng.toFixed(5)}`);
-          fetchNearbyStops(location); // setIsLoading handled by fetchNearbyStops
-        } else {
-          setError(`Could not find coordinates for "${input}". Please try a more specific address or enter coordinates.`);
-          setIsLoading(false);
-        }
-      } catch (err) {
-        console.error("Geocoding fetch/processing error:", err);
-        setError(`Failed to find location. ${err.message}`);
-        setIsLoading(false);
-      }
+    } catch (err) {
+      console.error("Geocoding failed:", err);
+      setError(`Failed to find location: ${err.message}`);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -272,7 +249,7 @@ const App = () => {
                 placeholder="Enter address or coordinates (lat, lon)"
                 value={searchAddress}
                 onChange={(e) => setSearchAddress(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleManualLocationSearch()}
+                onKeyDown={(e) => e.key === 'Enter' && handleManualLocationSearch()}
                 variant="outlined"
                 size="small"
                 InputProps={{
