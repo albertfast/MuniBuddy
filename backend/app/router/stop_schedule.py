@@ -23,40 +23,24 @@ bus_service = BusService(db=session)
 async def get_stop_schedule_endpoint(
     stop_id: str = Path(..., description="The unique stop ID (e.g., '4212')")
 ):
-    """
-    Returns the upcoming bus schedule for a given stop.
+    print(f"[REQUEST] /stop-schedule/{stop_id} called.")
 
-    This includes:
-    - Real-time predictions (via 511 API)
-    - Fallback to static GTFS data if real-time is missing
-    - Returns a structure with inbound/outbound arrival times
-
-    Parameters:
-        stop_id (str): The GTFS stop_id to lookup.
-
-    Returns:
-        Dict[str, Any]: A dictionary with 'inbound' and 'outbound' keys.
-
-    Raises:
-        400 - If stop_id is missing or invalid
-        500 - On internal server error
-    """
     if not stop_id:
+        print("[ERROR] No stop_id provided")
         raise HTTPException(status_code=400, detail="Stop ID cannot be empty.")
 
-    print(f"[API /stop-schedule] Request received for stop_id: {stop_id}")
-
     try:
+        print(f"[INFO] Calling BusService.get_stop_schedule with stop_id={stop_id}")
         schedule = await bus_service.get_stop_schedule(stop_id)
-        return schedule  # Expected format: {'inbound': [...], 'outbound': [...]}
+        print(f"[INFO] BusService.get_stop_schedule returned: {len(schedule['inbound'])} inbound, {len(schedule['outbound'])} outbound trips")
+        return schedule
 
     except HTTPException as http_exc:
-        # Propagate known FastAPI exceptions
+        print(f"[HTTP ERROR] {http_exc.detail}")
         raise http_exc
         
-    # Add this missing exception handler:
     except Exception as e:
-        print(f"[ERROR /stop-schedule] Internal error: {e}")
+        print(f"[ERROR] Internal error in stop-schedule endpoint: {e}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 @router.get("/raw-511-data/{stop_id}")
