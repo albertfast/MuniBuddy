@@ -435,7 +435,7 @@ class BusService:
             return None
 
 
-    def _get_static_schedule(self, stop_id: str) -> Dict[str, Any]:
+    def get_stop_schedule(self, stop_id: str) -> Dict[str, Any]:
         """
         Fallback static GTFS schedule using database if real-time fails.
         """
