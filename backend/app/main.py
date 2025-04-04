@@ -61,20 +61,6 @@ except redis.ConnectionError as e:
 async def root():
     return {"message": "Welcome to MuniBuddy API!"}
 
-# Extra demo/test endpoint
-@app.get("/api/nearby-stops-with-schedule")
-async def get_nearby_stops_with_schedule(lat: float, lon: float):
-    service = BusService()
-    stops = await service.find_nearby_stops(lat, lon)
-    results = []
-
-    for stop in stops:
-        schedule = await service.get_stop_schedule(stop['stop_id'])
-        stop['schedule'] = schedule
-        results.append(stop)
-
-    return results
-
 # Routers organized clearly:
 app.include_router(bus_router, prefix="/api/v1")                     # /api/v1/bus/...
 app.include_router(nearby_stops_router, prefix="/api/v1")           # /api/v1/nearby-stops

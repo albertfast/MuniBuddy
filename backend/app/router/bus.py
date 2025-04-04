@@ -49,38 +49,24 @@ def calculate_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> fl
 
 # ------------------- API ROUTES -------------------
 
-@router.get("/nearby-stops")
-async def get_nearby_stops(
-    lat: float = Query(..., description="Latitude of the location"),
-    lon: float = Query(..., description="Longitude of the location"),
-    radius_miles: float = Query(0.5, description="Search radius in miles"),
-    db: Session = Depends(get_db)
-):
-    try:
-        return await bus_service.find_nearby_stops(lat, lon, radius_miles)
-    except Exception as e:
-        logger.error(f"Error getting nearby stops: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+# @router.get("/nearby-stops-with-schedule")
+# async def get_nearby_stops_with_schedule(
+#     lat: float = Query(...),
+#     lon: float = Query(...),
+#     radius_miles: float = 0.15
+# ):
+#     try:
+#         nearby_stops = await bus_service.find_nearby_stops(lat, lon, radius_miles)
+#         for stop in nearby_stops:
+#             stop['schedule'] = await bus_service.get_stop_schedule(stop['stop_id'])
+#         return nearby_stops
+#     except Exception as e:
+#         logger.exception("Error fetching nearby stops with schedules")
+#         raise HTTPException(status_code=500, detail="Failed to load stop schedules")
 
-
-@router.get("/nearby-stops-with-schedule")
-async def get_nearby_stops_with_schedule(
-    lat: float = Query(...),
-    lon: float = Query(...),
-    radius_miles: float = 0.15
-):
-    try:
-        nearby_stops = await bus_service.find_nearby_stops(lat, lon, radius_miles)
-        for stop in nearby_stops:
-            stop['schedule'] = await bus_service.get_stop_schedule(stop['stop_id'])
-        return nearby_stops
-    except Exception as e:
-        logger.exception("Error fetching nearby stops with schedules")
-        raise HTTPException(status_code=500, detail="Failed to load stop schedules")
-
-@router.get("/routes")
-def get_routes(db: Session = Depends(get_db)):
-    return db.query(BusRoute).all()
+# @router.get("/routes")
+# def get_routes(db: Session = Depends(get_db)):
+#     return db.query(BusRoute).all()
 
 @router.get("/get-route-details")
 def get_route_details(

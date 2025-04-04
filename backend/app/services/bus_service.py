@@ -322,7 +322,7 @@ class BusService:
 
         result = {}
         for stop, schedule in zip(nearby_stops, schedules):
-            # Eğer görev hata döndürdüyse, logla ve atla
+
             if isinstance(schedule, Exception):
                 print(f"✗ Error for stop {stop['stop_id']}: {schedule}")
                 continue
