@@ -20,11 +20,11 @@ mock_bus_service = MagicMock()
 mock_bus_service.get_stop_schedule = AsyncMock(side_effect=mock_get_schedule)
 
 # THIS IS THE KEY PART - patch at module level before import
-bus_service_patch = patch('app.services.scheduler_service.SchedulerService', return_value=mock_bus_service)
+bus_service_patch = patch('app.services.bus_service.BusService', return_value=mock_bus_service)
 bus_service_patch.start()
 
 # Also patch the constructor in the router module
-router_bus_service_patch = patch('app.router.stop_schedule.SchedulerService', return_value=mock_bus_service)
+router_bus_service_patch = patch('app.router.bus_service.BusService', return_value=mock_bus_service)
 router_bus_service_patch.start()
 
 # Now import the router after patching
