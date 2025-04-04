@@ -18,6 +18,8 @@ services:
   frontend:
     build:
       context: ./frontend
+      args:
+        VITE_GOOGLE_MAPS_API_KEY: ${VITE_GOOGLE_MAPS_API_KEY}
     env_file:
       - ./frontend/.env
     container_name: munibuddy_frontend
@@ -25,6 +27,7 @@ services:
       - "3000:80"
     environment:
       - VITE_API_BASE=https://munibuddy.live/api/v1
+      - VITE_GOOGLE_MAPS_API_KEY=${VITE_GOOGLE_MAPS_API_KEY}
     depends_on:
       - backend
   

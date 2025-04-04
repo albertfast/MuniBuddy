@@ -2,7 +2,7 @@ import os
 import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import text, create_engine
 from sqlalchemy.orm import Session, sessionmaker
 import json
@@ -11,11 +11,12 @@ from datetime import datetime
 from redis import Redis
 from geopy.distance import great_circle
 from app.db.database import get_db
-from app.models.bus_route import BusRoute
 import networkx as nx
 from geopy.geocoders import Nominatim
 from sqlalchemy.sql import text 
 from app.config import settings
+
+os.makedirs(settings.MUNI_GTFS_PATH, exist_ok=True)
 routes_df, trips_df, stops_df, stop_times_df, calendar_df = settings.gtfs_data
 
 API_KEY = settings.API_KEY

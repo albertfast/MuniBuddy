@@ -11,6 +11,9 @@ os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.getcwd())
 
 from app.main import app
+from app.config import settings
+
+routes_df, trips_df, stops_df, stop_times_df, calendar_df = settings.gtfs_data
 
 client = TestClient(app)
 mock_route = ["stop_123", "stop_456", "stop_789"]

@@ -9,7 +9,6 @@ import pandas as pd
 from colorama import init, Fore, Style
 import json
 import asyncio
-from .gtfs_service import load_gtfs_data
 
 # Initialize colorama for colored output
 init()
@@ -18,7 +17,9 @@ load_dotenv()
 API_KEY = os.getenv("API_KEY")
 AGENCY_IDS = os.getenv("AGENCY_ID", "SFMTA").split(',')
 
-os.makedirs(Settings.MUNI_GTFS_PATH, exist_ok=True)
+from app.config import settings
+settings = Settings()
+os.makedirs(settings.MUNI_GTFS_PATH, exist_ok=True)
 class BusService:
     def __init__(self):
         if hasattr(self, 'gtfs_data') and self.gtfs_data:
