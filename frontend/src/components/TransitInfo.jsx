@@ -16,7 +16,7 @@ import axios from 'axios';
 // --- Constants ---
 const SCHEDULE_CACHE = {}; // Simple in-memory cache for stop schedules
 const CACHE_TTL = 2 * 60 * 1000; // Cache Time-To-Live: 2 minutes in milliseconds
-const API_TIMEOUT = 10000; // 10 seconds for API requests
+const API_TIMEOUT = 50000; // 50 seconds for API requests
 
 // Retrieve API base URL from environment variables, with a fallback
 const API_BASE_URL = import.meta.env.VITE_API_BASE ?? 'https://munibuddy.live/api/v1';
