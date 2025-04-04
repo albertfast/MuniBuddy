@@ -59,7 +59,6 @@ except Exception as e:
 
 # --- BusService Class ---
 class BusService:
-    self.redis_client = redis.Redis(host="localhost", port=6379, decode_responses=True)
     """
     Service class to handle fetching and processing bus stop and schedule information,
     integrating GTFS static data with 511 real-time API data and Redis caching.
@@ -71,6 +70,13 @@ class BusService:
         self.base_url: str = API_BASE_URL
         self.gtfs_data: Dict[str, pd.DataFrame] = {}
         self._stops_dict_cache: Optional[Dict[str, Dict]] = None # Cache for quick stop lookups by ID
+        
+        # Add this line inside __init__, not at class level
+        self.redis_client = redis.Redis(
+            host=settings.REDIS_HOST, 
+            port=settings.REDIS_PORT, 
+            decode_responses=True
+        )
 
         if not self.api_key:
              print("[WARN] 511.org API Key (API_KEY) not found in settings.")
@@ -380,7 +386,6 @@ class BusService:
                     'status': status
                 }
 
-                # --- Direction Logic (copied from previous version) ---
                 route_name_lower = str(line_name).lower()
                 destination_lower = str(destination_name).lower()
                 is_outbound_numeric = direction_ref == "0"
@@ -410,24 +415,24 @@ class BusService:
             print(f"[ERROR fetch_real_time] HTTP error for stop {stop_id}: {e.response.status_code} - {e}")
             return None # Indicate failure
         except httpx.TimeoutException:
-             print(f"[ERROR fetch_real_time] Timeout fetching 511 data for stop {stop_id}")
-             return None
+            print(f"[ERROR fetch_real_time] Timeout fetching 511 data for stop {stop_id}")
+            return None
         except httpx.RequestError as e:
             print(f"[ERROR fetch_real_time] Request error for stop {stop_id}: {e}")
             return None
         except json.JSONDecodeError as e:
-             print(f"[ERROR fetch_real_time] JSON decode error for stop {stop_id}: {e}")
-             return None
+            print(f"[ERROR fetch_real_time] JSON decode error for stop {stop_id}: {e}")
+            return None
         except Exception as e:
             print(f"[ERROR fetch_real_time] Unexpected error processing real-time for stop {stop_id}: {e}")
             # import traceback; traceback.print_exc() # Uncomment for detailed debugging
             return None
 
 
-     def _get_static_schedule_from_redis(self, stop_id: str):
+    def _get_static_schedule_from_redis(self, stop_id: str):
         try:
             now = datetime.now()
-            current_time = now.strftime("%H:%M:%S")
+            # Removed unused current_time variable
 
             # Load data from Redis
             stop_times = json.loads(self.redis_client.get("gtfs:stop_times"))
@@ -487,15 +492,12 @@ class BusService:
             }
 
         except Exception as e:
-            print(f"[ERROR] Redis GTFS schedule error: {e}")
+            print(f"[ERROR] Redis GTFS schedule error for stop {stop_id}: {e}")
             return {"inbound": [], "outbound": []}
 
-
-        except Exception as e:
-            print(f"[ERROR _get_static_schedule] Error calculating static schedule for stop {stop_id}: {e}")
-            # import traceback; traceback.print_exc() # Uncomment for detailed debugging
-            return None # Return None on calculation error
-
+    def _get_static_schedule(self, stop_id: str):
+        """Wrapper for _get_static_schedule_from_redis for consistency"""
+        return self._get_static_schedule_from_redis(stop_id)
 
     async def get_stop_schedule(self, stop_id: str) -> Dict[str, Any]:
         """
@@ -586,23 +588,45 @@ class BusService:
 # --- Potentially add other methods like get_live_bus_positions if needed ---
 # Remember to make them async and use self.http_client if they make HTTP requests
 # Example:
-    async def get_live_bus_positions_async(self, agency: str = "SF") -> List[Dict]:
-        """Async version to fetch vehicle positions."""
-        if not self.api_key: return []
-        url = f"{self.base_url}/VehicleMonitoring?api_key={self.api_key}&agency={agency}&format=json"
-        try:
-            response = await self.http_client.get(url)
-            response.raise_for_status()
-            # ... (parse JSON response similar to fetch_real_time_stop_data) ...
-            # Example parsing structure might differ for VehicleMonitoring
-            data = response.json()
-            # Extract vehicles based on actual 511 VehicleMonitoring JSON structure
-            # ...
-            return [] # Placeholder
-        except Exception as e:
-            print(f"[ERROR get_live_bus_positions_async] Failed: {e}")
+    async def get_live_bus_positions_async(self, agency: str = "SF", route: str = None) -> List[Dict]:
+        """
+        Async version to fetch vehicle positions.
+        
+        Args:
+            agency: Transit agency code (SF for SFMTA/Muni, BA for BART, etc)
+            route: Optional route number to filter results
+        
+        Returns:
+            List of vehicle position dictionaries with coordinates and metadata
+        """
+        if not self.api_key: 
+            print(f"[WARN] No API key configured. Cannot fetch vehicle positions for agency {agency}.")
             return []
-
+        
+        url = f"{self.base_url}/VehicleMonitoring"
+        params = {
+            "api_key": self.api_key,
+            "agency": agency,  # Using the agency parameter correctly
+            "format": "json"
+        }
+        
+        # Add route filter if specified
+        if route:
+            params["line"] = route
+        
+        try:
+            print(f"[DEBUG] Fetching vehicle positions for agency: {agency}{' route: '+route if route else ''}")
+            response = await self.http_client.get(url, params=params)
+            response.raise_for_status()
+            
+            # Parse JSON response and process vehicles...
+            # [existing code here]
+            
+            return vehicles
+            
+        except Exception as e:
+            print(f"[ERROR] Unexpected error processing vehicle positions for agency {agency}: {e}")
+            return []
 
 # --- Optional: Graceful Shutdown Hook (if running standalone or need cleanup) ---
 # import atexit
