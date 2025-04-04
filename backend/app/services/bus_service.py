@@ -10,10 +10,6 @@ from typing import List, Dict, Any, Optional, Tuple
 from collections import defaultdict
 from datetime import datetime, timezone # Added timezone
 
-def __init__(self, db=None):
-    self.db = db  
-
-
 # --- Configuration Loading ---
 # Ensure the app directory is correctly added to the path
 # This assumes the script is run from a location where this relative path makes sense
@@ -436,26 +432,26 @@ class BusService:
 
 
     async def get_stop_schedule(self, stop_id: str) -> Dict[str, Any]:
-        """
-        Fallback static GTFS schedule using database if real-time fails.
-        """
-        print(f"[GTFS] Looking up schedule for stop_id: {stop_id}")
+        print(f"[GTFS] Fetching static schedule for stop_id: {stop_id}")
 
         today = datetime.now()
         weekday = today.strftime('%A').lower()
+        print(f"[GTFS] Today is {today.date()} ({weekday})")
 
         try:
-            # Get active service_ids for today from calendar
+            print(f"[DB] Getting service_ids active on {weekday}")
             service_ids = self.db.execute(
                 f"SELECT service_id FROM calendar WHERE {weekday} = 1"
             ).scalars().all()
+            print(f"[DB] Found service_ids: {service_ids}")
 
             if not service_ids:
                 print(f"[GTFS] No active services for {weekday}")
                 return {'inbound': [], 'outbound': []}
 
-            # Fetch trips and stop_times for the stop
-            query = f"""
+            print(f"[DB] Fetching trips from DB for stop_id={stop_id} and service_ids={service_ids}")
+
+            query = """
             SELECT
                 r.route_short_name AS route_number,
                 r.route_long_name AS destination,
@@ -469,10 +465,13 @@ class BusService:
             ORDER BY st.arrival_time ASC
             LIMIT 20;
             """
+
             results = self.db.execute(query, {
                 "stop_id": stop_id,
                 "service_ids": service_ids
             }).fetchall()
+
+            print(f"[DB] Query returned {len(results)} rows")
 
             schedule = defaultdict(list)
             for row in results:
@@ -491,14 +490,6 @@ class BusService:
             print(f"[ERROR] Static GTFS fallback failed for stop {stop_id}: {e}")
             return {'inbound': [], 'outbound': []}
 
-    async def close(self):
-        """Closes the HTTPX client gracefully."""
-        if hasattr(self, 'http_client') and self.http_client:
-            try:
-                await self.http_client.aclose()
-                print("[INFO] HTTPX client closed.")
-            except Exception as e:
-                 print(f"[ERROR] Error closing HTTPX client: {e}")
 
 # --- Potentially add other methods like get_live_bus_positions if needed ---
 # Remember to make them async and use self.http_client if they make HTTP requests
