@@ -2,6 +2,7 @@ import os
 import sys
 from typing import Dict, Any
 from fastapi import APIRouter, HTTPException, Path
+import requests
 
 # Add project root to sys.path for local module imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
@@ -57,4 +58,23 @@ async def get_stop_schedule_endpoint(
     except Exception as e:
         print(f"[ERROR /stop-schedule] Internal error: {e}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
-        
+
+@router.get("/raw-511-data/{stop_id}")
+async def get_raw_511_data(stop_id: str):
+    """Get raw 511 API data for debugging."""
+    api_url = f"{scheduler_service.base_url}/StopMonitoring"
+    params = {
+        "api_key": scheduler_service.api_key,
+        "agency": scheduler_service.agency,
+        "stopCode": stop_id,  # Try both stop_id and stopCode
+        "format": "json"
+    }
+    try:
+        response = requests.get(api_url, params=params)
+        return {
+            "status_code": response.status_code,
+            "data": response.json() if response.status_code == 200 else None
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
