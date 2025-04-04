@@ -14,6 +14,8 @@ ENV VITE_GOOGLE_MAPS_API_KEY=$VITE_GOOGLE_MAPS_API_KEY
 
 # Copy entire backend app
 COPY . .
+COPY gtfs_data /app/app/gtfs_data
+
 
 # Expose port
 EXPOSE 8000

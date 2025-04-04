@@ -1,29 +1,25 @@
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Optional, Dict, Any, List
 import requests
-import json
-import pandas as pd
-import os
-
 from app.config import settings
-from app.services.gtfs_service import load_gtfs_data
 from app.utils.json_cleaner import clean_api_response
-from app.utils.xml_parser import xml_to_json
 
 class SchedulerService:
-    def __init__(self):
+    def __init__(self, agency_id: str = settings.DEFAULT_AGENCY.lower()):
         self.api_key = settings.API_KEY
         self.base_url = settings.TRANSIT_511_BASE_URL
-        self.agency = settings.DEFAULT_AGENCY
+        self.agency = agency_id.upper()
 
-        # Load GTFS data using provided path from settings
+        if agency_id not in settings.gtfs_data:
+            raise ValueError(f"GTFS data for agency '{agency_id}' not loaded")
+
         (
             self.routes_df,
             self.trips_df,
             self.stops_df,
             self.stop_times_df,
             self.calendar_df
-        ) = load_gtfs_data(settings.MUNI_GTFS_PATH)
+        ) = settings.gtfs_data[agency_id]
 
     def _normalize_time(self, time_str: str) -> str:
         try:
