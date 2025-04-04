@@ -6,6 +6,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..",
 
 from datetime import datetime
 from typing import Optional, Dict, Any, List
+import json
 import requests
 from app.config import settings
 from app.utils.json_cleaner import clean_api_response

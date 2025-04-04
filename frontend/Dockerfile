@@ -1,18 +1,19 @@
-# Dockerfile (frontend)
-
 FROM node:20 AS builder
 
 WORKDIR /app
 
-# Copy .env and package files
+# Copy package files and .env
 COPY package*.json ./
-
 RUN npm install
+
 COPY . .
 
-# Set API base at build time
+# Add both build-time variables
 ARG VITE_API_BASE
+ARG VITE_GOOGLE_MAPS_API_KEY
+
 ENV VITE_API_BASE=$VITE_API_BASE
+ENV VITE_GOOGLE_MAPS_API_KEY=$VITE_GOOGLE_MAPS_API_KEY
 
 RUN npm run build
 

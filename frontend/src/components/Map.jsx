@@ -1,6 +1,6 @@
 import React from 'react';
 import { GoogleMap, useJsApiLoader, InfoWindow } from '@react-google-maps/api';
-import { Box, CircularProgress } from '@mui/material';
+import { Box, CircularProgress, Typography } from '@mui/material';
 
 const libraries = ['marker'];
 
@@ -9,8 +9,13 @@ const Map = ({ center = { lat: 37.7749, lng: -122.4194 }, markers, onMapClick, z
   const [map, setMap] = React.useState(null);
   const markersRef = React.useRef([]);
 
+  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+
+  // 🔍 DEBUG: Log API key presence
+  console.log("🧭 Google Maps API Key Present:", !!apiKey);
+
   const { isLoaded, loadError } = useJsApiLoader({
-    googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
+    googleMapsApiKey: apiKey,
     libraries,
     mapIds: ['munibuddy_map']
   });
@@ -21,14 +26,17 @@ const Map = ({ center = { lat: 37.7749, lng: -122.4194 }, markers, onMapClick, z
   };
 
   const handleMarkerClick = (marker) => {
+    console.log("📍 Marker clicked:", marker.title);
     setSelectedMarker(marker);
   };
 
   const onLoad = React.useCallback((mapInstance) => {
+    console.log("✅ Google Map loaded");
     setMap(mapInstance);
   }, []);
 
   const onUnmount = React.useCallback(() => {
+    console.log("🧹 Map unmounted, clearing markers");
     markersRef.current.forEach(marker => {
       if (marker) marker.map = null;
     });
@@ -37,14 +45,22 @@ const Map = ({ center = { lat: 37.7749, lng: -122.4194 }, markers, onMapClick, z
   }, []);
 
   React.useEffect(() => {
-    if (!map || !window.google || !window.google.maps.marker) return;
+    if (!map) {
+      console.warn("⚠️ Map is not initialized yet");
+      return;
+    }
+    if (!window.google || !window.google.maps.marker) {
+      console.error("❌ Google Maps marker library not loaded");
+      return;
+    }
 
-    // Clear existing markers
+    // Clear previous markers
     markersRef.current.forEach(marker => {
       if (marker) marker.map = null;
     });
     markersRef.current = [];
 
+    // Create and display new markers
     markers.forEach(markerData => {
       try {
         const markerElement = document.createElement('div');
@@ -66,12 +82,15 @@ const Map = ({ center = { lat: 37.7749, lng: -122.4194 }, markers, onMapClick, z
 
         advancedMarker.addListener('gmp-click', () => handleMarkerClick(markerData));
         markersRef.current.push(advancedMarker);
+
+        console.log("📍 Marker added:", markerData.title);
       } catch (error) {
-        console.error('Error creating marker:', error);
+        console.error("❌ Error creating marker:", error);
       }
     });
 
     return () => {
+      console.log("🧽 Cleaning up markers");
       markersRef.current.forEach(marker => {
         if (marker) marker.map = null;
       });
@@ -79,8 +98,10 @@ const Map = ({ center = { lat: 37.7749, lng: -122.4194 }, markers, onMapClick, z
     };
   }, [map, markers]);
 
+  // 🛑 Load error handling
   if (loadError) {
-    return <Box sx={{ p: 2 }}>An error occurred while loading the map.</Box>;
+    console.error("❌ Map load error:", loadError);
+    return <Box sx={{ p: 2 }}><Typography color="error">An error occurred while loading the map.</Typography></Box>;
   }
 
   if (!isLoaded) {
