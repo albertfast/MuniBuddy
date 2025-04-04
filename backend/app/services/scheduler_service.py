@@ -156,7 +156,7 @@ class SchedulerService:
             print(f"Error getting best bus: {str(e)}")
             return None
 
-    async def get_schedule(self, stop_id: str) -> Dict[str, Any]:
+    async def get_stop_schedule(self, stop_id: str) -> Dict[str, Any]:
         try:
             static_schedule = await self.get_schedule_for_stop(stop_id) or []
             realtime_schedule = await self._get_schedule_from_511(stop_id) or []
