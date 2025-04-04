@@ -48,44 +48,65 @@ class BusService:
             print(f"[ERROR] Failed to load GTFS data: {e}")
             self.gtfs_data = {}
             
+    # Inside class BusService in app/services/bus_service.py
     def get_live_bus_positions(self, bus_number: str, agency: str) -> Dict[str, Any]:
+        """Fetches live positions for a specific bus number using the 511 API."""
         url = f"{self.base_url}/VehicleMonitoring?api_key={self.api_key}&agency={agency}"
-        response = requests.get(url)
+        print(f"[API Request] GET {url}") # Add logging
+        try:
+            response = requests.get(url, timeout=15) # Added timeout
+            response.raise_for_status() # Raise HTTPError for bad responses (4xx or 5xx)
 
-        if response.status_code != 200:
-            raise Exception("511 API request failed")
+        except requests.exceptions.RequestException as e:
+            print(f"[ERROR] 511 API request failed: {e}")
+            # Raising a more specific error might be better, but match test for now
+            raise Exception("511 API request failed") from e
 
-        from xml.etree import ElementTree as ET
+        try:
+            from xml.etree import ElementTree as ET
 
-        def xml_to_json(xml_string):
-            """Convert XML string to JSON-like dictionary."""
-            root = ET.fromstring(xml_string)
-            
-            def parse_element(element):
-                parsed = {}
-                for child in element:
-                    if len(child):
-                        parsed[child.tag] = parse_element(child)
-                    else:
-                        parsed[child.tag] = child.text
-                return parsed
-            
-            return {root.tag: parse_element(root)}
+            # Define the namespace explicitly (find it in your actual XML if different)
+            namespaces = {'siri': 'http://www.siri.org.uk/siri'}
 
-        data = xml_to_json(response.text)
-        vehicles = data.get("Siri", {}).get("ServiceDelivery", {}).get("VehicleMonitoringDelivery", {}).get("VehicleActivity", [])
+            root = ET.fromstring(response.text)
 
-        return [
-            {
-                "bus_number": v["MonitoredVehicleJourney"]["LineRef"],
-                "current_stop": v["MonitoredVehicleJourney"]["MonitoredCall"].get("StopPointName", "Unknown"),
-                "latitude": v["MonitoredVehicleJourney"]["VehicleLocation"].get("Latitude"),
-                "longitude": v["MonitoredVehicleJourney"]["VehicleLocation"].get("Longitude"),
-                "expected_arrival": v["MonitoredVehicleJourney"]["MonitoredCall"].get("ExpectedArrivalTime"),
-            }
-            for v in vehicles
-            if v["MonitoredVehicleJourney"]["LineRef"] == bus_number
-        ]
+            vehicles_data = []
+            # Find all VehicleActivity elements using the namespace
+            # XPath: .// means search anywhere under the current node
+            for vehicle_activity in root.findall('.//siri:VehicleActivity', namespaces):
+                journey = vehicle_activity.find('./siri:MonitoredVehicleJourney', namespaces)
+                if journey is None:
+                    continue
+
+                line_ref_elem = journey.find('./siri:LineRef', namespaces)
+                line_ref = line_ref_elem.text if line_ref_elem is not None else None
+
+                # Compare with the bus number we're looking for
+                if line_ref == bus_number:
+                    location = journey.find('./siri:VehicleLocation', namespaces)
+                    lat_elem = location.find('./siri:Latitude', namespaces) if location is not None else None
+                    lon_elem = location.find('./siri:Longitude', namespaces) if location is not None else None
+
+                    call = journey.find('./siri:MonitoredCall', namespaces)
+                    stop_name_elem = call.find('./siri:StopPointName', namespaces) if call is not None else None
+                    arrival_elem = call.find('./siri:ExpectedArrivalTime', namespaces) if call is not None else None
+
+                    vehicles_data.append({
+                        "bus_number": line_ref,
+                        "current_stop": stop_name_elem.text if stop_name_elem is not None else "Unknown",
+                        "latitude": lat_elem.text if lat_elem is not None else None,
+                        "longitude": lon_elem.text if lon_elem is not None else None,
+                        "expected_arrival": arrival_elem.text if arrival_elem is not None else None,
+                    })
+
+            return vehicles_data
+
+        except ET.ParseError as e:
+            print(f"[ERROR] Failed to parse XML response: {e}")
+            raise Exception("Failed to parse 511 API XML response") from e
+        except Exception as e: # Catch other potential errors during parsing/extraction
+            print(f"[ERROR] Unexpected error processing vehicle XML: {e}")
+            raise Exception("Error processing 511 API vehicle data") from e
 
     def _get_static_schedule(self, stop_id: str) -> Dict[str, Any]:
         """Get static schedule from GTFS data."""
@@ -226,42 +247,47 @@ class BusService:
         
         return R * c
 
+# Inside class BusService in app/services/bus_service.py
     async def _load_stops(self) -> List[Dict[str, Any]]:
         """
-        Load all stops from GTFS data.
-        
+        Load all stops, preferably from the initialized GTFS data.
+        Uses cache if available.
+
         Returns:
             List[Dict[str, Any]]: List of stops with their coordinates
         """
         if self.stops_cache is not None:
+            print("[DEBUG] Returning cached stops")
             return self.stops_cache
-            
+
+        print("[DEBUG] Loading stops from initialized GTFS DataFrame")
         try:
-            # Read GTFS stops.txt file
-            gtfs_path = os.path.join("gtfs_data/muni_gtfs-current", "stops.txt")
-            
-            if not os.path.exists(gtfs_path):
-                print(f"GTFS stops file not found at: {gtfs_path}")
+            # Use the DataFrame loaded during __init__
+            if 'stops' not in self.gtfs_data or self.gtfs_data['stops'].empty:
+                print("[WARN] Stops DataFrame not found or empty in gtfs_data.")
+                # Optional: Attempt file read as a fallback, but ideally __init__ should succeed.
+                # If you add file reading here, ensure mocks cover it.
                 return []
-                
-            # Read GTFS stops.txt file
+
+            # Convert DataFrame rows to list of dictionaries
+            # Ensure correct data types
+            stops_df = self.gtfs_data['stops']
             stops = []
-            with open(gtfs_path, 'r') as f:
-                # Skip first line (headers)
-                headers = f.readline().strip().split(',')
-                
-                for line in f:
-                    values = line.strip().split(',')
-                    stop = dict(zip(headers, values))
-                    stops.append({
-                        'stop_id': stop['stop_id'],
-                        'stop_name': stop['stop_name'],
-                        'stop_lat': float(stop['stop_lat']),
-                        'stop_lon': float(stop['stop_lon'])
-                    })
-            
+            for _, row in stops_df.iterrows():
+                 stops.append({
+                    'stop_id': str(row['stop_id']), # Ensure string ID
+                    'stop_name': str(row['stop_name']),
+                    'stop_lat': float(row['stop_lat']),
+                    'stop_lon': float(row['stop_lon'])
+                 })
+
             self.stops_cache = stops
+            print(f"[DEBUG] Loaded {len(stops)} stops into cache from DataFrame")
             return stops
+
+        except Exception as e:
+            print(f"[ERROR] Error processing stops DataFrame: {str(e)}")
+            return [] # Return empty list on error
             
         except Exception as e:
             print(f"Error loading stops: {str(e)}")
@@ -322,7 +348,7 @@ class BusService:
 
         result = {}
         for stop, schedule in zip(nearby_stops, schedules):
-
+            # Eğer görev hata döndürdüyse, logla ve atla
             if isinstance(schedule, Exception):
                 print(f"✗ Error for stop {stop['stop_id']}: {schedule}")
                 continue

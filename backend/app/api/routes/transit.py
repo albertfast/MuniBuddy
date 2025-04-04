@@ -238,93 +238,93 @@ async def get_nearby_buses(
         logger.error(f"Error in get_nearby_buses: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/nearby-buses", response_model=List[NearbyBusResponse])
-async def get_nearby_buses(
-    lat: float = Query(..., description="User's latitude"),
-    lon: float = Query(..., description="User's longitude"),
-    radius: float = Query(0.5, description="Search radius in miles"),
-    db: Session = Depends(get_db)
-):
-    """
-    Get real-time bus information for stops near the user's location
-    """
-    try:
-        # Validate coordinates
-        if not (-90 <= lat <= 90) or not (-180 <= lon <= 180):
-            raise ValueError("Invalid coordinates")
+# @router.get("/nearby-buses", response_model=List[NearbyBusResponse])
+# async def get_nearby_buses(
+#     lat: float = Query(..., description="User's latitude"),
+#     lon: float = Query(..., description="User's longitude"),
+#     radius: float = Query(0.5, description="Search radius in miles"),
+#     db: Session = Depends(get_db)
+# ):
+#     """
+#     Get real-time bus information for stops near the user's location
+#     """
+#     try:
+#         # Validate coordinates
+#         if not (-90 <= lat <= 90) or not (-180 <= lon <= 180):
+#             raise ValueError("Invalid coordinates")
 
-        # Find nearby stops
-        stops = find_stops_in_radius(
-            lat=lat,
-            lon=lon,
-            radius=radius,
-            transit_type="bus",  # Only get bus stops
-            db=db
-        )
+#         # Find nearby stops
+#         stops = find_stops_in_radius(
+#             lat=lat,
+#             lon=lon,
+#             radius=radius,
+#             transit_type="bus",  # Only get bus stops
+#             db=db
+#         )
 
-        if not stops:
-            return []
+#         if not stops:
+#             return []
 
-        # Get real-time data for each stop
-        responses = []
-        for stop in stops:
-            # Convert dictionary to StopDetail if needed
-            if isinstance(stop, dict):
-                stop = StopDetail(**stop)
+#         # Get real-time data for each stop
+#         responses = []
+#         for stop in stops:
+#             # Convert dictionary to StopDetail if needed
+#             if isinstance(stop, dict):
+#                 stop = StopDetail(**stop)
 
-            # Calculate distance to stop
-            distance = geodesic(
-                (lat, lon),
-                (stop.stop_lat, stop.stop_lon)
-            ).meters
+#             # Calculate distance to stop
+#             distance = geodesic(
+#                 (lat, lon),
+#                 (stop.stop_lat, stop.stop_lon)
+#             ).meters
 
-            # Get real-time data for this stop
-            realtime_data = get_route_realtime_data(stop.stop_id, db)
+#             # Get real-time data for this stop
+#             realtime_data = get_route_realtime_data(stop.stop_id, db)
             
-            if not realtime_data:
-                continue
+#             if not realtime_data:
+#                 continue
 
-            # Process bus information
-            buses = []
-            for vehicle in realtime_data.get("vehicles", []):
-                bus_info = BusInfo(
-                    line_name=vehicle.get("line_name", ""),
-                    direction=vehicle.get("direction", ""),
-                    next_arrival=vehicle.get("next_arrival"),
-                    next_departure=vehicle.get("next_departure"),
-                    destination=vehicle.get("destination", ""),
-                    wheelchair_accessible=vehicle.get("wheelchair_accessible", True),
-                    vehicle_location=vehicle.get("location"),
-                    occupancy=vehicle.get("occupancy")
-                )
-                buses.append(bus_info)
+#             # Process bus information
+#             buses = []
+#             for vehicle in realtime_data.get("vehicles", []):
+#                 bus_info = BusInfo(
+#                     line_name=vehicle.get("line_name", ""),
+#                     direction=vehicle.get("direction", ""),
+#                     next_arrival=vehicle.get("next_arrival"),
+#                     next_departure=vehicle.get("next_departure"),
+#                     destination=vehicle.get("destination", ""),
+#                     wheelchair_accessible=vehicle.get("wheelchair_accessible", True),
+#                     vehicle_location=vehicle.get("location"),
+#                     occupancy=vehicle.get("occupancy")
+#                 )
+#                 buses.append(bus_info)
 
-            if buses:
-                response = NearbyBusResponse(
-                    stop_id=stop.stop_id,
-                    stop_name=stop.stop_name,
-                    stop_lat=stop.stop_lat,
-                    stop_lon=stop.stop_lon,
-                    distance_meters=round(distance, 2),
-                    buses=buses,
-                    last_updated=datetime.utcnow().isoformat()
-                )
-                responses.append(response)
+#             if buses:
+#                 response = NearbyBusResponse(
+#                     stop_id=stop.stop_id,
+#                     stop_name=stop.stop_name,
+#                     stop_lat=stop.stop_lat,
+#                     stop_lon=stop.stop_lon,
+#                     distance_meters=round(distance, 2),
+#                     buses=buses,
+#                     last_updated=datetime.utcnow().isoformat()
+#                 )
+#                 responses.append(response)
 
-        return responses
+#         return responses
 
-    except ValueError as ve:
-        logger.error(f"Validation error: {str(ve)}")
-        raise HTTPException(
-            status_code=422,
-            detail=str(ve)
-        )
-    except Exception as e:
-        logger.error(f"Error getting nearby buses: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail="An error occurred while fetching nearby bus information"
-        )
+#     except ValueError as ve:
+#         logger.error(f"Validation error: {str(ve)}")
+#         raise HTTPException(
+#             status_code=422,
+#             detail=str(ve)
+#         )
+#     except Exception as e:
+#         logger.error(f"Error getting nearby buses: {str(e)}")
+#         raise HTTPException(
+#             status_code=500,
+#             detail="An error occurred while fetching nearby bus information"
+#         )
         
 scheduler_service = SchedulerService()
 
