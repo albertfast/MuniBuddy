@@ -10,7 +10,7 @@ load_dotenv()
 class Settings(BaseSettings):
     PROJECT_NAME: str = "MuniBuddy"
     API_V1_STR: str = "/api/v1"
-    AGENCY_ID: List[str] = Field(default_factory=lambda: os.getenv("AGENCY_ID", "SFMTA").split(","))
+    AGENCY_ID: List[str]
 
     # Database
     DATABASE_URL: str = os.getenv("DATABASE_URL", "postgresql://myuser:mypassword@localhost:5432/munibuddy_db")
