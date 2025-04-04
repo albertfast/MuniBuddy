@@ -21,7 +21,12 @@ import MyLocationIcon from '@mui/icons-material/MyLocation';
 import Map from './components/Map';
 import TransitInfo from './components/TransitInfo';
 
+// 🔍 DEBUG: Log environment variables
 const BASE_URL = import.meta.env.VITE_API_BASE;
+const GOOGLE_MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+
+console.log("✅ VITE_API_BASE:", BASE_URL);
+console.log("✅ VITE_GOOGLE_MAPS_API_KEY:", GOOGLE_MAPS_KEY);
 
 const App = () => {
   const [userLocation, setUserLocation] = useState(null);
@@ -44,7 +49,8 @@ const App = () => {
           fetchNearbyStops(location);
           setShowLocationDialog(false);
         },
-        () => {
+        (err) => {
+          console.error("Geolocation error:", err);
           setError('Please enable location services or enter coordinates manually.');
           setShowLocationDialog(false);
         }
@@ -58,7 +64,9 @@ const App = () => {
   const fetchNearbyStops = async (location) => {
     try {
       setError(null);
-      const response = await fetch(`${BASE_URL}/nearby-stops?lat=${location.lat}&lon=${location.lng}&radius_miles=${radius}`);
+      const url = `${BASE_URL}/nearby-stops?lat=${location.lat}&lon=${location.lng}&radius_miles=${radius}`;
+      console.log("📡 Fetching:", url);
+      const response = await fetch(url);
       const data = await response.json();
 
       if (data) {
@@ -90,6 +98,7 @@ const App = () => {
         setMarkers(newMarkers);
       }
     } catch (err) {
+      console.error("❌ Nearby stop fetch error:", err);
       setError('Could not load nearby stops. Please try again later.');
     }
   };
@@ -99,6 +108,7 @@ const App = () => {
       lat: event.latLng.lat(),
       lng: event.latLng.lng()
     };
+    console.log("🗺️ Clicked Location:", location);
     setUserLocation(location);
     fetchNearbyStops(location);
   };

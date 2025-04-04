@@ -27,18 +27,24 @@ const TransitInfo = ({ stops }) => {
 
   const getCachedSchedule = (stopId) => {
     const cacheItem = SCHEDULE_CACHE[stopId];
-    if (cacheItem && (Date.now() - cacheItem.timestamp < CACHE_TTL)) {
+    const isValid = cacheItem && (Date.now() - cacheItem.timestamp < CACHE_TTL);
+    if (isValid) {
+      console.log(`[CACHE HIT] Stop ID: ${stopId}`);
       return cacheItem.data;
     }
+    console.log(`[CACHE MISS] Stop ID: ${stopId}`);
     return null;
   };
 
   const setCachedSchedule = (stopId, data) => {
     SCHEDULE_CACHE[stopId] = { data, timestamp: Date.now() };
+    console.log(`[CACHE SET] Stop ID: ${stopId}`);
   };
 
   const handleStopClick = async (stop) => {
+    console.log(`[CLICK] Stop clicked:`, stop);
     if (selectedStop?.id === stop.id) {
+      console.log(`[CLOSE] Deselecting stop: ${stop.id}`);
       setSelectedStop(null);
       setStopSchedule(null);
       return;
@@ -51,17 +57,22 @@ const TransitInfo = ({ stops }) => {
     try {
       const cachedData = getCachedSchedule(stop.id);
       if (cachedData) {
+        console.log(`[LOAD] Using cached data for stop ${stop.id}`);
         setStopSchedule(cachedData);
         setLoading(false);
         return;
       }
 
       const apiBaseUrl = import.meta.env.VITE_API_BASE ?? 'https://munibuddy.live/api/v1';
+      console.log(`[API] Fetching schedule from: ${apiBaseUrl}/stop-schedule/${stop.id}`);
       const response = await axios.get(`${apiBaseUrl}/stop-schedule/${stop.id}`, { timeout: 10000 });
+
+      console.log(`[API] Response for stop ${stop.id}:`, response.data);
 
       if (response.data) setCachedSchedule(stop.id, response.data);
       setStopSchedule(response.data);
     } catch (error) {
+      console.error(`[ERROR] Failed to load schedule for stop ${stop.id}:`, error);
       setError('Failed to load stop schedule. Please check your internet connection.');
       setStopSchedule({ inbound: [], outbound: [] });
     } finally {
@@ -72,6 +83,7 @@ const TransitInfo = ({ stops }) => {
   const handleRefreshSchedule = useCallback(async () => {
     if (!selectedStop) return;
 
+    console.log(`[REFRESH] Manually refreshing stop ${selectedStop.id}`);
     setLoading(true);
     setError(null);
 
@@ -82,9 +94,11 @@ const TransitInfo = ({ stops }) => {
         params: { _t: Date.now() }
       });
 
+      console.log(`[REFRESH] New response for ${selectedStop.id}:`, response.data);
       setCachedSchedule(selectedStop.id, response.data);
       setStopSchedule(response.data);
-    } catch {
+    } catch (err) {
+      console.error(`[ERROR] Refresh failed for stop ${selectedStop.id}:`, err);
       setError('Failed to refresh schedule. Please check your connection.');
     } finally {
       setLoading(false);
