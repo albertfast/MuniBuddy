@@ -1,55 +1,21 @@
-import pandas as pd
 import os
-from app.config import settings
+import pandas as pd
 
-def load_gtfs_data():
-    """Loads GTFS data into pandas DataFrames"""
+def load_gtfs_data(muni_path: str):
     try:
-        # GTFS paths (relative to backend folder)
-        muni_path = settings.MUNI_GTFS_PATH
-        bart_path = os.path.join(os.path.dirname(muni_path), "bart_gtfs-current") 
-        
-        # Load BART data
-        bart_routes_df = pd.read_csv(os.path.join(bart_path, "routes.txt"), dtype={'route_id': str, 'route_short_name': str})
-        if 'route_short_name' not in bart_routes_df.columns:
-            bart_routes_df['route_short_name'] = bart_routes_df['route_id']
-        bart_trips_df = pd.read_csv(os.path.join(bart_path, "trips.txt"), dtype=str)
-        bart_stops_df = pd.read_csv(os.path.join(bart_path, "stops.txt"), dtype=str)
-        
-        # Load Muni data
-        muni_routes_df = pd.read_csv(os.path.join(muni_path, "routes.txt"), dtype={'route_id': str, 'route_short_name': str})
-        muni_trips_df = pd.read_csv(os.path.join(muni_path, "trips.txt"), dtype=str)
-        muni_stops_df = pd.read_csv(os.path.join(muni_path, "stops.txt"), dtype=str)
-        muni_stop_times_df = pd.read_csv(os.path.join(muni_path, "stop_times.txt"), dtype=str)
-        
-        # Load calendar data as integers
-        muni_calendar_df = pd.read_csv(os.path.join(muni_path, "calendar.txt"), 
-                                     dtype={
-                                         'service_id': str,
-                                         'monday': int,
-                                         'tuesday': int,
-                                         'wednesday': int,
-                                         'thursday': int,
-                                         'friday': int,
-                                         'saturday': int,
-                                         'sunday': int,
-                                         'start_date': int,
-                                         'end_date': int
-                                     })
-        
-        # Normalize stop names for matching
-        bart_stops_df["stop_id"] = bart_stops_df["stop_id"].str.replace("place_", "")
-        muni_stops_df["stop_id"] = muni_stops_df["stop_id"].str.replace("place_", "")
-        
-        # Add agency information
-        bart_routes_df['agency_id'] = 'BA'
-        muni_routes_df['agency_id'] = 'SFMTA'
-        
-        # Combine all data
-        routes_df = pd.concat([bart_routes_df, muni_routes_df], ignore_index=True)
-        trips_df = pd.concat([bart_trips_df, muni_trips_df], ignore_index=True)
-        stops_df = pd.concat([bart_stops_df, muni_stops_df], ignore_index=True)
-        
-        return routes_df, trips_df, stops_df, muni_stop_times_df, muni_calendar_df
+        routes_df = pd.read_csv(os.path.join(muni_path, "routes.txt"), dtype=str)
+        trips_df = pd.read_csv(os.path.join(muni_path, "trips.txt"), dtype=str)
+        stops_df = pd.read_csv(os.path.join(muni_path, "stops.txt"), dtype=str)
+        stop_times_df = pd.read_csv(os.path.join(muni_path, "stop_times.txt"), dtype=str)
+        calendar_df = pd.read_csv(os.path.join(muni_path, "calendar.txt"), dtype=str)
+
+        print(f"[DEBUG] Loaded {len(stops_df)} stops")
+        print(f"[DEBUG] Loaded {len(stop_times_df)} stop times")
+        print(f"[DEBUG] Loaded {len(trips_df)} trips")
+        print(f"[DEBUG] Loaded {len(routes_df)} routes")
+        print(f"[DEBUG] Loaded {len(calendar_df)} calendar entries")
+
+        return routes_df, trips_df, stops_df, stop_times_df, calendar_df
+
     except Exception as e:
         raise Exception(f"Error loading GTFS data: {str(e)}")

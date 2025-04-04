@@ -13,6 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 # Local imports
 from app.config import settings
+from app.services.gtfs_service import load_gtfs_data
 from app.db.database import init_db
 from app.api.routes import transit
 from app.route_finder import router as route_router
@@ -41,6 +42,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+settings.gtfs_data = load_gtfs_data(settings.MUNI_GTFS_PATH)
 
 # Redis Setup
 try:
@@ -76,7 +79,7 @@ async def get_nearby_stops_with_schedule(lat: float, lon: float):
 app.include_router(bus_router, prefix="/api/v1")                     # /api/v1/bus/...
 app.include_router(nearby_stops_router, prefix="/api/v1")           # /api/v1/nearby-stops
 app.include_router(stop_schedule_router, prefix="/api/v1")          # /api/v1/stop-schedule
-app.include_router(deploy_router, prefix="/api")                    # /api/deploy
+app.include_router(deploy_router, prefix="/api/v1/deploy")                    # /api/deploy
 
 app.include_router(transit.router, prefix="/api/transit")           # /api/transit/...
 app.include_router(route_router, prefix="/api/v1")            # /api/optimized-route
