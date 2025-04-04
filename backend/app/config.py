@@ -3,15 +3,14 @@ from dotenv import load_dotenv
 from typing import List, Optional, Dict
 import pandas as pd
 from pydantic_settings import BaseSettings
-from pydantic import Field, model_validator
+from pydantic import Field, model_validator, PrivateAttr
 
 load_dotenv()
-
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "MuniBuddy"
     API_V1_STR: str = "/api/v1"
-    AGENCY_ID: List[str]
+    DEFAULT_AGENCY: str = os.getenv("DEFAULT_AGENCY", "muni")
 
     # Database
     DATABASE_URL: str = Field(default="postgresql://myuser:mypassword@localhost:5432/munibuddy_db")
@@ -39,8 +38,8 @@ class Settings(BaseSettings):
         "bart": os.path.abspath(os.path.join(os.path.dirname(__file__), "gtfs_data/bart_gtfs-current"))
     }
 
-    # GTFS loaded data
-    gtfs_data: Dict[str, tuple] = {}
+    # ✅ Private attribute (not validated or treated as field)
+    _gtfs_data: Dict[str, tuple] = PrivateAttr(default_factory=dict)
 
     @model_validator(mode="before")
     @classmethod
@@ -49,20 +48,25 @@ class Settings(BaseSettings):
             data["SQLALCHEMY_DATABASE_URI"] = data["DATABASE_URL"]
         return data
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-
+    @model_validator(mode="after")
+    def load_gtfs(self) -> "Settings":
         from app.services.gtfs_service import load_gtfs_data
 
         for agency, path in self.GTFS_PATHS.items():
             os.makedirs(path, exist_ok=True)
-            self.gtfs_data[agency] = load_gtfs_data(path)
+            self._gtfs_data[agency] = load_gtfs_data(path)
 
-        print(f"[DEBUG] Loaded GTFS for agencies: {list(self.gtfs_data.keys())}")
+        print(f"[DEBUG] Loaded GTFS for agencies: {list(self._gtfs_data.keys())}")
+        return self
+
+    def get_gtfs_data(self, agency: str) -> Optional[tuple]:
+        """Returns the GTFS data tuple for the given agency ('muni' or 'bart')"""
+        return self._gtfs_data.get(agency)
 
     class Config:
         env_file = ".env"
         case_sensitive = True
 
 
+# Global settings instance
 settings = Settings()
