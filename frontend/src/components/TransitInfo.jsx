@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   Card, CardContent, Typography, List, ListItem, ListItemText, ListItemButton,
   Divider, Box, Collapse, CircularProgress, Stack, Chip, IconButton,
@@ -13,257 +13,369 @@ import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import axios from 'axios';
 
-const SCHEDULE_CACHE = {};
-const CACHE_TTL = 2 * 60 * 1000;
+// --- Constants ---
+const SCHEDULE_CACHE = {}; // Simple in-memory cache for stop schedules
+const CACHE_TTL = 2 * 60 * 1000; // Cache Time-To-Live: 2 minutes in milliseconds
+const API_TIMEOUT = 10000; // 10 seconds for API requests
 
-const normalizeId = (stop) => stop.stop_id || stop.id;
+// Retrieve API base URL from environment variables, with a fallback
+const API_BASE_URL = import.meta.env.VITE_API_BASE ?? 'https://munibuddy.live/api/v1';
 
+// --- Helper Functions ---
+
+/**
+ * Gets a consistent ID from a stop object, preferring 'stop_id'.
+ * @param {object|null} stop The stop object.
+ * @returns {string|number|undefined} The normalized ID or undefined.
+ */
+const normalizeId = (stop) => stop?.stop_id || stop?.id;
+
+/**
+ * Formats an ISO date string or potentially pre-formatted time string
+ * into a locale-specific time string (e.g., "03:45 PM").
+ * Handles "Unknown" and invalid date inputs gracefully.
+ * @param {string} isoTime The time string to format.
+ * @returns {string} The formatted time string or the original/default string.
+ */
+const formatTime = (isoTime) => {
+  if (!isoTime || isoTime === "Unknown") return "Unknown";
+  // If already formatted (e.g., "hh:mm AM/PM"), return directly
+  if (/\d{1,2}:\d{2}\s[AP]M/i.test(isoTime)) return isoTime;
+
+  try {
+    const date = new Date(isoTime);
+    // Check if the date object is valid
+    return isNaN(date.getTime())
+      ? isoTime // Return original if invalid
+      : date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  } catch {
+    return isoTime; // Return original on any unexpected error
+  }
+};
+
+/**
+ * Determines the MUI Chip color based on the route status string.
+ * @param {string} status The status string (e.g., "On Time", "Late", "Early").
+ * @returns {'success'|'error'|'warning'} The corresponding MUI color prop value.
+ */
+const getStatusColor = (status = '') => {
+  const lowerStatus = status.toLowerCase();
+  if (lowerStatus.includes('late')) return 'error';
+  if (lowerStatus.includes('early')) return 'warning';
+  return 'success'; // Default to success (includes "On Time")
+};
+
+// --- Component ---
+
+/**
+ * Displays a list of nearby transit stops and allows viewing schedules
+ * for a selected stop.
+ * @param {object} props - Component props.
+ * @param {Array<object>|object} props.stops - An array or object containing stop data.
+ */
 const TransitInfo = ({ stops }) => {
-  const [selectedStop, setSelectedStop] = useState(null);
-  const [stopSchedule, setStopSchedule] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  // --- State ---
+  const [selectedStopId, setSelectedStopId] = useState(null); // Store only the ID
+  const [stopSchedule, setStopSchedule] = useState(null); // Schedule for the selected stop
+  const [loading, setLoading] = useState(false); // Loading state for API calls
+  const [error, setError] = useState(null); // Error message state
 
-  const stopsArray = Array.isArray(stops) ? stops : Object.values(stops);
+  // --- Memoization ---
+  // Ensure stopsArray is always an array, memoized for performance
+  const stopsArray = useMemo(() => Array.isArray(stops) ? stops : Object.values(stops), [stops]);
+  // Find the full selected stop object based on the ID, memoized
+  const selectedStop = useMemo(() => stopsArray.find(stop => normalizeId(stop) === selectedStopId), [selectedStopId, stopsArray]);
 
-  const getCachedSchedule = (stopId) => {
+  // --- Cache Management ---
+  const getCachedSchedule = useCallback((stopId) => {
     const cacheItem = SCHEDULE_CACHE[stopId];
-    const isValid = cacheItem && (Date.now() - cacheItem.timestamp < CACHE_TTL);
-    return isValid ? cacheItem.data : null;
-  };
+    const isCacheValid = cacheItem && (Date.now() - cacheItem.timestamp < CACHE_TTL);
+    if (isCacheValid) {
+      console.log(`[CACHE HIT] Stop ID: ${stopId}`);
+      return cacheItem.data;
+    }
+    console.log(`[CACHE MISS] Stop ID: ${stopId}`);
+    return null;
+  }, []);
 
-  const setCachedSchedule = (stopId, data) => {
+  const setCachedSchedule = useCallback((stopId, data) => {
     SCHEDULE_CACHE[stopId] = { data, timestamp: Date.now() };
-  };
+    console.log(`[CACHE SET] Stop ID: ${stopId}`);
+  }, []);
 
-  const handleStopClick = async (stop) => {
-    const stopId = normalizeId(stop);
+  // --- Event Handlers ---
+  const handleStopClick = useCallback(async (stopToSelect) => {
+    const stopIdToSelect = normalizeId(stopToSelect);
+    console.log(`[CLICK] Stop clicked: ID ${stopIdToSelect}`);
 
-    if (normalizeId(selectedStop) === stopId) {
-      setSelectedStop(null);
-      setStopSchedule(null);
+    // If the clicked stop is already selected, deselect it
+    if (selectedStopId === stopIdToSelect) {
+      console.log(`[CLOSE] Deselecting stop: ${stopIdToSelect}`);
+      setSelectedStopId(null);
+      setStopSchedule(null); // Clear schedule
+      setError(null); // Clear errors
       return;
     }
 
-    setSelectedStop(stop);
+    // Select the new stop
+    setSelectedStopId(stopIdToSelect);
     setLoading(true);
     setError(null);
+    setStopSchedule(null); // Clear previous schedule immediately
 
-    const cachedData = getCachedSchedule(stopId);
+    // Try loading from cache first
+    const cachedData = getCachedSchedule(stopIdToSelect);
     if (cachedData) {
+      console.log(`[LOAD] Using cached data for stop ${stopIdToSelect}`);
       setStopSchedule(cachedData);
       setLoading(false);
       return;
     }
 
+    // Fetch from API if not in cache
     try {
-      const apiBaseUrl = import.meta.env.VITE_API_BASE ?? 'https://munibuddy.live/api/v1';
-      const response = await axios.get(`${apiBaseUrl}/stop-schedule/${stopId}`, { timeout: 10000 });
+      console.log(`[API] Fetching schedule from: ${API_BASE_URL}/stop-schedule/${stopIdToSelect}`);
+      const response = await axios.get(`${API_BASE_URL}/stop-schedule/${stopIdToSelect}`, {
+        timeout: API_TIMEOUT
+      });
+      console.log(`[API] Response for stop ${stopIdToSelect}:`, response.data);
 
       if (response.data) {
-        setCachedSchedule(stopId, response.data);
+        setCachedSchedule(stopIdToSelect, response.data);
         setStopSchedule(response.data);
+      } else {
+        // Handle cases where API returns success but no data (or unexpected format)
+        setStopSchedule({ inbound: [], outbound: [] }); // Set empty schedule
       }
     } catch (err) {
-      setError('Failed to load stop schedule. Please check your internet connection.');
-      setStopSchedule({ inbound: [], outbound: [] });
+      console.error(`[ERROR] Failed to load schedule for stop ${stopIdToSelect}:`, err);
+      setError('Failed to load stop schedule. Please check network or try again.');
+      setStopSchedule({ inbound: [], outbound: [] }); // Ensure schedule is empty on error
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedStopId, getCachedSchedule, setCachedSchedule]); // Dependencies for useCallback
 
   const handleRefreshSchedule = useCallback(async () => {
-    if (!selectedStop) return;
+    if (!selectedStopId) return; // Need a selected stop to refresh
 
-    const stopId = normalizeId(selectedStop);
+    console.log(`[REFRESH] Manually refreshing stop ${selectedStopId}`);
     setLoading(true);
     setError(null);
 
     try {
-      const apiBaseUrl = import.meta.env.VITE_API_BASE ?? 'https://munibuddy.live/api/v1';
-  const response = await axios.get(`${apiBaseUrl}/stop-schedule/${stopId}`, {
-    timeout: 10000,
-    params: { _t: Date.now() }
-  });
+      // Add cache-busting param (_t)
+      const response = await axios.get(`${API_BASE_URL}/stop-schedule/${selectedStopId}`, {
+        timeout: API_TIMEOUT,
+        params: { _t: Date.now() } // Cache buster
+      });
 
-  setCachedSchedule(stopId, response.data);
-  setStopSchedule(response.data);
+      console.log(`[REFRESH] New response for ${selectedStopId}:`, response.data);
+      setCachedSchedule(selectedStopId, response.data);
+      setStopSchedule(response.data);
     } catch (err) {
-      setError('Failed to refresh schedule. Please check your connection.');
+      console.error(`[ERROR] Refresh failed for stop ${selectedStopId}:`, err);
+      setError('Failed to refresh schedule. Please check connection.');
+      // Optionally keep the old schedule data or clear it:
+      // setStopSchedule(null);
     } finally {
       setLoading(false);
     }
-  }, [selectedStop]);
+  }, [selectedStopId, setCachedSchedule]); // Dependencies for useCallback
 
-  const formatTime = (isoTime) => {
-    if (!isoTime || isoTime === "Unknown") return "Unknown";
-    if (/\d{1,2}:\d{2}\s[AP]M/.test(isoTime)) return isoTime;
+  // --- Rendering Sub-Components ---
 
-    try {
-      const date = new Date(isoTime);
-      return isNaN(date.getTime())
-      ? isoTime
-      : date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-    } catch {
-      return isoTime;
-    }
-  };
-
-  const getStatusColor = (status) => {
-    if (status.includes('late')) return 'error';
-    if (status === 'Early') return 'warning';
-    return 'success';
-  };
-
-  const renderStopInfo = (stop) => (
+  /** Renders the primary information for a single stop in the list */
+  const renderStopInfo = useCallback((stop) => (
     <>
-    <Stack direction="row" alignItems="center" spacing={1}>
-    <LocationOnIcon color="primary" />
-    <Typography variant="body1" fontWeight={500}>
-    {stop.stop_name}
-    </Typography>
-    </Stack>
-    <Stack direction="row" justifyContent="space-between" mt={0.5}>
-    <Box display="flex" alignItems="center">
-    <DirectionsBusIcon fontSize="small" sx={{ mr: 0.5 }} />
-    <Typography variant="body2" color="text.secondary">
-    Stop ID: {normalizeId(stop)}
-    </Typography>
-    </Box>
-    <Chip
-    size="small"
-    label={`${stop.distance_miles} miles`}
-    sx={{ height: '20px', fontSize: '0.7rem', bgcolor: 'rgba(25, 118, 210, 0.08)' }}
-    />
-    </Stack>
-    {stop.routes?.length > 0 && (
-      <Typography variant="body2" color="text.secondary" fontSize="0.75rem" mt={0.5}>
-      Routes: {stop.routes.map(r => r.route_number).join(', ')}
-      </Typography>
-    )}
-    </>
-  );
-
-  const renderRouteInfo = (route) => (
-    <Box sx={{ borderLeft: '3px solid #1976d2', pl: 1, py: 0.5, mb: 1 }}>
-    <Stack direction="row" justifyContent="space-between">
-    <Typography variant="body1" fontWeight="medium" color="primary">
-    {route.route_number} →{' '}
-    <Box component="span" fontWeight={route.destination?.toLowerCase().includes('transit center') ? 'bold' : 'medium'} color={route.destination?.toLowerCase().includes('transit center') ? 'error.main' : 'inherit'}>
-    {route.destination}
-    </Box>
-    </Typography>
-    <Chip size="small" label={route.status} color={getStatusColor(route.status)} />
-    </Stack>
-    <Typography variant="body2" color="text.secondary" mt={0.5}>
-    Arrival: <b>{formatTime(route.arrival_time)}</b> {route.stops_away && ` • ${route.stops_away} stops away`}
-    </Typography>
-    </Box>
-  );
-
-  return (
-    <Card elevation={2} sx={{ borderRadius: 2 }}>
-    <CardContent sx={{ pb: 1 }}>
-    <Typography variant="h6" fontWeight="bold" color="primary" gutterBottom>
-    Nearby Stops ({stopsArray.length})
-    </Typography>
-    <List>
-    {stopsArray.map((stop, index) => {
-      const stopId = normalizeId(stop);
-      const isSelected = selectedStop && normalizeId(selectedStop) === stopId;
-
-      return (
-        <React.Fragment key={stopId}>
-        <ListItemButton
-        onClick={() => handleStopClick(stop)}
-        selected={isSelected}
-        sx={{
-          borderRadius: 1,
-          mb: 0.5,
-          '&.Mui-selected': { backgroundColor: 'rgba(25, 118, 210, 0.08)' }
-        }}
-        >
-        <ListItemText primary={renderStopInfo(stop)} />
-        <IconButton onClick={(e) => { e.stopPropagation(); handleStopClick(stop); }} size="small">
-        {isSelected ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-        </IconButton>
-        </ListItemButton>
-
-        <Collapse in={isSelected}>
-        <Box px={2} pb={2}>
-        {loading && isSelected ? (
-          <Box display="flex" justifyContent="center" p={2}>
-          <CircularProgress size={28} />
-          </Box>
-        ) : stopSchedule && isSelected ? (
-          <>
-          {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-
-          {stopSchedule.inbound?.length > 0 && (
-            <Box mb={2}>
-            <Stack direction="row" spacing={1} mb={1}>
-            <ArrowDownwardIcon color="primary" fontSize="small" />
-            <Typography variant="subtitle2" color="primary" fontWeight="bold">
-            Inbound Routes
-            </Typography>
-            </Stack>
-            <List dense>
-            {stopSchedule.inbound.map((route, i) => (
-              <ListItem key={i} sx={{ px: 0 }}>
-              <ListItemText primary={renderRouteInfo(route)} disableTypography />
-              </ListItem>
-            ))}
-            </List>
-            </Box>
-          )}
-
-          {stopSchedule.outbound?.length > 0 && (
-            <Box>
-            <Stack direction="row" spacing={1} mb={1}>
-            <ArrowUpwardIcon color="primary" fontSize="small" />
-            <Typography variant="subtitle2" color="primary" fontWeight="bold">
-            Outbound Routes
-            </Typography>
-            </Stack>
-            <List dense>
-            {stopSchedule.outbound.map((route, i) => (
-              <ListItem key={i} sx={{ px: 0 }}>
-              <ListItemText primary={renderRouteInfo(route)} disableTypography />
-              </ListItem>
-            ))}
-            </List>
-            </Box>
-          )}
-
-          {!stopSchedule.inbound?.length && !stopSchedule.outbound?.length && (
-            <Typography textAlign="center" color="text.secondary" py={2}>
-            No scheduled routes at this time.
-            </Typography>
-          )}
-
-          <Box display="flex" justifyContent="center" mt={2}>
-          <Button
-          startIcon={<RefreshIcon />}
-          onClick={handleRefreshSchedule}
-          disabled={loading}
-          variant="outlined"
-          size="small"
-          sx={{ borderRadius: '20px', textTransform: 'none', px: 2 }}
-          >
-          Refresh
-          </Button>
-          </Box>
-          </>
-        ) : null}
+      <Stack direction="row" alignItems="center" spacing={1} mb={0.5}>
+        <LocationOnIcon color="primary" fontSize="small" />
+        <Typography variant="body1" fontWeight={500} noWrap> {/* Added noWrap */}
+          {stop.stop_name || 'Unknown Stop Name'}
+        </Typography>
+      </Stack>
+      <Stack direction="row" justifyContent="space-between" alignItems="center">
+        <Box display="flex" alignItems="center">
+          <DirectionsBusIcon fontSize="small" sx={{ mr: 0.5, color: 'text.secondary' }} />
+          <Typography variant="caption" color="text.secondary"> {/* Changed to caption */}
+            ID: {normalizeId(stop)}
+          </Typography>
         </Box>
-        </Collapse>
+        {stop.distance_miles !== undefined && (
+            <Chip
+                size="small"
+                label={`${stop.distance_miles} miles`}
+                sx={{ height: 'auto', py: '2px', fontSize: '0.7rem', bgcolor: 'action.hover' }} // Adjusted styling
+            />
+        )}
+      </Stack>
+      {stop.routes?.length > 0 && (
+        <Typography variant="caption" color="text.secondary" display="block" mt={0.5}> {/* Changed to caption */}
+          Routes: {stop.routes.map(r => r.route_number || '?').join(', ')}
+        </Typography>
+      )}
+    </>
+  ), []); // Empty dependency array as it uses only the 'stop' argument
 
-        {index < stopsArray.length - 1 && <Divider sx={{ my: 0.5 }} />}
-        </React.Fragment>
-      );
-    })}
-    </List>
-    </CardContent>
+  /** Renders the details for a single scheduled route (inbound/outbound) */
+  const renderRouteInfo = useCallback((route) => (
+    <Box sx={{ borderLeft: '3px solid', borderColor: 'primary.light', pl: 1.5, py: 0.5, mb: 1 }}>
+      <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
+        <Typography variant="body2" fontWeight="medium" color="primary.main">
+          {route.route_number || 'Route ?'} →{' '}
+          <Box component="span" sx={{ color: 'text.primary', fontWeight: 'normal' }}>
+            {route.destination || 'Unknown Destination'}
+          </Box>
+        </Typography>
+        {route.status && (
+            <Chip size="small" label={route.status} color={getStatusColor(route.status)} sx={{ height: 'auto', py: '2px' }} />
+        )}
+      </Stack>
+      <Typography variant="body2" color="text.secondary" mt={0.5}>
+        Arrival: <b>{formatTime(route.arrival_time)}</b>
+        {route.stops_away && ` • ${route.stops_away} stops away`}
+      </Typography>
+    </Box>
+  ), []); // Empty dependency array
+
+  // --- Main Render ---
+  return (
+    <Card elevation={2} sx={{ borderRadius: 2, overflow: 'hidden' }}> {/* Added overflow */}
+      <CardContent sx={{ pt: 2, pb: 1 }}> {/* Adjusted padding */}
+        <Typography variant="h6" component="h2" fontWeight="bold" color="primary.main" gutterBottom>
+          Nearby Stops ({stopsArray.length})
+        </Typography>
+        <List disablePadding> {/* Added disablePadding */}
+          {stopsArray.length === 0 && (
+             <ListItem>
+                <ListItemText primary="No stops found in the selected area." sx={{textAlign: 'center', color: 'text.secondary'}} />
+             </ListItem>
+          )}
+          {stopsArray.map((stop, index) => {
+            const currentStopId = normalizeId(stop);
+            const isSelected = selectedStopId === currentStopId;
+
+            return (
+              <React.Fragment key={currentStopId || index}> {/* Use index as fallback key */}
+                <ListItemButton
+                  onClick={() => handleStopClick(stop)}
+                  selected={isSelected}
+                  sx={{
+                    borderRadius: 1,
+                    mb: 0.5, // Margin between items
+                    '&.Mui-selected': {
+                      bgcolor: 'action.selected', // Use theme action color
+                      '&:hover': { bgcolor: 'action.selected' } // Keep color on hover when selected
+                    },
+                    '&:hover': { // Subtle hover for non-selected items
+                      bgcolor: 'action.hover'
+                    },
+                    py: 1.5 // Adjust vertical padding
+                  }}
+                  aria-expanded={isSelected} // Accessibility
+                  aria-controls={`stop-details-${currentStopId}`}
+                >
+                  <ListItemText primary={renderStopInfo(stop)} />
+                  {/* Separate button for expand/collapse icon */}
+                  <IconButton
+                    onClick={(e) => { e.stopPropagation(); handleStopClick(stop); }}
+                    size="small"
+                    aria-label={isSelected ? 'Collapse schedule' : 'Expand schedule'}
+                  >
+                    {isSelected ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                  </IconButton>
+                </ListItemButton>
+
+                {/* Collapsible section for schedule */}
+                <Collapse in={isSelected} timeout="auto" unmountOnExit>
+                  <Box
+                    id={`stop-details-${currentStopId}`} // Match aria-controls
+                    px={2} // Horizontal padding for content
+                    pb={2} // Bottom padding for content
+                    pt={1} // Top padding for content
+                    sx={{ borderTop: '1px dashed', borderColor: 'divider', mx: 1, mb: 1 }} // Separator line
+                  >
+                    {/* Show loading spinner ONLY for the selected item */}
+                    {loading && isSelected ? (
+                      <Box display="flex" justifyContent="center" py={3}>
+                        <CircularProgress size={32} />
+                      </Box>
+                    ) : /* Show schedule if loaded AND selected */
+                      stopSchedule && isSelected ? (
+                      <>
+                        {/* Show error specific to this stop */}
+                        {error && <Alert severity="warning" sx={{ mb: 2 }}>{error}</Alert>} {/* Changed severity */}
+
+                        {/* Inbound Routes */}
+                        {stopSchedule.inbound?.length > 0 && (
+                          <Box mb={2}>
+                            <Stack direction="row" spacing={1} mb={1} alignItems="center">
+                              <ArrowDownwardIcon color="primary" />
+                              <Typography variant="subtitle1" color="primary.main" fontWeight="medium">
+                                Inbound
+                              </Typography>
+                            </Stack>
+                            <List dense disablePadding>
+                              {stopSchedule.inbound.map((route, i) => (
+                                <ListItem key={`in-${i}`} disablePadding>
+                                  <ListItemText primary={renderRouteInfo(route)} disableTypography />
+                                </ListItem>
+                              ))}
+                            </List>
+                          </Box>
+                        )}
+
+                        {/* Outbound Routes */}
+                        {stopSchedule.outbound?.length > 0 && (
+                          <Box>
+                            <Stack direction="row" spacing={1} mb={1} alignItems="center">
+                              <ArrowUpwardIcon color="primary" />
+                              <Typography variant="subtitle1" color="primary.main" fontWeight="medium">
+                                Outbound
+                              </Typography>
+                            </Stack>
+                            <List dense disablePadding>
+                              {stopSchedule.outbound.map((route, i) => (
+                                <ListItem key={`out-${i}`} disablePadding>
+                                  <ListItemText primary={renderRouteInfo(route)} disableTypography />
+                                </ListItem>
+                              ))}
+                            </List>
+                          </Box>
+                        )}
+
+                        {/* Message if no routes */}
+                        {!stopSchedule.inbound?.length && !stopSchedule.outbound?.length && !error && (
+                          <Typography textAlign="center" color="text.secondary" py={2}>
+                            No scheduled routes found at this time.
+                          </Typography>
+                        )}
+
+                        {/* Refresh Button */}
+                        <Box display="flex" justifyContent="center" mt={3}>
+                          <Button
+                            startIcon={<RefreshIcon />}
+                            onClick={handleRefreshSchedule}
+                            disabled={loading} // Disable while any loading is happening
+                            variant="outlined"
+                            size="small"
+                            sx={{ borderRadius: '20px', textTransform: 'none', px: 2 }}
+                          >
+                            {loading ? 'Refreshing...' : 'Refresh'}
+                          </Button>
+                        </Box>
+                      </>
+                    ) : null /* End of schedule display condition */}
+                  </Box>
+                </Collapse>
+
+                {/* Divider between list items (optional aesthetic) */}
+                {index < stopsArray.length - 1 && <Divider component="li" sx={{ mx: 1 }} />} {/* Indented divider */}
+              </React.Fragment>
+            );
+          })}
+        </List>
+      </CardContent>
     </Card>
   );
 };
