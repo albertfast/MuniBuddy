@@ -62,20 +62,20 @@ def load_gtfs_data():
     
     try:
         # Load routes
-        routes_query = text("SELECT COUNT(*) FROM routes;")
+        routes_query = text("SELECT COUNT(*) FROM bus_routes;")
         routes_count = db.execute(routes_query).scalar()
-        print(f"Loaded routes: {routes_count}")
-        
+        print(f"Loaded bus_routes: {routes_count}")
+
         # Load stops
         stops_query = text("SELECT COUNT(*) FROM stops;")
         stops_count = db.execute(stops_query).scalar()
         print(f"Loaded stops: {stops_count}")
-        
-        # Load stop times
+
+        # Load stop_times
         stop_times_query = text("SELECT COUNT(*) FROM stop_times;")
         stop_times_count = db.execute(stop_times_query).scalar()
         print(f"Loaded stop_times: {stop_times_count}")
-        
+
         # Load trips
         trips_query = text("SELECT COUNT(*) FROM trips;")
         trips_count = db.execute(trips_query).scalar()
