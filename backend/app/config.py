@@ -1,18 +1,17 @@
 import os
-from pydantic_settings import BaseSettings
 from dotenv import load_dotenv
-from typing import List, Optional, Tuple
-from app.services.gtfs_service import load_gtfs_data  # GTFS loader function
+from typing import List, Optional
+from pydantic_settings import BaseSettings
 
-# Load environment variables
 load_dotenv()
+
 
 class Settings(BaseSettings):
     # API Configuration
     API_V1_STR: str = "/api/v1"
     PROJECT_NAME: str = "MuniBuddy"
 
-    # Database Configuration
+    # Database
     DATABASE_URL: str = os.getenv("DATABASE_URL", "postgresql://myuser:mypassword@localhost:5432/munibuddy_db")
     POSTGRES_SERVER: str = os.getenv("POSTGRES_SERVER", "localhost")
     POSTGRES_USER: str = os.getenv("POSTGRES_USER", "myuser")
@@ -20,17 +19,17 @@ class Settings(BaseSettings):
     POSTGRES_DB: str = os.getenv("POSTGRES_DB", "munibuddy_db")
     SQLALCHEMY_DATABASE_URI: Optional[str] = None
 
-    # Redis Configuration
+    # Redis
     REDIS_HOST: str = os.getenv("REDIS_HOST", "localhost")
     REDIS_PORT: int = int(os.getenv("REDIS_PORT", "6379"))
     REDIS_DB: int = int(os.getenv("REDIS_DB", 0))
     REDIS_PASSWORD: Optional[str] = os.getenv("REDIS_PASSWORD")
 
-    # Application Settings
+    # App Settings
     DEBUG: bool = os.getenv("DEBUG", "False").lower() == "true"
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
 
-    # Transit Settings
+    # Transit
     MAX_WALKING_DISTANCE: float = float(os.getenv("MAX_WALKING_DISTANCE", "0.5"))
     MAX_TRANSFER_DISTANCE: float = float(os.getenv("MAX_TRANSFER_DISTANCE", "0.25"))
     CACHE_TTL: int = int(os.getenv("CACHE_TTL", "300"))
@@ -40,50 +39,30 @@ class Settings(BaseSettings):
     TRANSIT_511_BASE_URL: str = os.getenv("TRANSIT_511_BASE_URL", "http://api.511.org/transit")
     DEFAULT_AGENCY: str = os.getenv("DEFAULT_AGENCY", "SFMTA")
 
-    # GTFS Configuration
+    # GTFS Config
     AGENCY_ID_RAW: str = os.getenv("AGENCY_ID", '["SFMTA"]')
     AGENCY_ID: List[str] = eval(AGENCY_ID_RAW)
-
     MUNI_GTFS_PATH: str = os.getenv(
         "MUNI_GTFS_PATH",
         os.path.abspath(os.path.join(os.path.dirname(__file__), "gtfs_data/muni_gtfs-current"))
     )
 
-    # GTFS data attributes (to be loaded)
-    gtfs_data: Optional[Tuple] = None
-
     def __init__(self, **data):
         super().__init__(**data)
 
-        # Build SQLAlchemy URI
         self.SQLALCHEMY_DATABASE_URI = self.DATABASE_URL or (
             f"postgresql://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_SERVER}/{self.POSTGRES_DB}"
         )
 
-        # Ensure GTFS directory exists
         os.makedirs(self.MUNI_GTFS_PATH, exist_ok=True)
-
-        # Load GTFS data once here
-        self.gtfs_data = load_gtfs_data()
-
-        # Log loaded data lengths for confirmation
-        if self.gtfs_data:
-            routes_df, trips_df, stops_df, stop_times_df, calendar_df = self.gtfs_data
-            print(f"[DEBUG] Loaded {len(stops_df)} stops")
-            print(f"[DEBUG] Loaded {len(stop_times_df)} stop times")
-            print(f"[DEBUG] Loaded {len(trips_df)} trips")
-            print(f"[DEBUG] Loaded {len(routes_df)} routes")
-            print(f"[DEBUG] Loaded {len(calendar_df)} calendar entries")
 
     class Config:
         env_file = ".env"
         case_sensitive = True
 
 
-# Singleton settings instance
 settings = Settings()
 
-# Debug info
 print(f"[DEBUG] Config loaded. Redis: {settings.REDIS_HOST}:{settings.REDIS_PORT}, DB: {settings.SQLALCHEMY_DATABASE_URI}")
 print(f"[DEBUG] Config loaded. Agencies: {settings.AGENCY_ID}")
 print(f"[DEBUG] GTFS Path: {settings.MUNI_GTFS_PATH}")
