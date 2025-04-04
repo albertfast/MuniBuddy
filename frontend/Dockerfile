@@ -15,7 +15,7 @@ ARG VITE_GOOGLE_MAPS_API_KEY
 ENV VITE_API_BASE=$VITE_API_BASE
 ENV VITE_GOOGLE_MAPS_API_KEY=$VITE_GOOGLE_MAPS_API_KEY
 
-RUN npm run build
+RUN npx vite build
 
 # Serve with lightweight server
 FROM node:20-alpine
