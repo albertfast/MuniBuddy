@@ -22,7 +22,7 @@ AGENCY_IDS = os.getenv("AGENCY_ID", "SFMTA").split(',')
 
 from app.config import settings
 
-os.makedirs(settings.MUNI_GTFS_PATH, exist_ok=True)
+os.makedirs(settings.GTFS_PATHS["muni"], exist_ok=True)
 class BusService:
     def __init__(self):
         if hasattr(self, 'gtfs_data') and self.gtfs_data:
