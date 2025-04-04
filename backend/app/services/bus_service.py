@@ -335,7 +335,6 @@ class BusService:
         nearby_stops.sort(key=lambda x: x['distance_miles'])
         return nearby_stops[:limit]
 
-
     async def get_nearby_buses(self, lat: float, lon: float, radius_miles: float = 0.1) -> Dict[str, Any]:
         nearby_stops = await self.find_nearby_stops(lat, lon, radius_miles)
 
