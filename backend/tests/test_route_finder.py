@@ -1,27 +1,27 @@
-import pytest
-from fastapi.testclient import TestClient
-from unittest.mock import patch, MagicMock
-from app.config import Settings
-
-import json
 import os
 import sys
 
-# Change working directory to backend folder
+# Go to backend/ directory and set it as root
 os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.getcwd())
 
+import pytest
+from fastapi.testclient import TestClient
+from unittest.mock import patch, MagicMock
+
+from app.config import Settings  # class
+from app.config import settings  # instance
 from app.main import app
-from app.config import settings
+
+class TestSettings(Settings):
+    class Config:
+        env_file = None 
+
 
 routes_df, trips_df, stops_df, stop_times_df, calendar_df = settings.gtfs_data
 
 client = TestClient(app)
 mock_route = ["stop_123", "stop_456", "stop_789"]
-
-class TestSettings(Settings):
-    class Config:
-        env_file = None 
         
 @pytest.fixture(autouse=True)
 def patch_dependencies():

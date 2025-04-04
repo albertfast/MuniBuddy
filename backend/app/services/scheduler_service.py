@@ -8,10 +8,20 @@ class SchedulerService:
     def __init__(self, agency_id: str = settings.DEFAULT_AGENCY.lower()):
         self.api_key = settings.API_KEY
         self.base_url = settings.TRANSIT_511_BASE_URL
-        self.agency = agency_id.upper()
 
-        if agency_id not in settings.gtfs_data:
-            raise ValueError(f"GTFS data for agency '{agency_id}' not loaded")
+        # Normalize agency ID (convert to key used in GTFS_PATHS)
+        agency_map = {
+            "SFMTA": "muni",
+            "MUNI": "muni",
+            "SF": "muni",
+            "BART": "bart"
+        }
+        normalized_agency = agency_map.get(agency_id.upper(), agency_id.lower())
+        self.agency = normalized_agency.upper()  # used for 511 API
+
+        gtfs_data = settings.get_gtfs_data(normalized_agency)
+        if not gtfs_data:
+            raise ValueError(f"GTFS data for agency '{normalized_agency}' not loaded")
 
         (
             self.routes_df,
@@ -19,7 +29,7 @@ class SchedulerService:
             self.stops_df,
             self.stop_times_df,
             self.calendar_df
-        ) = settings.gtfs_data[agency_id]
+        ) = gtfs_data
 
     def _normalize_time(self, time_str: str) -> str:
         try:
