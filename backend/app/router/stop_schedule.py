@@ -3,9 +3,9 @@ import sys
 from typing import Dict, Any
 from fastapi import APIRouter, HTTPException, Path
 import requests
-
-# Add project root to sys.path for local module imports
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+from app.db.database import SessionLocal
+session = SessionLocal() 
 
 from app.services.bus_service import BusService
 
@@ -13,11 +13,11 @@ from app.services.bus_service import BusService
 router = APIRouter()
 
 # Create a global instance of BusService
-bus_service = BusService()
+bus_service = BusService(db=session)
 
 @router.get(
     "/stop-schedule/{stop_id}",
-    response_model=Dict[str, Any],  # Could be replaced with a custom Pydantic model
+    response_model=Dict[str, Any],
     summary="Get real-time and GTFS-based bus schedule for a stop"
 )
 async def get_stop_schedule_endpoint(
