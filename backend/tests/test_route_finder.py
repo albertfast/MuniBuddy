@@ -1,6 +1,7 @@
 import pytest
 from fastapi.testclient import TestClient
 from unittest.mock import patch, MagicMock
+from app.config import Settings
 
 import json
 import os
@@ -18,7 +19,10 @@ routes_df, trips_df, stops_df, stop_times_df, calendar_df = settings.gtfs_data
 client = TestClient(app)
 mock_route = ["stop_123", "stop_456", "stop_789"]
 
-
+class TestSettings(Settings):
+    class Config:
+        env_file = None 
+        
 @pytest.fixture(autouse=True)
 def patch_dependencies():
     with patch("app.route_finder.redis") as mock_redis, \
