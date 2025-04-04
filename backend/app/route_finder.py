@@ -15,9 +15,28 @@ import networkx as nx
 from geopy.geocoders import Nominatim
 from sqlalchemy.sql import text 
 from app.config import settings
+import os
 
-os.makedirs(settings.MUNI_GTFS_PATH, exist_ok=True)
-routes_df, trips_df, stops_df, stop_times_df, calendar_df = settings.gtfs_data
+# Create GTFS path directory if it doesn't exist
+for path in settings.GTFS_PATHS.values():
+    os.makedirs(path, exist_ok=True)
+
+# Default agency resolution logic
+DEFAULT_AGENCY_ID = settings.DEFAULT_AGENCY.lower()
+
+# Normalize agency ID to match GTFS key (e.g., "SFMTA" -> "muni")
+agency_map = {
+    "SFMTA": "muni",
+    "MUNI": "muni",
+    "SF": "muni",
+    "BA": "bart",
+    "BART": "bart"
+}
+
+normalized_agency = agency_map.get(DEFAULT_AGENCY_ID.upper(), DEFAULT_AGENCY_ID)
+
+# Load GTFS data for the normalized agency
+routes_df, trips_df, stops_df, stop_times_df, calendar_df = settings.get_gtfs_data("muni")
 
 API_KEY = settings.API_KEY
 REDIS_HOST = settings.REDIS_HOST

@@ -1,3 +1,9 @@
+import os
+import sys
+
+# Add root directory to sys.path (e.g., backend/)
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from redis import Redis
@@ -13,7 +19,16 @@ from app.models.bus_route import BusRoute
 from app.utils.xml_parser import xml_to_json
 from app.config import settings
 
-routes_df, trips_df, stops_df, stop_times_df, calendar_df = settings.gtfs_data
+# Load GTFS data
+agency_map = {
+    "SFMTA": "muni",
+    "SF": "muni",
+    "BA": "bart",
+    "BART": "bart",
+    "MUNI": "muni"
+}
+normalized_agency = agency_map.get(settings.DEFAULT_AGENCY.upper(), "muni")
+routes_df, trips_df, stops_df, stop_times_df, calendar_df = settings.get_gtfs_data(normalized_agency)
 
 # Initialize
 logger = logging.getLogger(__name__)

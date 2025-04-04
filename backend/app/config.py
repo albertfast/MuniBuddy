@@ -1,11 +1,18 @@
 import os
+import sys
+
+# Go to backend/ directory and set it as root
+os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.getcwd())
 from dotenv import load_dotenv
 from typing import List, Optional, Dict
 import pandas as pd
 from pydantic_settings import BaseSettings
 from pydantic import Field, model_validator, PrivateAttr, field_validator
 
-# Load environment variables from .env file
+# 👇 Add root folder so `from app...` imports work
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+
 load_dotenv()
 
 class Settings(BaseSettings):
@@ -58,9 +65,10 @@ class Settings(BaseSettings):
     # GTFS Paths per agency (e.g., muni, bart)
     GTFS_AGENCIES: List[str] = ["muni", "bart"]
     GTFS_PATHS: Dict[str, str] = {
-        "muni": os.path.abspath(os.path.join(os.path.dirname(__file__), "gtfs_data/muni_gtfs-current")),
-        "bart": os.path.abspath(os.path.join(os.path.dirname(__file__), "gtfs_data/bart_gtfs-current"))
+    "muni": os.path.abspath(os.path.join(os.path.dirname(os.path.dirname(__file__)), "gtfs_data/muni_gtfs-current")),
+    "bart": os.path.abspath(os.path.join(os.path.dirname(os.path.dirname(__file__)), "gtfs_data/bart_gtfs-current"))
     }
+
 
     # Internal cache for loaded GTFS DataFrames (private, not validated)
     _gtfs_data: Dict[str, tuple] = PrivateAttr(default_factory=dict)
