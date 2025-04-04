@@ -8,7 +8,11 @@ import redis
 from redis import Redis
 from typing import List, Dict, Any, Optional, Tuple
 from collections import defaultdict
-from datetime import datetime, timedelta, timezone # Added timezone
+from datetime import datetime, timezone # Added timezone
+
+def __init__(self, db=None):
+    self.db = db  
+
 
 # --- Configuration Loading ---
 # Ensure the app directory is correctly added to the path
@@ -64,7 +68,8 @@ class BusService:
     Service class to handle fetching and processing bus stop and schedule information,
     integrating GTFS static data with 511 real-time API data and Redis caching.
     """
-    def __init__(self):
+    def __init__(self, db=None):
+        self.db = db
         """Initializes the BusService, loading configurations and GTFS data."""
         print("[INFO] Initializing BusService...")
         self.api_key: Optional[str] = settings.API_KEY
@@ -486,59 +491,6 @@ class BusService:
             print(f"[ERROR] Static GTFS fallback failed for stop {stop_id}: {e}")
             return {'inbound': [], 'outbound': []}
 
-
-    def _get_static_schedule(self, stop_id: str):
-        """Wrapper for _get_static_schedule_from_redis for consistency"""
-        return self._get_static_schedule_from_redis(stop_id)
-
-    async def get_stop_schedule(self, stop_id: str):
-        print(f"[GTFS] Looking up schedule for stop_id: {stop_id}")
-
-        # Get today weekday to match calendar.txt
-        today = datetime.now()
-        weekday = today.strftime('%A').lower()
-
-        # Get active service_ids from calendar
-        service_ids = self.db.execute(
-            f"SELECT service_id FROM calendar WHERE {weekday} = 1"
-        ).scalars().all()
-
-        if not service_ids:
-            print(f"[GTFS] No active services for {weekday}")
-            return {'inbound': [], 'outbound': []}
-
-        # Join trips and stop_times for this stop
-        query = f"""
-        SELECT
-            r.route_short_name AS route_number,
-            r.route_long_name AS destination,
-            st.arrival_time,
-            t.direction_id
-        FROM stop_times st
-        JOIN trips t ON st.trip_id = t.trip_id
-        JOIN routes r ON t.route_id = r.route_id
-        WHERE st.stop_id = :stop_id
-        AND t.service_id = ANY(:service_ids)
-        ORDER BY st.arrival_time ASC
-        LIMIT 20;
-        """
-        results = self.db.execute(query, {
-            "stop_id": stop_id,
-            "service_ids": service_ids
-        }).fetchall()
-
-        schedule = defaultdict(list)
-        for row in results:
-            item = {
-                "route_number": row.route_number,
-                "destination": row.destination,
-                "arrival_time": row.arrival_time,
-                "status": "Scheduled"  # Optionally: compute delay later
-            }
-            direction = 'inbound' if row.direction_id == 0 else 'outbound'
-            schedule[direction].append(item)
-
-
     async def close(self):
         """Closes the HTTPX client gracefully."""
         if hasattr(self, 'http_client') and self.http_client:
@@ -588,6 +540,8 @@ class BusService:
         except Exception as e:
             print(f"[ERROR] Unexpected error processing vehicle positions for agency {agency}: {e}")
             return []
+
+
 
 # --- Optional: Graceful Shutdown Hook (if running standalone or need cleanup) ---
 # import atexit
