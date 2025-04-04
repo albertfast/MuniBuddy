@@ -7,13 +7,13 @@ import requests
 # Add project root to sys.path for local module imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from app.services.scheduler_service import SchedulerService
+from app.services.bus_service import BusService
 
 # Define FastAPI router
 router = APIRouter()
 
-# Create a global instance of SchedulerService
-scheduler_service = SchedulerService()
+# Create a global instance of BusService
+bus_service = BusService()
 
 @router.get(
     "/stop-schedule/{stop_id}",
@@ -47,7 +47,7 @@ async def get_stop_schedule_endpoint(
     print(f"[API /stop-schedule] Request received for stop_id: {stop_id}")
 
     try:
-        schedule = await scheduler_service.get_stop_schedule(stop_id)
+        schedule = await bus_service.get_stop_schedule(stop_id)
         return schedule  # Expected format: {'inbound': [...], 'outbound': [...]}
 
     except HTTPException as http_exc:
@@ -62,10 +62,10 @@ async def get_stop_schedule_endpoint(
 @router.get("/raw-511-data/{stop_id}")
 async def get_raw_511_data(stop_id: str):
     """Get raw 511 API data for debugging."""
-    api_url = f"{scheduler_service.base_url}/StopMonitoring"
+    api_url = f"{bus_service.base_url}/StopMonitoring"
     params = {
-        "api_key": scheduler_service.api_key,
-        "agency": scheduler_service.agency,
+        "api_key": bus_service.api_key,
+        "agency": bus_service.agency,
         "stopCode": stop_id,  # Try both stop_id and stopCode
         "format": "json"
     }

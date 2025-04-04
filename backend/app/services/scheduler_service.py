@@ -77,6 +77,7 @@ class SchedulerService:
 
     async def _get_schedule_from_511(self, stop_id: str, line_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
         try:
+            print(f"[DEBUG] Requesting 511 API data for stop {stop_id}")
             api_url = f"{self.base_url}/StopMonitoring"
             params = {
                 "api_key": self.api_key,
@@ -92,9 +93,11 @@ class SchedulerService:
             response = requests.get(api_url, params=params)
             response.raise_for_status()
 
+            print(f"[DEBUG] 511 API response status: {response.status_code}")
             data = response.json()
             cleaned_data = clean_api_response(json.dumps(data))
 
+            print(f"[DEBUG] 511 API response data structure: {list(cleaned_data.keys())}")
             stops = cleaned_data.get("ServiceDelivery", {}).get("StopMonitoringDelivery", {}).get("MonitoredStopVisit", [])
             if not stops:
                 return None
@@ -156,11 +159,16 @@ class SchedulerService:
             print(f"Error getting best bus: {str(e)}")
             return None
 
-    async def get_stop_schedule(self, stop_id: str) -> Dict[str, Any]:
+    async def get_schedule(self, stop_id: str) -> Dict[str, Any]:
         try:
+            print(f"[INFO] Getting schedule for stop {stop_id}")
+            print(f"[INFO] Checking stop ID format for {stop_id}")
             static_schedule = await self.get_schedule_for_stop(stop_id) or []
+            print(f"[INFO] Static schedule for stop {stop_id}: {len(static_schedule)} entries")
+            
             realtime_schedule = await self._get_schedule_from_511(stop_id) or []
-
+            print(f"[INFO] Realtime schedule for stop {stop_id}: {len(realtime_schedule)} entries")
+            
             schedule_data = []
             for bus in realtime_schedule:
                 schedule_data.append({
@@ -206,5 +214,106 @@ class SchedulerService:
                 'outbound': outbound[:2]
             }
         except Exception as e:
-            print(f"Error getting schedule: {str(e)}")
+            print(f"[ERROR] Error getting schedule for stop {stop_id}: {str(e)}")
+            import traceback
+            traceback.print_exc()
             return {'inbound': [], 'outbound': []}
+
+    def _get_schedule_from_gtfs(self, stop_id: str, line_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Get schedule information from GTFS files for a specific stop and optionally a specific line."""
+        try:
+            # Get current time and date info
+            now = datetime.now()
+            current_time = now.strftime("%H:%M:%S")
+            current_day = now.strftime("%A").lower()
+            current_date = int(now.strftime("%Y%m%d"))
+            
+            print(f"[DEBUG] Getting GTFS schedule for stop {stop_id} on {current_day} ({current_date})")
+            
+            # Find active service IDs for today
+            active_services = self.calendar_df[
+                (self.calendar_df['start_date'] <= current_date) &
+                (self.calendar_df['end_date'] >= current_date) &
+                (self.calendar_df[current_day] == '1')
+            ]['service_id'].tolist()
+            
+            if not active_services:
+                print(f"[WARN] No active services found for today ({current_day}, {current_date})")
+                return []
+            
+            # Filter trips that are running today
+            active_trips = self.trips_df[self.trips_df['service_id'].isin(active_services)]
+            
+            # Get stop times for this stop
+            stop_times = self.stop_times_df[self.stop_times_df['stop_id'] == stop_id]
+            if stop_times.empty:
+                print(f"[WARN] No stop times found for stop_id {stop_id}")
+                return []
+                
+            # Filter for active trips and upcoming arrivals
+            valid_stop_times = stop_times[
+                stop_times['trip_id'].isin(active_trips['trip_id']) &
+                (stop_times['arrival_time'] > current_time)
+            ]
+            
+            if valid_stop_times.empty:
+                # Also check for times that wrap around midnight (e.g., "25:30:00")
+                late_night_times = stop_times[
+                    stop_times['trip_id'].isin(active_trips['trip_id']) &
+                    (stop_times['arrival_time'].str.startswith(('24:', '25:', '26:', '27:')))
+                ]
+                if not late_night_times.empty:
+                    valid_stop_times = late_night_times
+                else:
+                    print(f"[WARN] No upcoming arrivals found for stop_id {stop_id}")
+                    return []
+            
+            # Sort by arrival time
+            valid_stop_times = valid_stop_times.sort_values('arrival_time')
+            
+            # If line_id is specified, filter further
+            if line_id:
+                # Get route_id for the specified line
+                route_ids = self.routes_df[self.routes_df['route_short_name'] == line_id]['route_id'].tolist()
+                if not route_ids:
+                    print(f"[WARN] No route found for line_id {line_id}")
+                    return []
+                    
+                # Filter trips for those routes
+                line_trips = active_trips[active_trips['route_id'].isin(route_ids)]['trip_id'].tolist()
+                valid_stop_times = valid_stop_times[valid_stop_times['trip_id'].isin(line_trips)]
+                
+                if valid_stop_times.empty:
+                    print(f"[WARN] No upcoming arrivals for line_id {line_id} at stop_id {stop_id}")
+                    return []
+            
+            # Limit to next few arrivals
+            valid_stop_times = valid_stop_times.head(10)
+            
+            # Build schedule data
+            schedule_data = []
+            for _, row in valid_stop_times.iterrows():
+                trip_id = row['trip_id']
+                trip_info = active_trips[active_trips['trip_id'] == trip_id].iloc[0]
+                route_id = trip_info['route_id']
+                route_info = self.routes_df[self.routes_df['route_id'] == route_id].iloc[0]
+                
+                schedule_data.append({
+                    'line_id': route_info['route_short_name'],
+                    'line_name': route_info['route_long_name'],
+                    'scheduled_arrival': row['arrival_time'],
+                    'status': 'Scheduled'  # Static data is always just "scheduled"
+                })
+            
+            print(f"[INFO] Found {len(schedule_data)} GTFS scheduled arrivals for stop {stop_id}")
+            return schedule_data
+            
+        except Exception as e:
+            print(f"[ERROR] Error in _get_schedule_from_gtfs: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return []
+
+    def _prepare_schedule_info(self, schedule_data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Format schedule data for consistency."""
+        return schedule_data if schedule_data else []

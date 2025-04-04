@@ -7,6 +7,7 @@ import math
 import redis
 from redis import Redis
 from typing import List, Dict, Any, Optional, Tuple
+from collections import defaultdict
 from datetime import datetime, timedelta, timezone # Added timezone
 
 # --- Configuration Loading ---
@@ -429,151 +430,113 @@ class BusService:
             return None
 
 
-    def _get_static_schedule_from_redis(self, stop_id: str):
+    def _get_static_schedule(self, stop_id: str) -> Dict[str, Any]:
+        """
+        Fallback static GTFS schedule using database if real-time fails.
+        """
+        print(f"[GTFS] Looking up schedule for stop_id: {stop_id}")
+
+        today = datetime.now()
+        weekday = today.strftime('%A').lower()
+
         try:
-            now = datetime.now()
-            # Removed unused current_time variable
+            # Get active service_ids for today from calendar
+            service_ids = self.db.execute(
+                f"SELECT service_id FROM calendar WHERE {weekday} = 1"
+            ).scalars().all()
 
-            # Load data from Redis
-            stop_times = json.loads(self.redis_client.get("gtfs:stop_times"))
-            trips = json.loads(self.redis_client.get("gtfs:trips"))
-            calendar = json.loads(self.redis_client.get("gtfs:calendar"))
-            routes = json.loads(self.redis_client.get("gtfs:routes"))
+            if not service_ids:
+                print(f"[GTFS] No active services for {weekday}")
+                return {'inbound': [], 'outbound': []}
 
-            # Active service_ids for today
-            weekday = now.strftime("%A").lower()
-            today_str = now.strftime("%Y%m%d")
-            active_services = {
-                row['service_id']
-                for row in calendar
-                if row.get(weekday) == '1' and row['start_date'] <= today_str <= row['end_date']
-            }
+            # Fetch trips and stop_times for the stop
+            query = f"""
+            SELECT
+                r.route_short_name AS route_number,
+                r.route_long_name AS destination,
+                st.arrival_time,
+                t.direction_id
+            FROM stop_times st
+            JOIN trips t ON st.trip_id = t.trip_id
+            JOIN routes r ON t.route_id = r.route_id
+            WHERE st.stop_id = :stop_id
+            AND t.service_id = ANY(:service_ids)
+            ORDER BY st.arrival_time ASC
+            LIMIT 20;
+            """
+            results = self.db.execute(query, {
+                "stop_id": stop_id,
+                "service_ids": service_ids
+            }).fetchall()
 
-            # Filter stop_times by stop_id
-            relevant_stop_times = [s for s in stop_times if s['stop_id'] == stop_id]
+            schedule = defaultdict(list)
+            for row in results:
+                item = {
+                    "route_number": row.route_number,
+                    "destination": row.destination,
+                    "arrival_time": row.arrival_time,
+                    "status": "Scheduled"
+                }
+                direction = 'inbound' if row.direction_id == 0 else 'outbound'
+                schedule[direction].append(item)
 
-            results = []
-            for stop_time in relevant_stop_times:
-                trip = next((t for t in trips if t['trip_id'] == stop_time['trip_id'] and t['service_id'] in active_services), None)
-                if not trip:
-                    continue
-
-                route = next((r for r in routes if r['route_id'] == trip['route_id']), None)
-                if not route:
-                    continue
-
-                # Filter to next 2 hours
-                arrival_time = stop_time['arrival_time']
-                try:
-                    h, m, s = map(int, arrival_time.split(":"))
-                    if h >= 24:
-                        h = h % 24
-                    arrival_dt = now.replace(hour=h, minute=m, second=s)
-                    if arrival_dt < now:
-                        arrival_dt += timedelta(days=1)
-                    diff_hours = (arrival_dt - now).total_seconds() / 3600
-                    if diff_hours > 2:
-                        continue
-                except:
-                    continue
-
-                results.append({
-                    'route_number': route['route_short_name'],
-                    'destination': trip['trip_headsign'] or route['route_long_name'].split(" - ")[-1],
-                    'arrival_time': arrival_dt.strftime("%I:%M %p"),
-                    'status': 'Scheduled'
-                })
-
-            # Optional: Split inbound/outbound if direction_id is known
-            results.sort(key=lambda x: datetime.strptime(x['arrival_time'], "%I:%M %p"))
-            return {
-                "inbound": results[:2],
-                "outbound": results[2:4]  # Fake split for now
-            }
+            return schedule
 
         except Exception as e:
-            print(f"[ERROR] Redis GTFS schedule error for stop {stop_id}: {e}")
-            return {"inbound": [], "outbound": []}
+            print(f"[ERROR] Static GTFS fallback failed for stop {stop_id}: {e}")
+            return {'inbound': [], 'outbound': []}
+
 
     def _get_static_schedule(self, stop_id: str):
         """Wrapper for _get_static_schedule_from_redis for consistency"""
         return self._get_static_schedule_from_redis(stop_id)
 
-    async def get_stop_schedule(self, stop_id: str) -> Dict[str, Any]:
+    async def get_stop_schedule(self, stop_id: str):
+        print(f"[GTFS] Looking up schedule for stop_id: {stop_id}")
+
+        # Get today weekday to match calendar.txt
+        today = datetime.now()
+        weekday = today.strftime('%A').lower()
+
+        # Get active service_ids from calendar
+        service_ids = self.db.execute(
+            f"SELECT service_id FROM calendar WHERE {weekday} = 1"
+        ).scalars().all()
+
+        if not service_ids:
+            print(f"[GTFS] No active services for {weekday}")
+            return {'inbound': [], 'outbound': []}
+
+        # Join trips and stop_times for this stop
+        query = f"""
+        SELECT
+            r.route_short_name AS route_number,
+            r.route_long_name AS destination,
+            st.arrival_time,
+            t.direction_id
+        FROM stop_times st
+        JOIN trips t ON st.trip_id = t.trip_id
+        JOIN routes r ON t.route_id = r.route_id
+        WHERE st.stop_id = :stop_id
+        AND t.service_id = ANY(:service_ids)
+        ORDER BY st.arrival_time ASC
+        LIMIT 20;
         """
-        Orchestrates getting the schedule: Cache -> Real-time API -> Static GTFS Fallback.
-        Always returns a dictionary, even if empty.
-        """
-        stop_id_str = str(stop_id) # Ensure consistent key format
-        cache_key = f"stop_schedule:{stop_id_str}"
-        default_empty_schedule = {'inbound': [], 'outbound': []}
+        results = self.db.execute(query, {
+            "stop_id": stop_id,
+            "service_ids": service_ids
+        }).fetchall()
 
-        # 1. Check Cache
-        cached_data_str: Optional[str] = None
-        if redis_cache: # Check if redis connection is available
-            try:
-                cached_data_str = redis_cache.get(cache_key)
-                if cached_data_str:
-                    print(f"[CACHE HIT] Returning cached schedule for stop {stop_id_str}")
-                    # Safely decode JSON from cache
-                    try:
-                        return json.loads(cached_data_str)
-                    except json.JSONDecodeError as jde:
-                         print(f"[ERROR] Failed to decode cached JSON for {cache_key}: {jde}. Treating as cache miss.")
-                         # Optionally delete the invalid cache entry: redis_cache.delete(cache_key)
-                         cached_data_str = None # Fall through to fetch fresh data
-            except Exception as e:
-                print(f"[ERROR] Redis GET failed for key {cache_key}: {e}")
-                # Continue as if cache miss
-
-        if not cached_data_str:
-             print(f"[CACHE MISS] No valid cache for stop {stop_id_str}. Fetching data...")
-
-        # 2. Try Real-time Data (Asynchronously)
-        schedule_data = await self.fetch_real_time_stop_data(stop_id_str)
-        source = "Real-time"
-        ttl = CACHE_TTL_REALTIME
-
-        # 3. Fallback to Static GTFS if Real-time failed (returned None) or was empty
-        is_real_time_empty = not schedule_data or (not schedule_data.get('inbound') and not schedule_data.get('outbound'))
-
-        if schedule_data is None or is_real_time_empty: # Check for None (failure) or empty lists
-            if schedule_data is None:
-                 print(f"[INFO] Real-time data fetch FAILED for stop {stop_id_str}, falling back to static GTFS...")
-            else:
-                 print(f"[INFO] Real-time data is EMPTY for stop {stop_id_str}, falling back to static GTFS...")
-
-            # --- Call Static Fallback ---
-            # This part is synchronous assuming your pandas logic is sync
-            schedule_data = self._get_static_schedule(stop_id_str)
-            source = "Static GTFS"
-            ttl = CACHE_TTL_STATIC # Use longer TTL for static data
-
-            # If static also fails (None) or is empty, use the default empty schedule
-            is_static_empty = not schedule_data or (not schedule_data.get('inbound') and not schedule_data.get('outbound'))
-            if schedule_data is None or is_static_empty:
-                 if schedule_data is None:
-                      print(f"[WARN] Static schedule calculation FAILED for stop {stop_id_str}.")
-                 else:
-                      print(f"[WARN] Static schedule is EMPTY for stop {stop_id_str}.")
-                 schedule_data = default_empty_schedule
-                 source = "None (Default Empty)"
-                 ttl = CACHE_TTL_EMPTY # Cache empty result for a shorter time
-
-
-        # 4. Cache the final result
-        if redis_cache:
-            try:
-                schedule_json = json.dumps(schedule_data)
-                redis_cache.setex(cache_key, ttl, schedule_json)
-                print(f"[CACHE SET] Cached schedule for stop {stop_id_str} from {source} with TTL {ttl}s.")
-            except TypeError as te:
-                 print(f"[ERROR] Failed to serialize schedule data to JSON for caching: {te}. Data: {schedule_data}")
-            except Exception as e:
-                print(f"[ERROR] Redis SETEX failed for key {cache_key}: {e}")
-
-        print(f"[DEBUG get_stop_schedule] Returning schedule for stop {stop_id_str} (Source: {source})")
-        return schedule_data
+        schedule = defaultdict(list)
+        for row in results:
+            item = {
+                "route_number": row.route_number,
+                "destination": row.destination,
+                "arrival_time": row.arrival_time,
+                "status": "Scheduled"  # Optionally: compute delay later
+            }
+            direction = 'inbound' if row.direction_id == 0 else 'outbound'
+            schedule[direction].append(item)
 
 
     async def close(self):
@@ -619,9 +582,7 @@ class BusService:
             response = await self.http_client.get(url, params=params)
             response.raise_for_status()
             
-            # Parse JSON response and process vehicles...
-            # [existing code here]
-            
+            vehicles = await self.fetch_real_time_positions()
             return vehicles
             
         except Exception as e:
