@@ -1,37 +1,28 @@
 import os
 import sys
-# For when running directly
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from typing import List, Dict, Any
-import logging
-
 from app.db.database import get_db, SessionLocal
 from app.services.bus_service import BusService
 
-# Create a database session for global service
-db = SessionLocal()
-bus_service = BusService(db=db)  # Fix: Pass the db session
-
-# Initialize router
 router = APIRouter()
-logger = logging.getLogger(__name__)
+db = SessionLocal()
+bus_service = BusService(db=db)
 
-@router.get("/nearby-stops")
+@router.get("/api/nearby-stops")
 async def get_nearby_stops(
-    lat: float = Query(..., description="Latitude of the search point"),
-    lon: float = Query(..., description="Longitude of the search point"),
-    radius: float = Query(0.15, description="Search radius in miles"),
-    limit: int = Query(10, description="Maximum number of stops to return"),
-    db: Session = Depends(get_db)  # Use dependency injection here
+    lat: float,
+    lon: float,
+    radius_miles: float = 0.15,
+    db: Session = Depends(get_db)
 ):
-    """Find transit stops near a given location"""
+    """
+    Get nearby transit stops within the specified radius
+    """
     try:
-        # Use the global bus_service instance
-        stops = await bus_service.find_nearby_stops(lat, lon, radius, limit)
-        return {"stops": stops, "count": len(stops)}
+        nearby_stops = await bus_service.get_nearby_buses(lat, lon, radius_miles)
+        return nearby_stops
     except Exception as e:
-        logger.exception(f"Error finding nearby stops: {e}")
-        raise HTTPException(status_code=500, detail=f"Error retrieving nearby stops: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e)) 

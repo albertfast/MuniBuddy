@@ -6,6 +6,7 @@ import pandas as pd
 from typing import Dict, Any, Optional, Tuple, List
 from datetime import datetime, timezone
 from collections import defaultdict
+from colorama import init, Fore, Style
 from sqlalchemy.orm import Session
 from redis import Redis
 from fastapi import HTTPException
@@ -145,83 +146,59 @@ class BusService:
             return float('inf') # Return infinity on calculation error
 
 
-    async def find_nearby_stops(self, lat: float, lon: float, radius_miles: float = 0.15, limit: int = 10) -> List[Dict[str, Any]]:
-        """
-        Finds nearby transit stops within a specified radius and limit, including basic route info.
-        Uses the pre-loaded GTFS stops DataFrame.
-        """
-        if 'stops' not in self.gtfs_data or self.gtfs_data['stops'].empty:
-            print("[ERROR find_nearby_stops] Stops GTFS data not available.")
-            return []
-
-        print(f"[DEBUG find_nearby_stops] Finding stops near ({lat}, {lon}), radius: {radius_miles} miles, limit: {limit}")
-        stops_df = self.gtfs_data['stops'] # Use the pre-processed DataFrame
+    async def find_nearby_stops(self, lat: float, lon: float, radius_miles: float = 0.1, limit: int = 3) -> List[Dict[str, Any]]:
+        stops = await self._load_stops()
         nearby_stops = []
 
-        # Iterate through stops DataFrame (ensure lat/lon columns are numeric)
-        for index, stop in stops_df.iterrows():
-            stop_lat = stop.get('stop_lat')
-            stop_lon = stop.get('stop_lon')
-            stop_id = str(stop.get('stop_id', '')) # Ensure string ID
-
-            if pd.isna(stop_lat) or pd.isna(stop_lon) or not stop_id:
-                continue # Skip stops with invalid data
-
-            distance = self._calculate_distance(lat, lon, stop_lat, stop_lon)
-
+        for stop in stops:
+            distance = self._calculate_distance(lat, lon, stop['stop_lat'], stop['stop_lon'])
             if distance <= radius_miles:
-                route_info = []
-                # --- Safely get route info ---
+                # Get route information from GTFS data
+                original_stop_id = stop['stop_id']
+                api_stop_id = original_stop_id[1:] if original_stop_id.startswith('1') else original_stop_id
+
                 try:
-                     # Check if necessary GTFS data exists
-                     if all(df in self.gtfs_data and not self.gtfs_data[df].empty for df in ['stop_times', 'trips', 'routes']):
-                          stop_times_df = self.gtfs_data['stop_times']
-                          trips_df = self.gtfs_data['trips']
-                          routes_df = self.gtfs_data['routes']
+                    stop_times = self.gtfs_data['stop_times'][
+                        self.gtfs_data['stop_times']['stop_id'] == original_stop_id
+                    ]
 
-                          # Find stop_times for this stop
-                          relevant_stop_times = stop_times_df[stop_times_df['stop_id'] == stop_id]
+                    trips = self.gtfs_data['trips'][
+                        self.gtfs_data['trips']['trip_id'].isin(stop_times['trip_id'])
+                    ]
 
-                          if not relevant_stop_times.empty:
-                               # Find unique trips associated with these stop_times
-                               relevant_trip_ids = relevant_stop_times['trip_id'].unique()
-                               relevant_trips = trips_df[trips_df['trip_id'].isin(relevant_trip_ids)]
+                    routes = self.gtfs_data['routes'][
+                        self.gtfs_data['routes']['route_id'].isin(trips['route_id'])
+                    ].drop_duplicates()
+                    # Prepare route information for the stop
+                    route_info = []
+                    for _, route in routes.iterrows():
+                        # Get the final destination (last part of route name)
+                        destination = route['route_long_name'].split(' - ')[-1] if ' - ' in route['route_long_name'] else route['route_long_name']
 
-                               if not relevant_trips.empty:
-                                    # Find unique routes associated with these trips
-                                    relevant_route_ids = relevant_trips['route_id'].unique()
-                                    relevant_routes = routes_df[routes_df['route_id'].isin(relevant_route_ids)]
+                        route_info.append({
+                            'route_id': route['route_id'],
+                            'route_number': route['route_short_name'],
+                            'destination': destination
+                        })
 
-                                    for _, route in relevant_routes.iterrows():
-                                         destination = route.get('route_long_name', '') # Default destination
-                                         if isinstance(destination, str) and ' - ' in destination:
-                                              destination = destination.split(' - ')[-1]
+                    stop_info = stop.copy()
+                    stop_info['distance_miles'] = round(distance, 2)
+                    stop_info['routes'] = route_info
+                    stop_info['id'] = api_stop_id  # Frontend için
+                    stop_info['stop_id'] = api_stop_id  # API çağrıları için
+                    stop_info['gtfs_stop_id'] = original_stop_id  # GTFS sorguları için
+                    nearby_stops.append(stop_info)
 
-                                         route_info.append({
-                                              'route_id': str(route.get('route_id', '')),
-                                              'route_number': str(route.get('route_short_name', '')),
-                                              'destination': destination
-                                         })
+                except KeyError as e:
+                    print(f"{Fore.RED}✗ KeyError while processing stop {original_stop_id}: {e}{Style.RESET_ALL}")
+                    continue
                 except Exception as e:
-                     print(f"[ERROR find_nearby_stops] Error getting route info for stop {stop_id}: {e}")
-                # --- End route info ---
-
-                nearby_stops.append({
-                    'stop_id': stop_id,
-                    'stop_name': stop.get('stop_name', 'Unknown Name'),
-                    'stop_lat': stop_lat,
-                    'stop_lon': stop_lon,
-                    'distance_miles': round(distance, 2),
-                    'routes': route_info
-                })
+                    print(f"{Fore.RED}✗ Error while processing stop {original_stop_id}: {e}{Style.RESET_ALL}")
+                    continue
 
         # Sort by distance
         nearby_stops.sort(key=lambda x: x['distance_miles'])
-        print(f"[DEBUG find_nearby_stops] Found {len(nearby_stops)} stops within radius before limit.")
-
-        # Return limited results
         return nearby_stops[:limit]
-
 
     async def fetch_real_time_stop_data(self, stop_id: str) -> Optional[Dict[str, Any]]:
         """
