@@ -8,10 +8,6 @@ from app.db.database import SessionLocal
 from app.services.bus_service import BusService
 
 # Initialize service with DB
-db = SessionLocal()
-bus_service = BusService(db=db)
-
-# Rest of imports
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from redis import Redis
@@ -22,10 +18,14 @@ import requests
 import json
 from datetime import datetime
 
-from app.db.database import get_db  # Keep this for dependency injection
+from app.db.database import get_db
 from app.models.bus_route import BusRoute
 from app.utils.xml_parser import xml_to_json
 from app.config import settings
+
+
+db = SessionLocal()
+bus_service = BusService(db=db)
 
 # Load GTFS data
 agency_map = {
@@ -86,6 +86,7 @@ def get_route_details(
     except requests.RequestException as e:
         logger.error(f"511 API request error: {e}")
         raise HTTPException(status_code=503, detail="511 API unreachable")
+
 
 @router.get("/bus-positions")
 def get_bus_positions(bus_number: str, agency: str):
