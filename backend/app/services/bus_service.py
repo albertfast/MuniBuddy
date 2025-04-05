@@ -144,6 +144,39 @@ class BusService:
         except (ValueError, TypeError) as e:
             print(f"[WARN _calculate_distance] Error calculating distance for ({lat1},{lon1}) to ({lat2},{lon2}): {e}")
             return float('inf') # Return infinity on calculation error
+        
+    async def _load_stops(self) -> List[Dict[str, Any]]:
+        """
+        Load all stops from GTFS data.
+
+        Returns:
+            List[Dict[str, Any]]: List of stops with their coordinates
+        """
+        if self.stops_cache is not None:
+            return self.stops_cache
+
+        try:
+            # Use stops from GTFS data instead of reading from file
+            if 'stops' not in self.gtfs_data or self.gtfs_data['stops'].empty:
+                print(f"{Fore.RED}✗ No stops data in GTFS{Style.RESET_ALL}")
+                return []
+
+            stops = []
+            for _, row in self.gtfs_data['stops'].iterrows():
+                stops.append({
+                    'stop_id': row['stop_id'],
+                    'stop_name': row['stop_name'],
+                    'stop_lat': float(row['stop_lat']),
+                    'stop_lon': float(row['stop_lon'])
+                })
+
+            self.stops_cache = stops
+            print(f"{Fore.GREEN}✓ Loaded {len(stops)} stops from GTFS data{Style.RESET_ALL}")
+            return stops
+
+        except Exception as e:
+            print(f"{Fore.RED}✗ Error loading stops: {str(e)}{Style.RESET_ALL}")
+            return []
 
     async def get_nearby_buses(self, lat: float = None, lon: float = None, stop_id: str = None, radius_miles: float = 0.1) -> Dict[str, Any]:
             """Get nearby buses by lat/lon or stop_id."""
