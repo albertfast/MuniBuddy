@@ -1,13 +1,17 @@
 import os
 import sys
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
+
+# Now we can import from app
 from app.db.database import SessionLocal
 from app.services.bus_service import BusService
 
+# Initialize service with DB
 db = SessionLocal()
 bus_service = BusService(db=db)
-# Add root directory to sys.path (e.g., backend/)
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
+# Rest of imports
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from redis import Redis
@@ -18,8 +22,7 @@ import requests
 import json
 from datetime import datetime
 
-from app.db.database import get_db
-from app.services.bus_service import BusService
+from app.db.database import get_db  # Keep this for dependency injection
 from app.models.bus_route import BusRoute
 from app.utils.xml_parser import xml_to_json
 from app.config import settings
@@ -38,7 +41,6 @@ routes_df, trips_df, stops_df, stop_times_df, calendar_df = settings.get_gtfs_da
 # Initialize
 logger = logging.getLogger(__name__)
 router = APIRouter()
-bus_service = BusService()
 redis = Redis(host=settings.REDIS_HOST, port=settings.REDIS_PORT, decode_responses=True)
 
 API_KEY = settings.API_KEY
