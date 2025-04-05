@@ -145,6 +145,49 @@ class BusService:
             print(f"[WARN _calculate_distance] Error calculating distance for ({lat1},{lon1}) to ({lat2},{lon2}): {e}")
             return float('inf') # Return infinity on calculation error
 
+    async def get_nearby_buses(self, lat: float = None, lon: float = None, stop_id: str = None, radius_miles: float = 0.1) -> Dict[str, Any]:
+            """Get nearby buses by lat/lon or stop_id."""
+            result = {}
+
+            if lat is not None and lon is not None:
+                # Find nearby stops based on coordinates
+                nearby_stops = await self.find_nearby_stops(lat, lon, radius_miles)
+
+                for stop in nearby_stops:
+                    try:
+                        schedule = await self.get_stop_schedule(stop['stop_id'])
+                        if schedule:
+                            result[stop['id']] = {
+                                'stop_name': stop['stop_name'],
+                                'id': stop['id'],
+                                'distance_miles': stop['distance_miles'],
+                                'routes': stop.get('routes', []),
+                                'schedule': schedule,
+                                'gtfs_stop_id': stop['gtfs_stop_id']
+                            }
+                    except Exception as e:
+                        print(f"{Fore.RED}✗ Error processing stop {stop.get('stop_id', 'Unknown')}: {e}{Style.RESET_ALL}")
+
+            elif stop_id:
+                # Get schedule directly for a given stop_id
+                try:
+                    schedule = await self.get_stop_schedule(stop_id)
+                    if schedule:
+                        # Create a "fake" stop result
+                        result[stop_id] = {
+                            'stop_name': 'Unknown Stop',
+                            'id': stop_id,
+                            'distance_miles': 0,
+                            'routes': [],
+                            'schedule': schedule,
+                            'gtfs_stop_id': stop_id
+                        }
+                except Exception as e:
+                    print(f"{Fore.RED}✗ Error processing stop {stop_id}: {e}{Style.RESET_ALL}")
+            else:
+                print(f"{Fore.YELLOW}⚠️ No lat/lon or stop_id provided to get_nearby_buses{Style.RESET_ALL}")
+
+            return result
 
     async def find_nearby_stops(self, lat: float, lon: float, radius_miles: float = 0.1, limit: int = 3) -> List[Dict[str, Any]]:
         stops = await self._load_stops()

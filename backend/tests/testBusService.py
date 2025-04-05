@@ -1,16 +1,27 @@
 import os
 import sys
-from datetime import datetime
-from colorama import init, Fore, Style
-
-# Initialize colorama for colored output
-init()
-
+# Add project root to Python path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 # Change working directory to backend folder
 os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Add project root to Python path
 sys.path.insert(0, os.getcwd())
+
+
+# Import essential modules first
+from datetime import datetime
+from colorama import init, Fore, Style
+
+# Import your own modules
+from app.db.database import SessionLocal
+from app.services.bus_service import BusService
+
+# Initialize DB connection and service
+db = SessionLocal()  # This db is now clearly used
+bus_service = BusService(db=db)
+
+# Initialize colorama for colored output
 
 import asyncio
 from app.services.bus_service import BusService
@@ -31,7 +42,7 @@ def print_bus_info(bus: dict):
     print(f"  {Fore.YELLOW}🏁 Destination:{Style.RESET_ALL} {bus['destination']}")
 
 async def test_bus_service():
-    bus_service = BusService()
+    bus_service = BusService(db=db)
     
     # Print GTFS paths
     print(f"BART GTFS Path: {bus_service.bart_gtfs_path}")
@@ -76,4 +87,5 @@ async def test_bus_service():
         print("✗ No nearby stops found")
 
 if __name__ == "__main__":
+    init()
     asyncio.run(test_bus_service())
