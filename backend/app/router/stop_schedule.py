@@ -1,31 +1,54 @@
-import os
-import sys
-# Add project root to Python path
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-
-# Import essential modules first
+from datetime import datetime
 from fastapi import APIRouter, HTTPException
-from sqlalchemy.orm import Session
+from app.config import settings
 
-# Import your own modules
-from app.db.database import SessionLocal
-from app.services.bus_service import BusService
-
-# Initialize DB connection and service
-db = SessionLocal()  # This db is now clearly used
-bus_service = BusService(db=db)
-
-# Create the router
 router = APIRouter()
 
 @router.get("/stop-schedule/{stop_id}")
-async def get_stop_schedule(stop_id: str):
+def get_stop_schedule(stop_id: str):
     """
-    Get schedule information for a specific stop
+    Returns the upcoming scheduled arrivals at the given stop.
+    Only future departures from the current time are included.
     """
     try:
-        # Use the existing global bus_service instance
-        schedule = await bus_service.get_stop_schedule(stop_id)
-        return schedule
+        # Load GTFS data
+        _, _, stops_df, stop_times_df, trips_df, calendar_df = settings.get_gtfs_data("muni")
+
+        # Get current time and day
+        current_time = datetime.now().strftime("%H:%M:%S")
+        current_day = datetime.now().strftime("%A").lower()  # e.g., 'monday'
+
+        # Filter active services for today
+        active_services = calendar_df[calendar_df[current_day] == "1"]["service_id"].tolist()
+
+        # Get upcoming times for the given stop
+        upcoming_times = stop_times_df[
+            (stop_times_df["stop_id"] == stop_id) &
+            (stop_times_df["departure_time"] > current_time)
+        ]
+
+        # Merge with trip info
+        upcoming_with_trip = upcoming_times.merge(trips_df, on="trip_id")
+        upcoming_with_trip = upcoming_with_trip[upcoming_with_trip["service_id"].isin(active_services)]
+
+        # Sort and limit to next 4
+        upcoming_with_trip = upcoming_with_trip.sort_values("departure_time").head(4)
+
+        # Format response
+        results = []
+        for _, row in upcoming_with_trip.iterrows():
+            results.append({
+                "route_id": row["route_id"],
+                "trip_headsign": row["trip_headsign"],
+                "arrival_time": row["arrival_time"],
+                "departure_time": row["departure_time"],
+                "direction": row["direction_id"]
+            })
+
+        if not results:
+            return {"message": "No upcoming buses at this stop."}
+
+        return {"stop_id": stop_id, "upcoming_arrivals": results}
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
