@@ -53,6 +53,7 @@ except Exception as e:
 class BusService:
     def __init__(self, db: Session):
         self.db = db
+        self.stops_cache = None
         self.api_key = settings.API_KEY
         self.base_url = "http://api.511.org/transit"
         self.gtfs_data: Dict[str, pd.DataFrame] = {}
