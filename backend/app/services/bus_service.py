@@ -56,6 +56,7 @@ class BusService:
         self.api_key = settings.API_KEY
         self.base_url = "http://api.511.org/transit"
         self.gtfs_data: Dict[str, pd.DataFrame] = {}
+        self.muni_gtfs_path = settings.GTFS_PATHS["muni"]
 
         try:
             agency_key = "muni"
@@ -493,9 +494,6 @@ class BusService:
             print(f"[ERROR] Static GTFS fallback failed for stop {stop_id}: {e}")
             raise HTTPException(status_code=500, detail=f"Failed to get stop schedule: {e}")
 
-# --- Potentially add other methods like get_live_bus_positions if needed ---
-# Remember to make them async and use self.http_client if they make HTTP requests
-# Example:
     async def get_live_bus_positions_async(self, agency: str = "SF", route: str = None) -> List[Dict]:
         """
         Async version to fetch vehicle positions.
@@ -533,12 +531,3 @@ class BusService:
         except Exception as e:
             print(f"[ERROR] Unexpected error processing vehicle positions for agency {agency}: {e}")
             return []
-
-
-
-# --- Optional: Graceful Shutdown Hook (if running standalone or need cleanup) ---
-# import atexit
-# bus_service_instance = BusService() # Create instance if needed globally
-# async def cleanup():
-#    await bus_service_instance.close()
-# atexit.register(lambda: asyncio.run(cleanup())) # Requires asyncio context if run standalone

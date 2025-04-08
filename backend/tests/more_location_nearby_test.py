@@ -2,6 +2,7 @@ import os
 import sys
 from datetime import datetime
 from colorama import init, Fore, Style
+from app.config import settings
 
 # Initialize colorama for colored output
 init()
@@ -14,6 +15,7 @@ sys.path.insert(0, os.getcwd())
 
 import asyncio
 from app.services.bus_service import BusService
+from app.db.database import SessionLocal
 
 def print_header(text: str):
     print(f"\n{Fore.CYAN}=== {text} ==={Style.RESET_ALL}")
@@ -37,13 +39,17 @@ def print_bus_info(bus: dict):
         print(f"{Fore.RED}Error printing bus info: {str(e)}{Style.RESET_ALL}")
 
 async def test_bus_service():
-    bus_service = BusService()
-    
+    # Initialize DB connection
+    db = SessionLocal()
+    muni_gtfs_path = settings.GTFS_PATHS["muni"]
+
+    # Pass the database session to BusService
+    bus_service = BusService(db=db)
+
     # Print GTFS paths
-    print(f"BART GTFS Path: {bus_service.bart_gtfs_path}")
     print(f"Muni GTFS Path: {bus_service.muni_gtfs_path}")
     print()
-    
+
     # Test locations with larger radius
     test_locations = [
         {
