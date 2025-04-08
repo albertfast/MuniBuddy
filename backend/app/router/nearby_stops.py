@@ -1,18 +1,27 @@
-from fastapi import APIRouter, HTTPException, Query
-from app.core.singleton import bus_service
+import os
+import sys
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+from app.db.database import get_db
+from app.services.bus_service import BusService
 
 router = APIRouter()
+bus_service = BusService()
 
-@router.get("/nearby-stops")
+@router.get("/api/nearby-stops")
 async def get_nearby_stops(
-    lat: float = Query(...),
-    lon: float = Query(...),
-    radius_miles: float = Query(0.15)
+    lat: float,
+    lon: float,
+    radius_miles: float = 0.15,
+    db: Session = Depends(get_db)
 ):
     """
-    Return nearby transit stops within a radius
+    Get nearby transit stops within the specified radius
     """
     try:
-        return await bus_service.get_nearby_buses(lat, lon, radius_miles)
+        nearby_stops = await bus_service.get_nearby_buses(lat, lon, radius_miles)
+        return nearby_stops
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) 

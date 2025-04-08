@@ -434,6 +434,44 @@ class BusService:
             print(f"[ERROR fetch_real_time] Unexpected error processing real-time for stop {stop_id}: {e}")
             return None
 
+    async def get_live_bus_positions_async(self, agency: str = "SF", route: str = None) -> List[Dict]:
+        """
+        Async version to fetch vehicle positions.
+        
+        Args:
+            agency: Transit agency code (SF for SFMTA/Muni, BA for BART, etc)
+            route: Optional route number to filter results
+        
+        Returns:
+            List of vehicle position dictionaries with coordinates and metadata
+        """
+        if not self.api_key: 
+            print(f"[WARN] No API key configured. Cannot fetch vehicle positions for agency {agency}.")
+            return []
+        
+        url = f"{self.base_url}/VehicleMonitoring"
+        params = {
+            "api_key": self.api_key,
+            "agency": agency,  # Using the agency parameter correctly
+            "format": "json"
+        }
+        
+        # Add route filter if specified
+        if route:
+            params["line"] = route
+        
+        try:
+            print(f"[DEBUG] Fetching vehicle positions for agency: {agency}{' route: '+route if route else ''}")
+            response = await self.http_client.get(url, params=params)
+            response.raise_for_status()
+            
+            vehicles = await self.fetch_real_time_positions()
+            return vehicles
+            
+        except Exception as e:
+            print(f"[ERROR] Unexpected error processing vehicle positions for agency {agency}: {e}")
+            return []
+
     async def get_stop_schedule(self, stop_id: str) -> Dict[str, Any]:
         print(f"[GTFS] Fetching static schedule for stop_id: {stop_id}")
         today = datetime.now()
@@ -493,41 +531,3 @@ class BusService:
         except Exception as e:
             print(f"[ERROR] Static GTFS fallback failed for stop {stop_id}: {e}")
             raise HTTPException(status_code=500, detail=f"Failed to get stop schedule: {e}")
-
-    async def get_live_bus_positions_async(self, agency: str = "SF", route: str = None) -> List[Dict]:
-        """
-        Async version to fetch vehicle positions.
-        
-        Args:
-            agency: Transit agency code (SF for SFMTA/Muni, BA for BART, etc)
-            route: Optional route number to filter results
-        
-        Returns:
-            List of vehicle position dictionaries with coordinates and metadata
-        """
-        if not self.api_key: 
-            print(f"[WARN] No API key configured. Cannot fetch vehicle positions for agency {agency}.")
-            return []
-        
-        url = f"{self.base_url}/VehicleMonitoring"
-        params = {
-            "api_key": self.api_key,
-            "agency": agency,  # Using the agency parameter correctly
-            "format": "json"
-        }
-        
-        # Add route filter if specified
-        if route:
-            params["line"] = route
-        
-        try:
-            print(f"[DEBUG] Fetching vehicle positions for agency: {agency}{' route: '+route if route else ''}")
-            response = await self.http_client.get(url, params=params)
-            response.raise_for_status()
-            
-            vehicles = await self.fetch_real_time_positions()
-            return vehicles
-            
-        except Exception as e:
-            print(f"[ERROR] Unexpected error processing vehicle positions for agency {agency}: {e}")
-            return []
