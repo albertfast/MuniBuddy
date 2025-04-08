@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException
-from app.main import bus_service 
+from app.core.singleton import bus_service
 
 router = APIRouter()
 
