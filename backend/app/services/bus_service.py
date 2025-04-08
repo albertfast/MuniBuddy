@@ -278,6 +278,8 @@ class BusService:
         return nearby_stops[:limit]
 
     async def fetch_real_time_stop_data(self, stop_id: str) -> Optional[Dict[str, Any]]:
+        stop_id = stop_id if str(stop_id).startswith("1") else f"1{stop_id}"  # Normalize stop_id
+        url = f"{self.base_url}/StopMonitoring"
         """
         Fetches ONLY real-time data from 511 StopMonitoring API asynchronously.
         Returns a dictionary {'inbound': [...], 'outbound': [...]} or None on failure.
@@ -473,7 +475,7 @@ class BusService:
             return []
 
     async def get_stop_schedule(self, stop_id: str) -> Dict[str, Any]:
-        print(f"[GTFS] Fetching static schedule for stop_id: {stop_id}")
+        stop_id = stop_id if str(stop_id).startswith("1") else f"1{stop_id}"  # Normalize stop_id
         today = datetime.now()
         weekday = today.strftime('%A').lower()
         print(f"[GTFS] Today is {today.date()} ({weekday})")
@@ -481,7 +483,6 @@ class BusService:
         try:
             print(f"[DB] Getting service_ids active on {weekday}")
 
-            # ✅ FIX: text() ile SQL sorgusu doğru çalışır
             service_ids = self.db.execute(
                 text(f"SELECT service_id FROM calendar WHERE {weekday} = 1")
             ).scalars().all()
@@ -514,6 +515,7 @@ class BusService:
             }).fetchall()
 
             print(f"[DB] Query returned {len(results)} rows")
+            print(f"[DEBUG] Fetching schedule for stop_id={stop_id}, weekday={weekday}")
 
             schedule = defaultdict(list)
             for row in results:
