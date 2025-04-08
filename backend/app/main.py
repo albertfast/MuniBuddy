@@ -19,6 +19,7 @@ from app.db.database import init_db, SessionLocal
 from app.api.routes import transit
 from app.route_finder import router as route_router
 from app.router.bus import router as bus_router
+from app.router.nearby_stops import router as nearby_stops_router
 from app.router.nearby_bus_positions import router as nearby_bus_router
 from app.router.stop_schedule import router as stop_schedule_router
 from app.router.deploy import router as deploy_router
@@ -77,7 +78,8 @@ def health_check():
     return {"status": "ok"}
 
 # Routers organized clearly:
-app.include_router(bus_router, prefix="/api/v1", tags=["Bus Routes"])                    
+app.include_router(bus_router, prefix="/api/v1", tags=["Bus Routes"])
+app.include_router(nearby_stops_router, prefix="/api/v1", tags=["Nearby Stops"])                    
 app.include_router(nearby_bus_router, prefix="/api/v1", tags=["Nearby Bus Stops"])          
 app.include_router(stop_schedule_router, prefix="/api/v1", tags=["Stop Schedules"])
 app.include_router(deploy_router, prefix="/api/v1/deploy")                   
