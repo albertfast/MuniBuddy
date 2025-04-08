@@ -36,7 +36,7 @@ class Settings(BaseSettings):
         return v
 
     # Database Config
-    DATABASE_URL: str = Field(default="postgresql://myuser:mypassword@localhost:5432/munibuddy_db")
+    DATABASE_URL: str = Field(default="postgresql://myuser:mypassword@postgres_db:5432/munibuddy_db")
     SQLALCHEMY_DATABASE_URI: Optional[str] = None
 
     @model_validator(mode="before")
