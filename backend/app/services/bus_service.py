@@ -13,6 +13,7 @@ from fastapi import HTTPException
 from sqlalchemy import text 
 import math
 
+# GTFS ayarlarını almak için config import edilir
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 from app.config import settings
 
@@ -433,43 +434,46 @@ class BusService:
             print(f"[ERROR fetch_real_time] Unexpected error processing real-time for stop {stop_id}: {e}")
             return None
 
+from datetime import datetime
 
-
-    async def get_stop_schedule(self, stop_id: str) -> List[Dict[str, Any]]:
-
-        try:
-            # 1. GTFS Schedule
-            schedule = await self._get_gtfs_schedule_for_stop(stop_id)
-            if not schedule:
-                return []
-
-            now = datetime.now().time()
-
-            # 2. Live vehicle positions from 511
-            live_vehicles = await self.get_live_bus_positions_async(agency="SF")
-            live_stop_ids = {
-                v.get("MonitoredVehicleJourney", {}).get("MonitoredCall", {}).get("StopPointRef", "").strip()
-                for v in live_vehicles
-            }
-
-            upcoming = []
-            for item in schedule:
-                arr_str = item.get("arrival_time")
-                if not arr_str:
-                    continue
-                try:
-                    arr_time = datetime.strptime(arr_str, "%H:%M:%S").time()
-                    if arr_time > now:
-                        item["status"] = "Live" if str(item.get("stop_id")) in live_stop_ids else "Scheduled"
-                        upcoming.append(item)
-                except Exception as e:
-                    print(f"[WARN] Failed to parse arrival time {arr_str}: {e}")
-
-            return upcoming[:3]
-
-        except Exception as e:
-            print(f"[ERROR] get_stop_schedule failed for stop {stop_id}: {e}")
+async def get_stop_schedule(self, stop_id: str) -> List[Dict[str, Any]]:
+    """
+    Returns upcoming scheduled buses for a given stop, filtered by current time.
+    If any real-time vehicle matches the stop, mark it as Live.
+    """
+    try:
+        # Get all scheduled trips for this stop
+        schedule = await self._get_gtfs_schedule_for_stop(stop_id)
+        if not schedule:
             return []
+
+        # Get current time for filtering
+        now = datetime.now().time()
+
+        # Get real-time vehicle positions
+        live_vehicles = await self.get_live_bus_positions_async(agency="SF")
+
+        # Match real-time vehicles to stop_id (if available)
+        live_stop_ids = set()
+        for v in live_vehicles:
+            monitored_stop = v.get("MonitoredVehicleJourney", {}).get("MonitoredCall", {}).get("StopPointRef")
+            if monitored_stop:
+                live_stop_ids.add(str(monitored_stop).strip())
+
+        upcoming = []
+        for item in schedule:
+            arr_time = datetime.strptime(item["arrival_time"], "%H:%M:%S").time()
+            if arr_time > now:
+                item["status"] = "Live" if str(item["stop_id"]) in live_stop_ids else "Scheduled"
+                upcoming.append(item)
+
+        # Limit to 3 results
+        return upcoming[:3]
+
+    except Exception as e:
+        print(f"[ERROR] Failed to get schedule for stop {stop_id}: {e}")
+        return []
+
 
 # --- Potentially add other methods like get_live_bus_positions if needed ---
 # Remember to make them async and use self.http_client if they make HTTP requests
