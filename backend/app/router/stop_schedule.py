@@ -1,6 +1,6 @@
 # app/router/stop_schedule.py
 from fastapi import APIRouter, HTTPException
-from app.services.bus_service import bus_service
+from services.bus_service import bus_service
 
 router = APIRouter()
 
