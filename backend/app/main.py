@@ -78,7 +78,7 @@ def health_check():
 
 # Routers organized clearly:
 app.include_router(bus_router, prefix="/api/v1", tags=["Bus Routes"])                    
-app.include_router(nearby_bus_router, prefix="/api/v1", tags=["Nearby Stops"])          
+app.include_router(nearby_bus_router, prefix="/api/v1", tags=["Nearby Bus Stops"])          
 app.include_router(stop_schedule_router, prefix="/api/v1", tags=["Stop Schedules"])
 app.include_router(deploy_router, prefix="/api/v1/deploy")                   
 app.include_router(transit.router, prefix="/api/transit")           
