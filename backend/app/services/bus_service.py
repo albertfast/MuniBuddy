@@ -1,151 +1,190 @@
 import os
-import sys
-import httpx
-import json
-import pandas as pd
-from typing import Dict, Any, Optional, Tuple, List
-from datetime import datetime, timezone
-from collections import defaultdict
-from colorama import init, Fore, Style
-from sqlalchemy.orm import Session
-from redis import Redis
-from fastapi import HTTPException
-from sqlalchemy import text 
+import requests
+from dotenv import load_dotenv
+from typing import List, Dict, Any, Optional
+from datetime import datetime, timedelta
 import math
+import pandas as pd
+from colorama import init, Fore, Style
+import json
+from .gtfs_service import load_gtfs_data
+import pytz
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-from app.config import settings
+# Initialize colorama for colored output
+init()
 
-try:
-    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-    if project_root not in sys.path:
-        sys.path.insert(0, project_root)
-    from app.config import settings
-except ImportError as e:
-    print(f"[ERROR] Failed to import settings. Ensure PYTHONPATH is correct or script is run from project root. Error: {e}")
-    class PlaceholderSettings:
-        API_KEY = "YOUR_FALLBACK_API_KEY"
-        REDIS_HOST = "localhost"
-        REDIS_PORT = 6379
-        GTFS_PATHS = {"muni": "gtfs_data/muni_gtfs-current"}
-        def get_gtfs_data(self, agency):
-            return (pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame())
-    settings = PlaceholderSettings()
-    print("[WARN] Using placeholder settings due to import error.")
+load_dotenv()
+API_KEY = os.getenv("API_KEY")
+AGENCY_IDS = os.getenv("AGENCY_ID", "SFMTA").split(',')
 
-# --- Redis Connection ---
-redis_cache: Optional[Redis] = None
-try:
-    redis_cache = Redis(
-        host=settings.REDIS_HOST,
-        port=settings.REDIS_PORT,
-        decode_responses=True,
-        socket_connect_timeout=2,
-        socket_timeout=2
-    )
-    redis_cache.ping()
-    print(f"[INFO] Redis connection successful to {settings.REDIS_HOST}:{settings.REDIS_PORT}")
-except Exception as e:
-    print(f"[ERROR] Redis connection failed: {e}. Caching will be disabled.")
-    redis_cache = None
 
 class BusService:
-    def __init__(self, db: Session):
-        self.db = db
-        self.stops_cache = None
-        self.api_key = settings.API_KEY
+    def __init__(self):
+        self.api_key = API_KEY
         self.base_url = "http://api.511.org/transit"
-        self.gtfs_data: Dict[str, pd.DataFrame] = {}
-        self.muni_gtfs_path = settings.GTFS_PATHS["muni"]
+        self.agency_ids = AGENCY_IDS
+        self.stops_cache = None
+        self.gtfs_data = {}
 
+        # GTFS paths (relative to backend folder)
+        self.bart_gtfs_path = "gtfs_data/bart_gtfs-current"
+        self.muni_gtfs_path = "gtfs_data/muni_gtfs-current"
+
+        # Load GTFS data
         try:
-            agency_key = "muni"
-            gtfs_tuple: Tuple[pd.DataFrame, ...] = settings.get_gtfs_data(agency_key)
-            df_keys = ['routes', 'trips', 'stops', 'stop_times', 'calendar']
-
-            if len(gtfs_tuple) != len(df_keys):
-                raise ValueError("Incorrect number of DataFrames returned by get_gtfs_data")
-
-            for key, df in zip(df_keys, gtfs_tuple):
-                if not isinstance(df, pd.DataFrame):
-                    print(f"[WARN] GTFS data for '{key}' is not a DataFrame. Type: {type(df)}")
-                    self.gtfs_data[key] = pd.DataFrame()
-                else:
-                    self.gtfs_data[key] = df
-                    print(f"[INFO] Loaded GTFS '{key}' data: {len(df)} rows.")
-                if df.empty:
-                    print(f"[WARN] GTFS data for '{key}' is empty.")
-
-            if 'stops' in self.gtfs_data and not self.gtfs_data['stops'].empty:
-                stops_df = self.gtfs_data['stops']
-                stops_df['stop_lat'] = pd.to_numeric(stops_df['stop_lat'], errors='coerce')
-                stops_df['stop_lon'] = pd.to_numeric(stops_df['stop_lon'], errors='coerce')
-                original_len = len(stops_df)
-                stops_df.dropna(subset=['stop_lat', 'stop_lon'], inplace=True)
-                if len(stops_df) < original_len:
-                    print(f"[WARN] Dropped {original_len - len(stops_df)} stops due to invalid coordinates.")
-                stops_df['stop_id'] = stops_df['stop_id'].astype(str)
-
-            print("[INFO] BusService initialized successfully.")
-
+            routes_df, trips_df, stops_df, stop_times_df, calendar_df = load_gtfs_data()
+            self.gtfs_data['routes'] = routes_df
+            self.gtfs_data['trips'] = trips_df
+            self.gtfs_data['stops'] = stops_df
+            self.gtfs_data['stop_times'] = stop_times_df
+            self.gtfs_data['calendar'] = calendar_df
         except Exception as e:
-            print(f"[ERROR] Failed to initialize BusService or load GTFS data: {e}")
-            self.gtfs_data = {key: pd.DataFrame() for key in ['routes', 'trips', 'stops', 'stop_times', 'calendar']}
+            print(f"{Fore.RED}✗ Error loading GTFS data: {str(e)}{Style.RESET_ALL}")
+            self.gtfs_data = {}
 
-        self.http_client: httpx.AsyncClient = httpx.AsyncClient(
-            timeout=9.0,
-            limits=httpx.Limits(max_connections=100, max_keepalive_connections=20),
-            follow_redirects=True
-        )
-        
-    def _build_stops_dict_cache(self):
-         """Builds a dictionary cache for stops for faster lookups."""
-         if 'stops' in self.gtfs_data and not self.gtfs_data['stops'].empty:
-              print("[DEBUG] Building stops dictionary cache...")
-              try:
-                   self._stops_dict_cache = self.gtfs_data['stops'].set_index('stop_id').to_dict('index')
-                   print(f"[DEBUG] Built stops cache with {len(self._stops_dict_cache)} entries.")
-              except Exception as e:
-                   print(f"[ERROR] Failed to build stops dictionary cache: {e}")
-                   self._stops_dict_cache = {} # Use empty dict on error
-         else:
-             self._stops_dict_cache = {}
-
-    def _get_stop_details(self, stop_id: str) -> Optional[Dict]:
-         """Gets stop details (name, lat, lon) from the cache or DataFrame."""
-         if self._stops_dict_cache is not None:
-              return self._stops_dict_cache.get(str(stop_id)) # Use cache if available
-
-         # Fallback to DataFrame lookup if cache failed or wasn't built
-         if 'stops' in self.gtfs_data and not self.gtfs_data['stops'].empty:
-              stop_series = self.gtfs_data['stops'][self.gtfs_data['stops']['stop_id'] == str(stop_id)]
-              if not stop_series.empty:
-                   return stop_series.iloc[0].to_dict()
-         return None
-
+    def _get_static_schedule(self, stop_id: str) -> Dict[str, Any]:
+        """Get static schedule from GTFS data."""
+        try:
+            # Get current time
+            now = datetime.now()
+            current_time = now.strftime("%H:%M:%S")
+            
+            # Get active services for today
+            weekday = now.strftime("%A").lower()
+            active_services = self.gtfs_data['calendar'][
+                (self.gtfs_data['calendar'][weekday] == 1) &
+                (pd.to_numeric(self.gtfs_data['calendar']['start_date']) <= int(now.strftime("%Y%m%d"))) &
+                (pd.to_numeric(self.gtfs_data['calendar']['end_date']) >= int(now.strftime("%Y%m%d")))
+            ]['service_id']
+            
+            # Get trips for active services
+            active_trips = self.gtfs_data['trips'][
+                self.gtfs_data['trips']['service_id'].isin(active_services)
+            ]
+            
+            # Get stop times for this stop
+            stop_times = self.gtfs_data['stop_times'][
+                self.gtfs_data['stop_times']['stop_id'] == stop_id
+            ]
+            
+            if stop_times.empty:
+                print(f"{Fore.YELLOW}⚠️ No stop times found for stop {stop_id}{Style.RESET_ALL}")
+                return {'inbound': [], 'outbound': []}
+            
+            # Merge with trips and routes
+            schedule_data = stop_times.merge(
+                active_trips[['trip_id', 'route_id', 'direction_id', 'trip_headsign']],
+                on='trip_id'
+            ).merge(
+                self.gtfs_data['routes'][['route_id', 'route_short_name', 'route_long_name']],
+                on='route_id'
+            )
+            
+            if schedule_data.empty:
+                print(f"{Fore.YELLOW}⚠️ No schedule data found for stop {stop_id}{Style.RESET_ALL}")
+                return {'inbound': [], 'outbound': []}
+            
+            # Convert current_time to datetime for comparison
+            current_dt = datetime.strptime(current_time, "%H:%M:%S")
+            
+            # Filter future arrivals within next 2 hours
+            future_arrivals = []
+            for _, row in schedule_data.iterrows():
+                try:
+                    # Parse arrival time handling times past midnight
+                    hours, minutes, seconds = map(int, row['arrival_time'].split(':'))
+                    extra_days = hours // 24
+                    normalized_hours = hours % 24
+                    
+                    arrival_str = f"{normalized_hours:02d}:{minutes:02d}:{seconds:02d}"
+                    arrival_time = datetime.strptime(arrival_str, "%H:%M:%S")
+                    
+                    # Add extra days if the time was >24 hours
+                    if extra_days > 0:
+                        arrival_time = arrival_time + timedelta(days=extra_days)
+                    
+                    # Handle times past midnight for current day
+                    if normalized_hours < current_dt.hour and extra_days == 0:
+                        arrival_time = arrival_time + timedelta(days=1)
+                    
+                    time_diff = (arrival_time - current_dt).total_seconds() / 3600
+                    if 0 <= time_diff <= 2:
+                        arrival_str = arrival_time.strftime("%I:%M %p").lstrip('0')
+                        future_arrivals.append((row, arrival_str))
+                except ValueError as e:
+                    print(f"{Fore.YELLOW}⚠️ Error parsing time {row['arrival_time']}: {e}{Style.RESET_ALL}")
+                    continue
+            
+            # Group by direction
+            inbound = []
+            outbound = []
+            
+            for row, arrival_str in future_arrivals:
+                # Get destination and direction
+                destination = row['trip_headsign'] if pd.notna(row['trip_headsign']) else row['route_long_name'].split(' - ')[-1]
+                
+                bus_info = {
+                    'route_number': row['route_short_name'],
+                    'destination': destination,
+                    'arrival_time': arrival_str,
+                    'status': 'Scheduled'
+                }
+                
+                # Direction check based on destination and route name
+                route_name = row['route_long_name'].lower()
+                destination_lower = destination.lower()
+                
+                if (any(term in destination_lower for term in ['ocean', 'beach', 'zoo', 'cliff']) or
+                    any(term in route_name for term in ['outbound', 'ocean', 'beach', 'zoo']) or
+                    row['direction_id'] == 0):
+                    outbound.append(bus_info)
+                elif (any(term in destination_lower for term in ['downtown', 'market', 'ferry', 'transit center', 'terminal']) or
+                    any(term in route_name for term in ['inbound', 'downtown', 'market', 'ferry']) or
+                    row['direction_id'] == 1):
+                    inbound.append(bus_info)
+                else:
+                    if row['direction_id'] == 0:
+                        outbound.append(bus_info)
+                    else:
+                        inbound.append(bus_info)
+            
+            # Sort arrivals and limit
+            inbound.sort(key=lambda x: datetime.strptime(x['arrival_time'], "%I:%M %p"))
+            outbound.sort(key=lambda x: datetime.strptime(x['arrival_time'], "%I:%M %p"))
+            
+            return {
+                'inbound': inbound[:2],
+                'outbound': outbound[:2]
+            }
+            
+        except Exception as e:
+            print(f"{Fore.RED}✗ Error getting static schedule: {str(e)}{Style.RESET_ALL}")
+            return {'inbound': [], 'outbound': []}
 
     def _calculate_distance(self, lat1: float, lon1: float, lat2: float, lon2: float) -> float:
         """
         Calculate distance between two points using Haversine formula.
-        Returns distance in miles.
+
+        Args:
+            lat1 (float): First point latitude
+            lon1 (float): First point longitude
+            lat2 (float): Second point latitude
+            lon2 (float): Second point longitude
+
+        Returns:
+            float: Distance in miles
         """
-        if None in [lat1, lon1, lat2, lon2]:
-            return float('inf') # Return infinity if coordinates are invalid
-
         R = 3959  # Earth's radius in miles
-        try:
-            lat1_rad, lon1_rad, lat2_rad, lon2_rad = map(math.radians, [lat1, lon1, lat2, lon2])
-            dlat = lat2_rad - lat1_rad
-            dlon = lon2_rad - lon1_rad
 
-            a = math.sin(dlat / 2)**2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon / 2)**2
-            c = 2 * math.asin(math.sqrt(a))
+        lat1, lon1, lat2, lon2 = map(math.radians, [lat1, lon1, lat2, lon2])
+        dlat = lat2 - lat1
+        dlon = lon2 - lon1
 
-            return R * c
-        except (ValueError, TypeError) as e:
-            print(f"[WARN _calculate_distance] Error calculating distance for ({lat1},{lon1}) to ({lat2},{lon2}): {e}")
-            return float('inf') # Return infinity on calculation error
-        
+        a = math.sin(dlat/2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon/2)**2
+        c = 2 * math.asin(math.sqrt(a))
+
+        return R * c
+
     async def _load_stops(self) -> List[Dict[str, Any]]:
         """
         Load all stops from GTFS data.
@@ -178,50 +217,6 @@ class BusService:
         except Exception as e:
             print(f"{Fore.RED}✗ Error loading stops: {str(e)}{Style.RESET_ALL}")
             return []
-
-    async def get_nearby_buses(self, lat: float = None, lon: float = None, stop_id: str = None, radius_miles: float = 0.1) -> Dict[str, Any]:
-            """Get nearby buses by lat/lon or stop_id."""
-            result = {}
-
-            if lat is not None and lon is not None:
-                # Find nearby stops based on coordinates
-                nearby_stops = await self.find_nearby_stops(lat, lon, radius_miles)
-
-                for stop in nearby_stops:
-                    try:
-                        schedule = await self.get_stop_schedule(stop['stop_id'])
-                        if schedule:
-                            result[stop['id']] = {
-                                'stop_name': stop['stop_name'],
-                                'id': stop['id'],
-                                'distance_miles': stop['distance_miles'],
-                                'routes': stop.get('routes', []),
-                                'schedule': schedule,
-                                'gtfs_stop_id': stop['gtfs_stop_id']
-                            }
-                    except Exception as e:
-                        print(f"{Fore.RED}✗ Error processing stop {stop.get('stop_id', 'Unknown')}: {e}{Style.RESET_ALL}")
-
-            elif stop_id:
-                # Get schedule directly for a given stop_id
-                try:
-                    schedule = await self.get_stop_schedule(stop_id)
-                    if schedule:
-                        # Create a "fake" stop result
-                        result[stop_id] = {
-                            'stop_name': 'Unknown Stop',
-                            'id': stop_id,
-                            'distance_miles': 0,
-                            'routes': [],
-                            'schedule': schedule,
-                            'gtfs_stop_id': stop_id
-                        }
-                except Exception as e:
-                    print(f"{Fore.RED}✗ Error processing stop {stop_id}: {e}{Style.RESET_ALL}")
-            else:
-                print(f"{Fore.YELLOW}⚠️ No lat/lon or stop_id provided to get_nearby_buses{Style.RESET_ALL}")
-
-            return result
 
     async def find_nearby_stops(self, lat: float, lon: float, radius_miles: float = 0.1, limit: int = 3) -> List[Dict[str, Any]]:
         stops = await self._load_stops()
@@ -277,259 +272,240 @@ class BusService:
         nearby_stops.sort(key=lambda x: x['distance_miles'])
         return nearby_stops[:limit]
 
-    async def fetch_real_time_stop_data(self, stop_id: str) -> Optional[Dict[str, Any]]:
-        stop_id = stop_id if str(stop_id).startswith("1") else f"1{stop_id}"  # Normalize stop_id
-        url = f"{self.base_url}/StopMonitoring"
-        """
-        Fetches ONLY real-time data from 511 StopMonitoring API asynchronously.
-        Returns a dictionary {'inbound': [...], 'outbound': [...]} or None on failure.
-        """
-        if not self.api_key:
-            print("[WARN fetch_real_time] No API key configured. Skipping real-time fetch.")
-            return None
+    async def get_nearby_buses(self, lat: float = None, lon: float = None, stop_id: str = None, radius_miles: float = 0.1) -> Dict[str, Any]:
+        """Get nearby buses by lat/lon or stop_id."""
+        result = {}
 
-        url = f"{self.base_url}/StopMonitoring"
-        params = {
-            "api_key": self.api_key,
-            "agency": "SF",
-            "stopCode": stop_id,
-            "format": "json"
-        }
-        print(f"[DEBUG fetch_real_time] Requesting URL: {url} with params: {params}")
+        if lat is not None and lon is not None:
+            # Find nearby stops based on coordinates
+            nearby_stops = await self.find_nearby_stops(lat, lon, radius_miles)
 
+            for stop in nearby_stops:
+                try:
+                    schedule = await self.get_stop_schedule(stop['stop_id'])
+                    if schedule:
+                        result[stop['id']] = {
+                            'stop_name': stop['stop_name'],
+                            'id': stop['id'],
+                            'distance_miles': stop['distance_miles'],
+                            'routes': stop.get('routes', []),
+                            'schedule': schedule,
+                            'gtfs_stop_id': stop['gtfs_stop_id']
+                        }
+                except Exception as e:
+                    print(f"{Fore.RED}✗ Error processing stop {stop.get('stop_id', 'Unknown')}: {e}{Style.RESET_ALL}")
+
+        elif stop_id:
+            # Get schedule directly for a given stop_id
+            try:
+                schedule = await self.get_stop_schedule(stop_id)
+                if schedule:
+                    # Create a "fake" stop result
+                    result[stop_id] = {
+                        'stop_name': 'Unknown Stop',
+                        'id': stop_id,
+                        'distance_miles': 0,
+                        'routes': [],
+                        'schedule': schedule,
+                        'gtfs_stop_id': stop_id
+                    }
+            except Exception as e:
+                print(f"{Fore.RED}✗ Error processing stop {stop_id}: {e}{Style.RESET_ALL}")
+        else:
+            print(f"{Fore.YELLOW}⚠️ No lat/lon or stop_id provided to get_nearby_buses{Style.RESET_ALL}")
+
+        return result
+
+    async def fetch_stop_data(self, stop_id: str) -> Optional[Dict[str, Any]]:
+        """Fetch stop data from GTFS and 511 API."""
         try:
-            response = await self.http_client.get(url, params=params)
-            print(f"[DEBUG fetch_real_time] Response Status: {response.status_code}")
-            response.raise_for_status()
+            # First get static schedule from GTFS
+            static_schedule = self._get_static_schedule(stop_id)
+
+            # Now try to get real-time data
+            url = f"{self.base_url}/StopMonitoring"
+            params = {
+                "api_key": self.api_key,
+                "agency": "SF",
+                "stopId": stop_id,
+                "format": "json"
+            }
 
             try:
-                data = response.json()
-            except json.JSONDecodeError:
-                print("[WARN fetch_real_time] JSON decode error, trying with BOM removal.")
-                cleaned_text = response.text.encode().decode('utf-8-sig')
-                data = json.loads(cleaned_text)
+                print(f"{Fore.BLUE}ℹ️ Fetching real-time data for stop {stop_id}{Style.RESET_ALL}")
+                response = requests.get(url, params=params)
+                response.raise_for_status()
 
-            delivery = data.get("ServiceDelivery", {})
-            monitoring = delivery.get("StopMonitoringDelivery", {})
-            if isinstance(monitoring, list):
-                monitoring = monitoring[0] if monitoring else {}
-            stops = monitoring.get("MonitoredStopVisit", [])
+                content = response.content.decode('utf-8-sig')
+                data = json.loads(content)
 
-            if not stops:
-                print(f"[DEBUG fetch_real_time] No real-time MonitoredStopVisit found for stop {stop_id}")
-                return {'inbound': [], 'outbound': []}
+                delivery = data.get("ServiceDelivery", {})
+                monitoring = delivery.get("StopMonitoringDelivery", {})
+                stops = monitoring.get("MonitoredStopVisit", [])
 
-            inbound = []
-            outbound = []
-            now_utc = datetime.now(timezone.utc)
-            routes_df = self.gtfs_data.get('routes')
+                if not stops:
+                    print(f"{Fore.YELLOW}⚠️ No real-time data found for stop {stop_id}, using static schedule{Style.RESET_ALL}")
+                    return static_schedule
 
-            for stop_visit in stops:
-                journey = stop_visit.get("MonitoredVehicleJourney", {})
-                line_ref_raw = journey.get("LineRef")
-                if not line_ref_raw:
-                    continue
+                # Process real-time data
+                inbound = []
+                outbound = []
+                now = datetime.now()
 
-                line_ref = str(line_ref_raw).split(':')[-1]
-                direction_ref = journey.get("DirectionRef", "")
-                destination_name = journey.get("DestinationName", "")
+                for stop in stops:
+                    journey = stop.get("MonitoredVehicleJourney", {})
+                    line_ref = journey.get("LineRef", "").replace("SF:", "")
+                    direction = journey.get("DirectionRef", "").lower()
+                    destination_name = journey.get("DestinationName", [""])[0]
 
-                route_number = line_ref
-                line_name = destination_name
-                if routes_df is not None and not routes_df.empty:
-                    route_info_series = routes_df[routes_df['route_id'] == line_ref]
-                    if not route_info_series.empty:
-                        route_info = route_info_series.iloc[0]
-                        line_name = route_info.get('route_long_name', line_name)
-                        route_number = route_info.get('route_short_name', route_number)
-
-                call = journey.get("MonitoredCall", {})
-                expected = call.get("ExpectedArrivalTime")
-                aimed = call.get("AimedArrivalTime")
-                arrival_iso = expected or aimed
-                if not arrival_iso:
-                    continue
-
-                try:
-                    if arrival_iso.endswith('Z'):
-                        arrival_time_utc = datetime.fromisoformat(arrival_iso.replace('Z', '+00:00'))
-                    elif '+' in arrival_iso or '-' in arrival_iso[10:]:
-                        arrival_time_utc = datetime.fromisoformat(arrival_iso)
-                    else:
-                        arrival_time_utc = datetime.fromisoformat(arrival_iso + '+00:00')
-                except ValueError:
-                    print(f"[WARN fetch_real_time] Could not parse arrival time: {arrival_iso}")
-                    continue
-
-                time_diff_seconds = (arrival_time_utc - now_utc).total_seconds()
-                if time_diff_seconds < -60 or time_diff_seconds > (2 * 3600):
-                    continue
-
-                status = "On Time"
-                delay_minutes = 0
-                if expected and aimed:
+                    # Get route information from GTFS
                     try:
-                        if aimed.endswith('Z'):
-                            aimed_dt_utc = datetime.fromisoformat(aimed.replace('Z', '+00:00'))
-                        elif '+' in aimed or '-' in aimed[10:]:
-                            aimed_dt_utc = datetime.fromisoformat(aimed)
-                        else:
-                            aimed_dt_utc = datetime.fromisoformat(aimed + '+00:00')
+                        route_info = self.gtfs_data['routes'][
+                            self.gtfs_data['routes']['route_id'] == line_ref
+                        ].iloc[0]
 
-                        expected_dt_utc = arrival_time_utc
-                        delay_seconds = (expected_dt_utc - aimed_dt_utc).total_seconds()
-                        delay_minutes = round(delay_seconds / 60)
+                        line_name = route_info['route_long_name']
+                        route_number = route_info['route_short_name']
+                    except:
+                        line_name = destination_name
+                        route_number = line_ref
 
-                        if delay_minutes > 1:
+                    # Get arrival times
+                    call = journey.get("MonitoredCall", {})
+                    expected = call.get("ExpectedArrivalTime")
+                    aimed = call.get("AimedArrivalTime")
+
+                    if not expected and not aimed:
+                        continue
+
+                    try:
+                        arrival_time = None
+                        if expected:
+                            # Remove timezone and 'Z' suffix, convert to local time
+                            arrival_str = expected.replace('Z', '').split('+')[0]
+                            arrival_time = datetime.strptime(arrival_str, "%Y-%m-%dT%H:%M:%S")
+                        elif aimed:
+                            # Remove timezone and 'Z' suffix, convert to local time
+                            arrival_str = aimed.replace('Z', '').split('+')[0]
+                            arrival_time = datetime.strptime(arrival_str, "%Y-%m-%dT%H:%M:%S")
+
+                        if not arrival_time:
+                            continue
+
+                        # Only show arrivals within next 2 hours
+                        time_diff = (arrival_time - now).total_seconds() / 3600
+                        if time_diff < 0 or time_diff > 2:
+                            continue
+
+                        # Calculate delay
+                        delay_minutes = 0
+                        if expected and aimed:
+                            expected_dt = datetime.strptime(expected.replace('Z', '').split('+')[0], "%Y-%m-%dT%H:%M:%S")
+                            aimed_dt = datetime.strptime(aimed.replace('Z', '').split('+')[0], "%Y-%m-%dT%H:%M:%S")
+                            delay_minutes = int((expected_dt - aimed_dt).total_seconds() / 60)
+
+                        # Format arrival time
+                        arrival_str = arrival_time.strftime("%I:%M %p").lstrip('0')
+
+                        # Determine status
+                        status = "On Time"
+                        if delay_minutes > 0:
                             status = f"Delayed ({delay_minutes} min)"
-                        elif delay_minutes < -1:
+                        elif delay_minutes < 0:
                             status = f"Early ({abs(delay_minutes)} min)"
-                    except (ValueError, TypeError) as e:
-                        print(f"[WARN fetch_real_time] Could not parse aimed time or calculate delay: {e}")
 
-                arrival_display_time = arrival_time_utc.strftime("%I:%M %p").lstrip('0')
+                        # Prepare bus information
+                        bus_info = {
+                            'route_number': route_number,
+                            'destination': destination_name,
+                            'arrival_time': arrival_str,
+                            'status': status
+                        }
 
-                bus_info = {
-                    'route_number': route_number,
-                    'destination': destination_name,
-                    'arrival_time': arrival_display_time,
-                    'status': status
+                        # Direction check based on destination and route name
+                        route_name = line_name.lower()
+                        destination_lower = destination_name.lower()
+
+                        if (any(term in destination_lower for term in ['ocean', 'beach', 'zoo', 'cliff']) or
+                            any(term in route_name for term in ['outbound', 'ocean', 'beach', 'zoo']) or
+                            direction == "0"):
+                            outbound.append(bus_info)
+                        elif (any(term in destination_lower for term in ['downtown', 'market', 'ferry', 'transit center', 'terminal']) or
+                            any(term in route_name for term in ['inbound', 'downtown', 'market', 'ferry']) or
+                            direction == "1"):
+                            inbound.append(bus_info)
+                        else:
+                            if direction == "0":
+                                outbound.append(bus_info)
+                            else:
+                                inbound.append(bus_info)
+
+                    except ValueError as e:
+                        print(f"{Fore.YELLOW}⚠️ Error parsing time for stop {stop_id}: {e}{Style.RESET_ALL}")
+                        continue
+
+                # Sort arrivals and limit
+                inbound.sort(key=lambda x: datetime.strptime(x['arrival_time'], "%I:%M %p"))
+                outbound.sort(key=lambda x: datetime.strptime(x['arrival_time'], "%I:%M %p"))
+
+                return {
+                    'inbound': inbound[:2],
+                    'outbound': outbound[:2]
                 }
 
-                route_name_lower = str(line_name).lower()
-                destination_lower = str(destination_name).lower()
-                is_outbound_numeric = direction_ref == "0"
-                is_inbound_numeric = direction_ref == "1"
-                is_outbound_keyword = any(term in destination_lower for term in ['ocean', 'beach', 'zoo', 'cliff', 'west portal']) or \
-                    any(term in route_name_lower for term in ['outbound'])
-                is_inbound_keyword = any(term in destination_lower for term in ['downtown', 'market', 'ferry', 'transit center', 'terminal', 'caltrain', 'embarcadero']) or \
-                    any(term in route_name_lower for term in ['inbound'])
-                if is_outbound_keyword or (is_outbound_numeric and not is_inbound_keyword):
-                    outbound.append(bus_info)
-                elif is_inbound_keyword or (is_inbound_numeric and not is_outbound_keyword):
-                    inbound.append(bus_info)
-                else:
-                    if is_outbound_numeric:
-                        outbound.append(bus_info)
-                    else:
-                        inbound.append(bus_info)
+            except Exception as e:
+                print(f"{Fore.RED}✗ Error fetching real-time data: {str(e)}{Style.RESET_ALL}")
+                return static_schedule
 
-            inbound.sort(key=lambda x: datetime.strptime(x['arrival_time'], "%I:%M %p"))
-            outbound.sort(key=lambda x: datetime.strptime(x['arrival_time'], "%I:%M %p"))
-
-            print(f"[DEBUG fetch_real_time] Processed real-time data for stop {stop_id}. Inbound: {len(inbound)}, Outbound: {len(outbound)}")
-            return {'inbound': inbound[:2], 'outbound': outbound[:2]}
-
-        except httpx.HTTPStatusError as e:
-            print(f"[ERROR fetch_real_time] HTTP error for stop {stop_id}: {e.response.status_code} - {e}")
-            return None
-        except httpx.TimeoutException:
-            print(f"[ERROR fetch_real_time] Timeout fetching 511 data for stop {stop_id}")
-            return None
-        except httpx.RequestError as e:
-            print(f"[ERROR fetch_real_time] Request error for stop {stop_id}: {e}")
-            return None
-        except json.JSONDecodeError as e:
-            print(f"[ERROR fetch_real_time] JSON decode error for stop {stop_id}: {e}")
-            return None
         except Exception as e:
-            print(f"[ERROR fetch_real_time] Unexpected error processing real-time for stop {stop_id}: {e}")
-            return None
+            print(f"{Fore.RED}✗ Unexpected error: {str(e)}{Style.RESET_ALL}")
+            print(f"{Fore.YELLOW}⚠️ Error details: {type(e).__name__}{Style.RESET_ALL}")
+            return {'inbound': [], 'outbound': []}
 
-    async def get_live_bus_positions_async(self, agency: str = "SF", route: str = None) -> List[Dict]:
+    async def get_stop_schedule(self, stop_id: str) -> Optional[Dict[str, Any]]:
         """
-        Async version to fetch vehicle positions.
-        
+        Get schedule for a specific stop, trying real-time data first, falling back to GTFS.
+
         Args:
-            agency: Transit agency code (SF for SFMTA/Muni, BA for BART, etc)
-            route: Optional route number to filter results
-        
+            stop_id (str): The ID of the stop to get schedule for
+
         Returns:
-            List of vehicle position dictionaries with coordinates and metadata
+            Optional[Dict[str, Any]]: Stop schedule or None if error
         """
-        if not self.api_key: 
-            print(f"[WARN] No API key configured. Cannot fetch vehicle positions for agency {agency}.")
-            return []
-        
-        url = f"{self.base_url}/VehicleMonitoring"
-        params = {
-            "api_key": self.api_key,
-            "agency": agency,  # Using the agency parameter correctly
-            "format": "json"
-        }
-        
-        # Add route filter if specified
-        if route:
-            params["line"] = route
-        
         try:
-            print(f"[DEBUG] Fetching vehicle positions for agency: {agency}{' route: '+route if route else ''}")
-            response = await self.http_client.get(url, params=params)
-            response.raise_for_status()
-            
-            vehicles = await self.fetch_real_time_positions()
-            return vehicles
-            
-        except Exception as e:
-            print(f"[ERROR] Unexpected error processing vehicle positions for agency {agency}: {e}")
-            return []
+            # Try real-time data first
+            real_time_data = await self.fetch_stop_data(stop_id)
+            if real_time_data and (real_time_data['inbound'] or real_time_data['outbound']):
+                return real_time_data
 
-    async def get_stop_schedule(self, stop_id: str) -> Dict[str, Any]:
-        stop_id = stop_id if str(stop_id).startswith("1") else f"1{stop_id}"  # Normalize stop_id
-        today = datetime.now()
-        weekday = today.strftime('%A').lower()
-        print(f"[GTFS] Today is {today.date()} ({weekday})")
-
-        try:
-            print(f"[DB] Getting service_ids active on {weekday}")
-
-            service_ids = self.db.execute(
-                text(f"SELECT service_id FROM calendar WHERE {weekday} = 1")
-            ).scalars().all()
-
-            print(f"[DB] Found service_ids: {service_ids}")
-            if not service_ids:
-                print(f"[GTFS] No active services for {weekday}")
-                return {'inbound': [], 'outbound': []}
-
-            print(f"[DB] Fetching trips from DB for stop_id={stop_id} and service_ids={service_ids}")
-
-            query = text("""
-                SELECT
-                    r.route_short_name AS route_number,
-                    r.route_long_name AS destination,
-                    st.arrival_time,
-                    t.direction_id
-                FROM stop_times st
-                JOIN trips t ON st.trip_id = t.trip_id
-                JOIN routes r ON t.route_id = r.route_id
-                WHERE st.stop_id = :stop_id
-                AND t.service_id = ANY(:service_ids)
-                ORDER BY st.arrival_time ASC
-                LIMIT 20;
-            """)
-
-            results = self.db.execute(query, {
-                "stop_id": stop_id,
-                "service_ids": service_ids
-            }).fetchall()
-
-            print(f"[DB] Query returned {len(results)} rows")
-            print(f"[DEBUG] Fetching schedule for stop_id={stop_id}, weekday={weekday}")
-
-            schedule = defaultdict(list)
-            for row in results:
-                item = {
-                    "route_number": row.route_number,
-                    "destination": row.destination,
-                    "arrival_time": row.arrival_time,
-                    "status": "Scheduled"
-                }
-                direction = 'inbound' if row.direction_id == 0 else 'outbound'
-                schedule[direction].append(item)
-
-            return schedule
+            # Fall back to static GTFS data
+            return self._get_static_schedule(stop_id)
 
         except Exception as e:
-            print(f"[ERROR] Static GTFS fallback failed for stop {stop_id}: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to get stop schedule: {e}")
+            print(f"{Fore.RED}✗ Error fetching schedule for stop {stop_id}: {e}{Style.RESET_ALL}")
+            return None
+
+    async def get_next_buses(self, stop_id: str, direction: str = "both", limit: int = 5) -> Optional[Dict[str, Any]]:
+        """
+        Get next buses for a specific stop and direction.
+
+        Args:
+            stop_id (str): The ID of the stop to monitor
+            direction (str): Direction to check ("inbound", "outbound", or "both")
+            limit (int): Maximum number of buses to return per direction
+
+        Returns:
+            Optional[Dict[str, Any]]: Next buses or None if error
+        """
+        data = await self.get_stop_schedule(stop_id) # Use get_stop_schedule
+        if not data:
+            return None
+
+        result = {}
+
+        if direction in ["both", "inbound"]:
+            result["inbound"] = data["inbound"][:limit]
+        if direction in ["both", "outbound"]:
+            result["outbound"] = data["outbound"][:limit]
+
+        return result

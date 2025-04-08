@@ -10,18 +10,13 @@ from app.services.bus_service import BusService
 router = APIRouter()
 bus_service = BusService()
 
-@router.get("/api/nearby-stops")
-async def get_nearby_stops(
-    lat: float,
-    lon: float,
-    radius_miles: float = 0.15,
-    db: Session = Depends(get_db)
-):
+@router.get("/api/stop-schedule/{stop_id}")
+async def get_stop_schedule(stop_id: str, db: Session = Depends(get_db)):
     """
-    Get nearby transit stops within the specified radius
+    Get schedule information for a specific stop
     """
     try:
-        nearby_stops = await bus_service.get_nearby_buses(lat, lon, radius_miles)
-        return nearby_stops
+        schedule = await bus_service.get_stop_schedule(stop_id)
+        return schedule
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) 
