@@ -434,69 +434,46 @@ class BusService:
             print(f"[ERROR fetch_real_time] Unexpected error processing real-time for stop {stop_id}: {e}")
             return None
 
-    async def get_stop_schedule(self, stop_id: str) -> Dict[str, Any]:
-        print(f"[GTFS] Fetching static schedule for stop_id: {stop_id}")
-        today = datetime.now()
-        weekday = today.strftime('%A').lower()
-        print(f"[GTFS] Today is {today.date()} ({weekday})")
+from datetime import datetime
 
+    async def get_stop_schedule(self, stop_id: str) -> List[Dict[str, Any]]:
+        """
+        Returns upcoming scheduled buses for a given stop, filtered by current time.
+        If any real-time vehicle matches the stop, mark it as Live.
+        """
         try:
-            print(f"[DB] Getting service_ids active on {weekday}")
+            # Get all scheduled trips for this stop
+            schedule = await self._get_gtfs_schedule_for_stop(stop_id)
+            if not schedule:
+                return []
 
-            # ✅ FIX: text() ile SQL sorgusu doğru çalışır
-            service_ids = self.db.execute(
-                text(f"SELECT service_id FROM calendar WHERE {weekday} = 1")
-            ).scalars().all()
+            # Get current time for filtering
+            now = datetime.now().time()
 
-            print(f"[DB] Found service_ids: {service_ids}")
-            if not service_ids:
-                print(f"[GTFS] No active services for {weekday}")
-                return {'inbound': [], 'outbound': []}
+            # Get real-time vehicle positions
+            live_vehicles = await self.get_live_bus_positions_async(agency="SF")
 
-            print(f"[DB] Fetching trips from DB for stop_id={stop_id} and service_ids={service_ids}")
+            # Match real-time vehicles to stop_id (if available)
+            live_stop_ids = set()
+            for v in live_vehicles:
+                monitored_stop = v.get("MonitoredVehicleJourney", {}).get("MonitoredCall", {}).get("StopPointRef")
+                if monitored_stop:
+                    live_stop_ids.add(str(monitored_stop).strip())
 
-            query = text("""
-                SELECT
-                    r.route_short_name AS route_number,
-                    r.route_long_name AS destination,
-                    st.arrival_time,
-                    t.direction_id
-                FROM stop_times st
-                JOIN trips t ON st.trip_id = t.trip_id
-                JOIN routes r ON t.route_id = r.route_id
-                WHERE st.stop_id = :stop_id
-                AND t.service_id = ANY(:service_ids)
-                ORDER BY st.arrival_time ASC
-                LIMIT 20;
-            """)
+            upcoming = []
+            for item in schedule:
+                arr_time = datetime.strptime(item["arrival_time"], "%H:%M:%S").time()
+                if arr_time > now:
+                    item["status"] = "Live" if str(item["stop_id"]) in live_stop_ids else "Scheduled"
+                    upcoming.append(item)
 
-            results = self.db.execute(query, {
-                "stop_id": stop_id,
-                "service_ids": service_ids
-            }).fetchall()
-
-            print(f"[DB] Query returned {len(results)} rows")
-
-            schedule = defaultdict(list)
-            for row in results:
-                item = {
-                    "route_number": row.route_number,
-                    "destination": row.destination,
-                    "arrival_time": row.arrival_time,
-                    "status": "Scheduled"
-                }
-                direction = 'inbound' if row.direction_id == 0 else 'outbound'
-                schedule[direction].append(item)
-
-            return schedule
+            # Limit to 3 results
+            return upcoming[:3]
 
         except Exception as e:
-            print(f"[ERROR] Static GTFS fallback failed for stop {stop_id}: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to get stop schedule: {e}")
+            print(f"[ERROR] Failed to get schedule for stop {stop_id}: {e}")
+            return []
 
-# --- Potentially add other methods like get_live_bus_positions if needed ---
-# Remember to make them async and use self.http_client if they make HTTP requests
-# Example:
     async def get_live_bus_positions_async(self, agency: str = "SF", route: str = None) -> List[Dict]:
         """
         Async version to fetch vehicle positions.
