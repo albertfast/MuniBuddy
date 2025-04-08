@@ -1,4 +1,9 @@
-# app/router/stop_schedule.py
+import sys
+from pathlib import Path
+
+# Add the app directory to the Python module search path
+sys.path.append(str(Path(__file__).resolve().parent.parent))
+
 from fastapi import APIRouter, HTTPException
 from app.services.bus_service import bus_service
 
