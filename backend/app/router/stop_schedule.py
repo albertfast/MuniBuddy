@@ -1,31 +1,23 @@
-import os
-import sys
-# Add project root to Python path
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+# app/router/stop_schedule.py
+from fastapi import APIRouter, HTTPException
+from app.services.bus_service import bus_service
 
-# Import essential modules first
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
-
-# Import your own modules
-from app.db.database import get_db, SessionLocal
-from app.services.bus_service import BusService  # Import BusService BEFORE using it
-
-# Initialize DB connection and service
-db = SessionLocal()
-bus_service = BusService(db=db)  # Now BusService is defined
-
-# Create the router
 router = APIRouter()
 
 @router.get("/stop-schedule/{stop_id}")
-async def get_stop_schedule(stop_id: str, db: Session = Depends(get_db)):
+async def get_stop_schedule(stop_id: str):
     """
-    Get schedule information for a specific stop
+    Returns real-time schedule if available from 511 API,
+    otherwise falls back to static GTFS schedule from PostgreSQL.
     """
     try:
-        # Use the existing bus_service instance
-        schedule = await bus_service.get_stop_schedule(stop_id)
-        return schedule
+        real_time_data = await bus_service.fetch_real_time_stop_data(stop_id)
+
+        if real_time_data and (real_time_data.get("inbound") or real_time_data.get("outbound")):
+            return real_time_data
+
+        # Fallback to GTFS static schedule
+        return await bus_service.get_stop_schedule(stop_id)
+
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Schedule fetch failed: {str(e)}")
