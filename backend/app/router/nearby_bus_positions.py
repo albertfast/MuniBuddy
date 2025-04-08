@@ -42,3 +42,19 @@ async def get_nearby_bus_positions(
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch: {e}")
+
+@router.get("/stop-predictions/{stop_id}")
+async def get_stop_predictions(stop_id: str):
+    """
+    Get real-time predictions for a specific stop
+    """
+    try:
+        # Fetch real-time data for the stop
+        predictions = await bus_service.fetch_real_time_stop_data(stop_id)
+        
+        if not predictions:
+            return {"message": f"No real-time predictions available for stop {stop_id}"}
+        
+        return predictions
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch predictions: {e}")
