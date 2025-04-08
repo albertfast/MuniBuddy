@@ -5,19 +5,19 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..",
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.db.database import get_db
-from app.models.bus_route import BusRoute
+from app.core.singleton import bus_service
 
 router = APIRouter()
 
 @router.get("/gtfs-routes")
 def get_gtfs_routes(db: Session = Depends(get_db)):
     """Fetch static GTFS routes."""
-    return db.query(BusRoute).all()
+    return db.query(bus_service).all()
 
 @router.get("/routes/{route_id}")
 def get_route(route_id: str, db: Session = Depends(get_db)):
     """Returns route information for the specified route ID from the database."""
-    route = db.query(BusRoute).filter(BusRoute.route_id == route_id).first()
+    route = db.query(bus_service).filter(bus_service.route_id == route_id).first()
     if not route:
         raise HTTPException(status_code=404, detail="Route not found")
     return route

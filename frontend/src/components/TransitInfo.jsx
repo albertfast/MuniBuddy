@@ -135,7 +135,7 @@ const TransitInfo = ({ stops }) => {
     // Fetch from API if not in cache
     try {
       console.log(`[API] Fetching schedule from: ${API_BASE_URL}/stop-schedule/${stopIdToSelect}`);
-      const response = await axios.get(`${API_BASE_URL}/stop-schedule/${stopIdToSelect}`, {
+      const response = await axios.get(`${API_BASE_URL}/stop-predictions/${stopIdToSelect}`, {
         timeout: API_TIMEOUT
       });
       console.log(`[API] Response for stop ${stopIdToSelect}:`, response.data);
@@ -165,7 +165,7 @@ const TransitInfo = ({ stops }) => {
 
     try {
       // Add cache-busting param (_t)
-      const response = await axios.get(`${API_BASE_URL}/stop-schedule/${selectedStopId}`, {
+      const response = await axios.get(`${API_BASE_URL}/stop-predictions/${selectedStopId}`, {
         timeout: API_TIMEOUT,
         params: { _t: Date.now() } // Cache buster
       });
