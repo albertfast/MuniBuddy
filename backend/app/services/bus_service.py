@@ -13,7 +13,6 @@ from fastapi import HTTPException
 from sqlalchemy import text 
 import math
 
-# GTFS ayarlarını almak için config import edilir
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 from app.config import settings
 
