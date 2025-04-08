@@ -1,6 +1,10 @@
 from fastapi import APIRouter, Query, HTTPException
 from typing import Optional
-from app.services.bus_service import bus_service
+from app.services.bus_service import BusService
+from app.db.database import SessionLocal
+
+db = SessionLocal()
+bus_service = BusService(db=db)
 
 router = APIRouter()
 
