@@ -228,8 +228,8 @@ const App = () => {
     <Container maxWidth="lg">
       <Box sx={{ my: 4 }}>
         {/* App Title */}
-        <Typography variant="h4" component="h1" gutterBottom>
-          MuniBuddy - SF Transit Finder
+        <Typography variant="h1" component="h1" align="center" gutterBottom>
+          MuniBuddy
         </Typography>
 
         {/* Error Alert Display */}
@@ -290,7 +290,7 @@ const App = () => {
                 aria-labelledby="radius-slider-label"
                 value={radius}
                 onChange={handleRadiusChange} // Use onChange for immediate feedback (optional: use onChangeCommitted)
-                min={0.1}
+                min={0.1}  
                 max={1.0}
                 step={0.05}
                 marks={[
