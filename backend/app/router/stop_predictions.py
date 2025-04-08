@@ -1,4 +1,3 @@
-# app/router/stop_predictions.py
 from fastapi import APIRouter
 from app.core.singleton import bus_service
 
