@@ -24,10 +24,13 @@ class BusService:
         self.api_key = API_KEY
         self.base_url = "http://api.511.org/transit"
         self.agency_ids = AGENCY_IDS
-        self.stops_cache = None
-        self.gtfs_data = {}
-
-        # Load GTFS data from settings
+        
+        # Cache for static GTFS data
+        self.stops_cache = {}  # stop_id -> stop_info mapping
+        self.routes_by_stop = {}  # stop_id -> list of routes mapping
+        self.stop_id_mapping = {}  # short_id -> gtfs_id mapping
+        
+        # Load GTFS data and prepare cache
         try:
             agency_map = {
                 "SFMTA": "muni",
@@ -49,12 +52,53 @@ class BusService:
                     self.gtfs_data[agency]['stops'] = stops_df
                     self.gtfs_data[agency]['stop_times'] = stop_times_df
                     self.gtfs_data[agency]['calendar'] = calendar_df
+                    
+                    # Build stop ID mapping and cache
+                    for _, stop in stops_df.iterrows():
+                        stop_id = stop['stop_id']
+                        if len(stop_id) > 4 and stop_id.startswith('1'):
+                            short_id = stop_id[1:]  # Remove leading '1'
+                            self.stop_id_mapping[short_id] = stop_id
+                            self.stops_cache[stop_id] = {
+                                'name': stop['stop_name'],
+                                'lat': stop['stop_lat'],
+                                'lon': stop['stop_lon'],
+                                'agency': agency
+                            }
+                    
+                    # Build routes by stop cache
+                    stop_routes = stop_times_df.merge(trips_df[['trip_id', 'route_id']], on='trip_id')
+                    for stop_id in stops_df['stop_id'].unique():
+                        routes = stop_routes[stop_routes['stop_id'] == stop_id]['route_id'].unique()
+                        self.routes_by_stop[stop_id] = list(routes)
+                    
                     print(f"[DEBUG] Loaded GTFS data for {agency}")
                 else:
                     print(f"{Fore.YELLOW}⚠ No GTFS data found for agency {agency}{Style.RESET_ALL}")
 
         except Exception as e:
             print(f"{Fore.RED}✗ Error loading GTFS data: {str(e)}{Style.RESET_ALL}")
+            traceback.print_exc()
+
+    def _get_stop_info(self, stop_id: str) -> Optional[Dict]:
+        """Get stop info from cache, converting ID if needed."""
+        # Try direct lookup first
+        if stop_id in self.stops_cache:
+            return self.stops_cache[stop_id]
+        
+        # Try with GTFS format (adding '1' prefix)
+        if len(stop_id) <= 4:
+            gtfs_id = f"1{stop_id}"
+            if gtfs_id in self.stops_cache:
+                return self.stops_cache[gtfs_id]
+        
+        return None
+
+    def _get_stop_routes(self, stop_id: str) -> List[str]:
+        """Get routes serving a stop from cache."""
+        # Convert to GTFS ID if needed
+        gtfs_id = self.stop_id_mapping.get(stop_id, stop_id)
+        return self.routes_by_stop.get(gtfs_id, [])
 
     def _get_static_schedule(self, stop_id: str) -> Dict[str, Any]:
         """Get static schedule from GTFS data."""
