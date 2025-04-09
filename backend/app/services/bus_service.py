@@ -478,7 +478,7 @@ class BusService:
             params = {
                 "api_key": self.api_key,
                 "agency": "SF",
-                "stopId": stop_id,  # Use original stop_id for 511.org API
+                "stopId": "stop_id",  # Use original stop_id for 511.org API
                 "format": "json"
             }
 
