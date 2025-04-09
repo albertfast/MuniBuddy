@@ -7,7 +7,7 @@ import math
 import pandas as pd
 from colorama import init, Fore, Style
 import json
-from .gtfs_service import load_gtfs_data
+from app.config import settings
 import pytz
 
 # Initialize colorama for colored output
@@ -26,21 +26,33 @@ class BusService:
         self.stops_cache = None
         self.gtfs_data = {}
 
-        # GTFS paths (relative to backend folder)
-        self.bart_gtfs_path = "gtfs_data/bart_gtfs-current"
-        self.muni_gtfs_path = "gtfs_data/muni_gtfs-current"
-
-        # Load GTFS data
+        # Load GTFS data from settings
         try:
-            routes_df, trips_df, stops_df, stop_times_df, calendar_df = load_gtfs_data()
-            self.gtfs_data['routes'] = routes_df
-            self.gtfs_data['trips'] = trips_df
-            self.gtfs_data['stops'] = stops_df
-            self.gtfs_data['stop_times'] = stop_times_df
-            self.gtfs_data['calendar'] = calendar_df
+            agency_map = {
+                "SFMTA": "muni",
+                "MUNI": "muni",
+                "SF": "muni",
+                "BA": "bart",
+                "BART": "bart"
+            }
+            
+            for agency_id in self.agency_ids:
+                normalized_agency = agency_map.get(agency_id.upper(), agency_id.lower())
+                gtfs_data = settings.get_gtfs_data(normalized_agency)
+                if gtfs_data:
+                    routes_df, trips_df, stops_df, stop_times_df, calendar_df = gtfs_data
+                    if normalized_agency not in self.gtfs_data:
+                        self.gtfs_data[normalized_agency] = {}
+                    self.gtfs_data[normalized_agency]['routes'] = routes_df
+                    self.gtfs_data[normalized_agency]['trips'] = trips_df
+                    self.gtfs_data[normalized_agency]['stops'] = stops_df
+                    self.gtfs_data[normalized_agency]['stop_times'] = stop_times_df
+                    self.gtfs_data[normalized_agency]['calendar'] = calendar_df
+                    print(f"[DEBUG] Loaded GTFS data for {agency_id}")
+                else:
+                    print(f"{Fore.YELLOW}⚠ No GTFS data found for agency {agency_id}{Style.RESET_ALL}")
         except Exception as e:
             print(f"{Fore.RED}✗ Error loading GTFS data: {str(e)}{Style.RESET_ALL}")
-            self.gtfs_data = {}
 
     def _get_static_schedule(self, stop_id: str) -> Dict[str, Any]:
         """Get static schedule from GTFS data."""
