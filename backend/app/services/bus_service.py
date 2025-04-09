@@ -15,7 +15,7 @@ init()
 
 load_dotenv()
 API_KEY = os.getenv("API_KEY")
-AGENCY_IDS = os.getenv("AGENCY_ID", "SFMTA").split(',')
+AGENCY_IDS = ["SFMTA"]  # Default to SFMTA if not specified
 
 
 class BusService:
@@ -36,21 +36,22 @@ class BusService:
                 "BART": "bart"
             }
             
-            for agency_id in self.agency_ids:
-                normalized_agency = agency_map.get(agency_id.upper(), agency_id.lower())
-                gtfs_data = settings.get_gtfs_data(normalized_agency)
+            # Load both MUNI and BART data by default
+            for agency in ["muni", "bart"]:
+                gtfs_data = settings.get_gtfs_data(agency)
                 if gtfs_data:
                     routes_df, trips_df, stops_df, stop_times_df, calendar_df = gtfs_data
-                    if normalized_agency not in self.gtfs_data:
-                        self.gtfs_data[normalized_agency] = {}
-                    self.gtfs_data[normalized_agency]['routes'] = routes_df
-                    self.gtfs_data[normalized_agency]['trips'] = trips_df
-                    self.gtfs_data[normalized_agency]['stops'] = stops_df
-                    self.gtfs_data[normalized_agency]['stop_times'] = stop_times_df
-                    self.gtfs_data[normalized_agency]['calendar'] = calendar_df
-                    print(f"[DEBUG] Loaded GTFS data for {agency_id}")
+                    if agency not in self.gtfs_data:
+                        self.gtfs_data[agency] = {}
+                    self.gtfs_data[agency]['routes'] = routes_df
+                    self.gtfs_data[agency]['trips'] = trips_df
+                    self.gtfs_data[agency]['stops'] = stops_df
+                    self.gtfs_data[agency]['stop_times'] = stop_times_df
+                    self.gtfs_data[agency]['calendar'] = calendar_df
+                    print(f"[DEBUG] Loaded GTFS data for {agency}")
                 else:
-                    print(f"{Fore.YELLOW}⚠ No GTFS data found for agency {agency_id}{Style.RESET_ALL}")
+                    print(f"{Fore.YELLOW}⚠ No GTFS data found for agency {agency}{Style.RESET_ALL}")
+
         except Exception as e:
             print(f"{Fore.RED}✗ Error loading GTFS data: {str(e)}{Style.RESET_ALL}")
 
@@ -208,19 +209,24 @@ class BusService:
             return self.stops_cache
 
         try:
-            # Use stops from GTFS data instead of reading from file
-            if 'stops' not in self.gtfs_data or self.gtfs_data['stops'].empty:
+            stops = []
+            # Combine stops from both MUNI and BART
+            for agency in ["muni", "bart"]:
+                if agency in self.gtfs_data and 'stops' in self.gtfs_data[agency]:
+                    agency_stops = self.gtfs_data[agency]['stops']
+                    if not agency_stops.empty:
+                        for _, row in agency_stops.iterrows():
+                            stops.append({
+                                'stop_id': row['stop_id'],
+                                'stop_name': row['stop_name'],
+                                'stop_lat': float(row['stop_lat']),
+                                'stop_lon': float(row['stop_lon']),
+                                'agency': agency
+                            })
+
+            if not stops:
                 print(f"{Fore.RED}✗ No stops data in GTFS{Style.RESET_ALL}")
                 return []
-
-            stops = []
-            for _, row in self.gtfs_data['stops'].iterrows():
-                stops.append({
-                    'stop_id': row['stop_id'],
-                    'stop_name': row['stop_name'],
-                    'stop_lat': float(row['stop_lat']),
-                    'stop_lon': float(row['stop_lon'])
-                })
 
             self.stops_cache = stops
             print(f"{Fore.GREEN}✓ Loaded {len(stops)} stops from GTFS data{Style.RESET_ALL}")
