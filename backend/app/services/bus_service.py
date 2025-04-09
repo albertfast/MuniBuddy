@@ -434,8 +434,11 @@ class BusService:
                             'schedule': schedule,
                             'gtfs_stop_id': stop['gtfs_stop_id']
                         }
+                except KeyError as e:
+                    print(f"{Fore.YELLOW}⚠ KeyError processing stop {stop.get('stop_id', 'Unknown')}: {e}{Style.RESET_ALL}")
                 except Exception as e:
                     print(f"{Fore.RED}✗ Error processing stop {stop.get('stop_id', 'Unknown')}: {e}{Style.RESET_ALL}")
+                    traceback.print_exc()
 
         elif stop_id:
             # Get schedule directly for a given stop_id
