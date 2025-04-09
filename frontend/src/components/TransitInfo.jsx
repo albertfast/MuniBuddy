@@ -39,15 +39,24 @@ const normalizeId = (stop) => stop?.stop_id || stop?.id;
  */
 const formatTime = (isoTime) => {
   if (!isoTime || isoTime === "Unknown") return "Unknown";
-  // If already formatted (e.g., "hh:mm AM/PM"), return directly
-  if (/\d{1,2}:\d{2}\s[AP]M/i.test(isoTime)) return isoTime;
+  // If already formatted (e.g., "hh:mm AM/PM"), return after ensuring leading zeros
+  if (/\d{1,2}:\d{2}\s[AP]M/i.test(isoTime)) {
+    // Add leading zero if needed
+    const [time, period] = isoTime.split(' ');
+    const [hours, minutes] = time.split(':');
+    return `${hours.padStart(2, '0')}:${minutes} ${period}`;
+  }
 
   try {
     const date = new Date(isoTime);
     // Check if the date object is valid
     return isNaN(date.getTime())
       ? isoTime // Return original if invalid
-      : date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+      : date.toLocaleTimeString('en-US', {
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true
+        });
   } catch {
     return isoTime; // Return original on any unexpected error
   }
@@ -134,7 +143,7 @@ const TransitInfo = ({ stops }) => {
 
     // Fetch from API if not in cache
     try {
-      console.log(`[API] Fetching schedule from: ${API_BASE_URL}/stop-schedule/${stopIdToSelect}`);
+      console.log(`[API] Fetching predictions from: ${API_BASE_URL}/stop-predictions/${stopIdToSelect}`);
       const response = await axios.get(`${API_BASE_URL}/stop-predictions/${stopIdToSelect}`, {
         timeout: API_TIMEOUT
       });

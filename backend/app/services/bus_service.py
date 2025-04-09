@@ -62,26 +62,39 @@ class BusService:
             now = datetime.now()
             current_time = now.strftime("%H:%M:%S")
             
+            # Determine which agency's GTFS data to use
+            agency = None
+            for ag in ["muni", "bart"]:
+                if ag in self.gtfs_data and 'stops' in self.gtfs_data[ag]:
+                    stops_df = self.gtfs_data[ag]['stops']
+                    if not stops_df.empty and stop_id in stops_df['stop_id'].values:
+                        agency = ag
+                        break
+
+            if not agency:
+                print(f"{Fore.YELLOW}⚠️ No agency found for stop {stop_id}{Style.RESET_ALL}")
+                return {'inbound': [], 'outbound': []}
+
             # Get active services for today
             weekday = now.strftime("%A").lower()
-            active_services = self.gtfs_data['calendar'][
-                (self.gtfs_data['calendar'][weekday] == 1) &
-                (pd.to_numeric(self.gtfs_data['calendar']['start_date']) <= int(now.strftime("%Y%m%d"))) &
-                (pd.to_numeric(self.gtfs_data['calendar']['end_date']) >= int(now.strftime("%Y%m%d")))
+            active_services = self.gtfs_data[agency]['calendar'][
+                (self.gtfs_data[agency]['calendar'][weekday] == 1) &
+                (pd.to_numeric(self.gtfs_data[agency]['calendar']['start_date']) <= int(now.strftime("%Y%m%d"))) &
+                (pd.to_numeric(self.gtfs_data[agency]['calendar']['end_date']) >= int(now.strftime("%Y%m%d")))
             ]['service_id']
             
             # Get trips for active services
-            active_trips = self.gtfs_data['trips'][
-                self.gtfs_data['trips']['service_id'].isin(active_services)
+            active_trips = self.gtfs_data[agency]['trips'][
+                self.gtfs_data[agency]['trips']['service_id'].isin(active_services)
             ]
             
             # Get stop times for this stop
-            stop_times = self.gtfs_data['stop_times'][
-                self.gtfs_data['stop_times']['stop_id'] == stop_id
+            stop_times = self.gtfs_data[agency]['stop_times'][
+                self.gtfs_data[agency]['stop_times']['stop_id'] == stop_id
             ]
             
             if stop_times.empty:
-                print(f"{Fore.YELLOW}⚠️ No stop times found for stop {stop_id}{Style.RESET_ALL}")
+                print(f"{Fore.YELLOW}⚠️ No stop times found for stop {stop_id} ({agency}){Style.RESET_ALL}")
                 return {'inbound': [], 'outbound': []}
             
             # Merge with trips and routes
@@ -89,12 +102,12 @@ class BusService:
                 active_trips[['trip_id', 'route_id', 'direction_id', 'trip_headsign']],
                 on='trip_id'
             ).merge(
-                self.gtfs_data['routes'][['route_id', 'route_short_name', 'route_long_name']],
+                self.gtfs_data[agency]['routes'][['route_id', 'route_short_name', 'route_long_name']],
                 on='route_id'
             )
             
             if schedule_data.empty:
-                print(f"{Fore.YELLOW}⚠️ No schedule data found for stop {stop_id}{Style.RESET_ALL}")
+                print(f"{Fore.YELLOW}⚠️ No schedule data found for stop {stop_id} ({agency}){Style.RESET_ALL}")
                 return {'inbound': [], 'outbound': []}
             
             # Convert current_time to datetime for comparison
@@ -171,7 +184,7 @@ class BusService:
             }
             
         except Exception as e:
-            print(f"{Fore.RED}✗ Error getting static schedule: {str(e)}{Style.RESET_ALL}")
+            print(f"{Fore.RED}✗ Error getting static schedule for stop {stop_id}: {str(e)}{Style.RESET_ALL}")
             return {'inbound': [], 'outbound': []}
 
     def _calculate_distance(self, lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -431,6 +444,9 @@ class BusService:
                         if time_diff < 0 or time_diff > 2:
                             continue
 
+                        # Calculate minutes until arrival
+                        minutes_until = int((arrival_time - now).total_seconds() / 60)
+
                         # Calculate delay
                         delay_minutes = 0
                         if expected and aimed:
@@ -442,18 +458,26 @@ class BusService:
                         arrival_str = arrival_time.strftime("%I:%M %p").lstrip('0')
 
                         # Determine status
-                        status = "On Time"
+                        if minutes_until <= 0:
+                            status = "Due"
+                        elif minutes_until == 1:
+                            status = "1 minute"
+                        else:
+                            status = f"{minutes_until} minutes"
+
                         if delay_minutes > 0:
-                            status = f"Delayed ({delay_minutes} min)"
+                            status += f" (Delayed {delay_minutes} min)"
                         elif delay_minutes < 0:
-                            status = f"Early ({abs(delay_minutes)} min)"
+                            status += f" (Early {abs(delay_minutes)} min)"
 
                         # Prepare bus information
                         bus_info = {
                             'route_number': route_number,
                             'destination': destination_name,
                             'arrival_time': arrival_str,
-                            'status': status
+                            'status': status,
+                            'minutes_until': minutes_until,
+                            'is_realtime': True
                         }
 
                         # Direction check based on destination and route name
@@ -478,9 +502,28 @@ class BusService:
                         print(f"{Fore.YELLOW}⚠️ Error parsing time for stop {stop_id}: {e}{Style.RESET_ALL}")
                         continue
 
-                # Sort arrivals and limit
-                inbound.sort(key=lambda x: datetime.strptime(x['arrival_time'], "%I:%M %p"))
-                outbound.sort(key=lambda x: datetime.strptime(x['arrival_time'], "%I:%M %p"))
+                # Add scheduled arrivals from static schedule
+                for direction, arrivals in static_schedule.items():
+                    real_time_arrivals = inbound if direction == 'inbound' else outbound
+                    real_time_routes = {arr['route_number'] for arr in real_time_arrivals}
+                    
+                    for arrival in arrivals:
+                        # Only add if we don't have real-time data for this route
+                        if arrival['route_number'] not in real_time_routes:
+                            arrival['is_realtime'] = False
+                            if direction == 'inbound':
+                                inbound.append(arrival)
+                            else:
+                                outbound.append(arrival)
+
+                # Sort arrivals by minutes_until for real-time, then by arrival_time for scheduled
+                def sort_key(x):
+                    if x.get('is_realtime', False):
+                        return (0, x.get('minutes_until', float('inf')))
+                    return (1, datetime.strptime(x['arrival_time'], "%I:%M %p"))
+
+                inbound.sort(key=sort_key)
+                outbound.sort(key=sort_key)
 
                 return {
                     'inbound': inbound[:2],
