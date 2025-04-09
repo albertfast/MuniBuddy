@@ -9,7 +9,7 @@ from app.core.singleton import bus_service
 
 router = APIRouter()
 
-@router.get("/api/nearby-stops")
+@router.get("/nearby-stops")
 async def get_nearby_stops(
     lat: float,
     lon: float,
