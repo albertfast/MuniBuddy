@@ -123,7 +123,7 @@ const App = () => {
             position: userLocation,
             title: 'Your Location / Search Center',
             icon: { // Define icon for user location
-              url: '/images/user-location-icon.png', // Ensure this path is correct
+              url: '/user-location-icon.svg', // Changed from .png to .svg
               scaledSize: { width: 32, height: 32 }
             }
           });
@@ -134,7 +134,7 @@ const App = () => {
         setMarkers(userLocation ? [{ // Only show user marker if stops are empty
             position: userLocation,
             title: 'Your Location / Search Center',
-            icon: { url: '/images/user-location-icon.png', scaledSize: { width: 32, height: 32 } }
+            icon: { url: '/user-location-icon.svg', scaledSize: { width: 32, height: 32 } }
         }] : []);
       }
     } catch (err) {
@@ -144,7 +144,7 @@ const App = () => {
       setMarkers(userLocation ? [{ // Only show user marker on error
         position: userLocation,
         title: 'Your Location / Search Center',
-        icon: { url: '/images/user-location-icon.png', scaledSize: { width: 32, height: 32 } }
+        icon: { url: '/user-location-icon.svg', scaledSize: { width: 32, height: 32 } }
     }] : []);
     } finally {
       setIsLoading(false); // Stop loading indicator regardless of outcome
