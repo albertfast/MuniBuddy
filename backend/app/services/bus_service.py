@@ -464,20 +464,26 @@ class BusService:
     async def fetch_stop_data(self, stop_id: str) -> Optional[Dict[str, Any]]:
         """Fetch stop data from GTFS and 511 API."""
         try:
-            # First get static schedule from GTFS
-            static_schedule = self._get_static_schedule(stop_id)
+            # Convert stop_id for GTFS data if needed
+            gtfs_stop_id = stop_id
+            if len(stop_id) <= 4 and not stop_id.startswith('1'):
+                gtfs_stop_id = f"1{stop_id}"
+                print(f"{Fore.BLUE}ℹ️ Converting stop ID {stop_id} to GTFS format: {gtfs_stop_id}{Style.RESET_ALL}")
 
-            # Now try to get real-time data
+            # First get static schedule from GTFS using the converted ID
+            static_schedule = self._get_static_schedule(gtfs_stop_id)
+
+            # Now try to get real-time data using original ID for 511.org API
             url = f"{self.base_url}/StopMonitoring"
             params = {
                 "api_key": self.api_key,
                 "agency": "SF",
-                "stopId": stop_id,
+                "stopId": stop_id,  # Use original stop_id for 511.org API
                 "format": "json"
             }
 
             try:
-                print(f"{Fore.BLUE}ℹ️ Fetching real-time data for stop {stop_id}{Style.RESET_ALL}")
+                print(f"{Fore.BLUE}ℹ️ Fetching real-time data for stop {stop_id} (GTFS ID: {gtfs_stop_id}){Style.RESET_ALL}")
                 response = requests.get(url, params=params)
                 response.raise_for_status()
 
@@ -501,7 +507,13 @@ class BusService:
                     journey = stop.get("MonitoredVehicleJourney", {})
                     line_ref = journey.get("LineRef", "").replace("SF:", "")
                     direction = journey.get("DirectionRef", "").lower()
-                    destination_name = journey.get("DestinationName", [""])[0]
+                    
+                    # Fix the string indexing error
+                    destination_raw = journey.get("DestinationName")
+                    if isinstance(destination_raw, list):
+                        destination_name = destination_raw[0] if destination_raw else ""
+                    else:
+                        destination_name = str(destination_raw) if destination_raw else ""
 
                     # Get route information from GTFS
                     try:
