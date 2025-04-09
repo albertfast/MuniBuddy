@@ -1,10 +1,11 @@
 # app/core/singleton.py
 from app.services.bus_service import BusService
-from app.db.database import get_db
+from app.services.scheduler_service import SchedulerService
 
-# Initialize the BusService with the db parameter
-db = next(get_db())  # Get a database session
-bus_service = BusService(db)
+
+# Global singleton instances
+bus_service = BusService()
+scheduler_service = SchedulerService()
 
 # Export the singleton
 __all__ = ["bus_service"]
