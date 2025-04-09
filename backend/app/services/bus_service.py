@@ -246,30 +246,39 @@ class BusService:
                 # Get route information from GTFS data
                 original_stop_id = stop['stop_id']
                 api_stop_id = original_stop_id[1:] if original_stop_id.startswith('1') else original_stop_id
+                agency = stop.get('agency', 'muni')  # Default to muni if not specified
 
                 try:
-                    stop_times = self.gtfs_data['stop_times'][
-                        self.gtfs_data['stop_times']['stop_id'] == original_stop_id
-                    ]
+                    # Get stop_times for this stop from the correct agency's GTFS data
+                    if agency in self.gtfs_data and 'stop_times' in self.gtfs_data[agency]:
+                        stop_times = self.gtfs_data[agency]['stop_times'][
+                            self.gtfs_data[agency]['stop_times']['stop_id'] == original_stop_id
+                        ]
 
-                    trips = self.gtfs_data['trips'][
-                        self.gtfs_data['trips']['trip_id'].isin(stop_times['trip_id'])
-                    ]
+                        if not stop_times.empty:
+                            trips = self.gtfs_data[agency]['trips'][
+                                self.gtfs_data[agency]['trips']['trip_id'].isin(stop_times['trip_id'])
+                            ]
 
-                    routes = self.gtfs_data['routes'][
-                        self.gtfs_data['routes']['route_id'].isin(trips['route_id'])
-                    ].drop_duplicates()
-                    # Prepare route information for the stop
-                    route_info = []
-                    for _, route in routes.iterrows():
-                        # Get the final destination (last part of route name)
-                        destination = route['route_long_name'].split(' - ')[-1] if ' - ' in route['route_long_name'] else route['route_long_name']
+                            routes = self.gtfs_data[agency]['routes'][
+                                self.gtfs_data[agency]['routes']['route_id'].isin(trips['route_id'])
+                            ].drop_duplicates()
 
-                        route_info.append({
-                            'route_id': route['route_id'],
-                            'route_number': route['route_short_name'],
-                            'destination': destination
-                        })
+                            # Prepare route information for the stop
+                            route_info = []
+                            for _, route in routes.iterrows():
+                                # Get the final destination (last part of route name)
+                                destination = route['route_long_name'].split(' - ')[-1] if ' - ' in route['route_long_name'] else route['route_long_name']
+
+                                route_info.append({
+                                    'route_id': route['route_id'],
+                                    'route_number': route['route_short_name'],
+                                    'destination': destination
+                                })
+                        else:
+                            route_info = []
+                    else:
+                        route_info = []
 
                     stop_info = stop.copy()
                     stop_info['distance_miles'] = round(distance, 2)
@@ -280,10 +289,17 @@ class BusService:
                     nearby_stops.append(stop_info)
 
                 except KeyError as e:
-                    print(f"{Fore.RED}✗ KeyError while processing stop {original_stop_id}: {e}{Style.RESET_ALL}")
-                    continue
+                    print(f"{Fore.YELLOW}⚠ No route data found for stop {original_stop_id} ({agency}): {e}{Style.RESET_ALL}")
+                    # Still add the stop, just without route information
+                    stop_info = stop.copy()
+                    stop_info['distance_miles'] = round(distance, 2)
+                    stop_info['routes'] = []
+                    stop_info['id'] = api_stop_id
+                    stop_info['stop_id'] = api_stop_id
+                    stop_info['gtfs_stop_id'] = original_stop_id
+                    nearby_stops.append(stop_info)
                 except Exception as e:
-                    print(f"{Fore.RED}✗ Error while processing stop {original_stop_id}: {e}{Style.RESET_ALL}")
+                    print(f"{Fore.RED}✗ Error while processing stop {original_stop_id} ({agency}): {e}{Style.RESET_ALL}")
                     continue
 
         # Sort by distance
