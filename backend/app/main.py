@@ -29,20 +29,6 @@ app.include_router(nearby_bus_router, prefix="/api/v1", tags=["Nearby Bus Positi
 app.include_router(stop_schedule_router, prefix="/api/v1", tags=["Stop Schedule"])
 app.include_router(deploy_router, prefix="/api/v1/deploy", tags=["Deploy"])
 
-from contextlib import asynccontextmanager
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    init_db()
-    yield
-
-app = FastAPI(
-    title="MuniBuddy API",
-    description="Transit info and route planner for SF",
-    version="1.0.0",
-    lifespan=lifespan
-)
-
 @app.get("/")
 async def root():
     return {"message": "Welcome to MuniBuddy!"}
@@ -50,3 +36,6 @@ async def root():
 @app.get("/health")
 def health_check():
     return {"status": "ok"}
+
+if __name__ == "__main__":
+    init_db()
