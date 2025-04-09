@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException
-from app.core.singleton import bus_service
+from app.core.singleton import scheduler_service  # updated from bus_service to scheduler_service
 
 router = APIRouter()
 
@@ -10,13 +10,8 @@ async def get_stop_schedule(stop_id: str):
     otherwise falls back to static GTFS schedule from PostgreSQL.
     """
     try:
-        real_time_data = await bus_service.fetch_real_time_stop_data(stop_id)
-
-        if real_time_data and (real_time_data.get("inbound") or real_time_data.get("outbound")):
-            return real_time_data
-
-        # Fallback to GTFS static schedule
-        return await bus_service.get_stop_schedule(stop_id)
+        # Use scheduler_service for fetching real-time and fallback schedule
+        return await scheduler_service.get_schedule(stop_id)
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Schedule fetch failed: {str(e)}")
