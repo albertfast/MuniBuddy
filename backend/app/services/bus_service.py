@@ -581,7 +581,7 @@ class BusService:
             print(f"{Fore.YELLOW}⚠️ Error details: {type(e).__name__}{Style.RESET_ALL}")
             return {'inbound': [], 'outbound': []}
 
-    def get_stop_schedule(self, stop_id: str) -> Dict[str, Any]:
+    async def get_stop_schedule(self, stop_id: str) -> Dict[str, Any]:
         """Get combined schedule (static + real-time) for a stop."""
         try:
             # Format stop_id for GTFS if necessary
@@ -590,14 +590,8 @@ class BusService:
                 gtfs_stop_id = f"1{stop_id}"
                 print(f"{Fore.YELLOW}Converting stop ID {stop_id} to GTFS format: {gtfs_stop_id}{Style.RESET_ALL}")
 
-            # Get static schedule using GTFS stop ID
-            static_schedule = self._get_static_schedule(gtfs_stop_id)
-            
-            # Get real-time predictions using original stop ID
-            predictions = self._get_real_time_predictions(stop_id)
-            
-            # Merge static and real-time data
-            return self._merge_schedule_and_predictions(static_schedule, predictions)
+            # Use fetch_stop_data which already handles both static and real-time data
+            return await self.fetch_stop_data(stop_id)
             
         except Exception as e:
             traceback.print_exc()
