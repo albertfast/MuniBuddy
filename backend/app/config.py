@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     API_V1_STR: str = "/api/v1"
 
     # Agencies from .env (ex: '["SFMTA", "SF", "BA"]' or 'SFMTA,SF,BA')
-    AGENCY_ID: List[str] = []
+    AGENCY_ID: List[str] = ["SFMTA"]
 
     @field_validator("AGENCY_ID", mode="before")
     @classmethod
@@ -65,10 +65,9 @@ class Settings(BaseSettings):
     # GTFS Paths per agency (e.g., muni, bart)
     GTFS_AGENCIES: List[str] = ["muni", "bart"]
     GTFS_PATHS: Dict[str, str] = {
-    "muni": os.path.abspath(os.path.join(os.path.dirname(os.path.dirname(__file__)), "gtfs_data/muni_gtfs-current")),
-    "bart": os.path.abspath(os.path.join(os.path.dirname(os.path.dirname(__file__)), "gtfs_data/bart_gtfs-current"))
+        "muni": "/app/gtfs_data/muni_gtfs-current",
+        "bart": "/app/gtfs_data/bart_gtfs-current"
     }
-
 
     # Internal cache for loaded GTFS DataFrames (private, not validated)
     _gtfs_data: Dict[str, tuple] = PrivateAttr(default_factory=dict)
@@ -78,8 +77,12 @@ class Settings(BaseSettings):
         """Automatically load GTFS data from disk during settings initialization"""
         from app.services.gtfs_service import load_gtfs_data
         for agency, path in self.GTFS_PATHS.items():
-            os.makedirs(path, exist_ok=True)
-            self._gtfs_data[agency] = load_gtfs_data(path)
+            try:
+                os.makedirs(path, exist_ok=True)
+                self._gtfs_data[agency] = load_gtfs_data(path)
+                print(f"[DEBUG] {path}: {len(self._gtfs_data[agency][2])} stops, {len(self._gtfs_data[agency][3])} stop_times, {len(self._gtfs_data[agency][1])} trips")
+            except Exception as e:
+                print(f"Error loading GTFS data for {agency}: {str(e)}")
         print(f"[DEBUG] Loaded GTFS for agencies: {list(self._gtfs_data.keys())}")
         return self
 
@@ -90,7 +93,7 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         case_sensitive = True
-        extra = "allow" 
+        extra = "allow"
 
 # ✅ Global settings instance to use across your project
 settings = Settings()
