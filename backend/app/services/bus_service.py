@@ -58,18 +58,28 @@ class BusService:
                     # Build stop ID mapping and cache
                     stop_count = 0
                     for _, stop in stops_df.iterrows():
-                        stop_id = stop['stop_id']
-                        if len(stop_id) > 4 and stop_id.startswith('1'):
-                            short_id = stop_id[1:]  # Remove leading '1'
-                            self.stop_id_mapping[short_id] = stop_id
-                            self.stops_cache[stop_id] = {
-                                'name': stop['stop_name'].strip(),
-                                'lat': float(stop['stop_lat']),
-                                'lon': float(stop['stop_lon']),
-                                'agency': agency
-                            }
-                            stop_count += 1
+                        stop_id = str(stop['stop_id'])  # Ensure stop_id is string
+                        
+                        # Store both original and short versions for MUNI stops
+                        if agency == 'muni':
+                            if len(stop_id) > 4 and stop_id.startswith('1'):
+                                short_id = stop_id[1:]  # Remove leading '1'
+                                self.stop_id_mapping[short_id] = stop_id
+                            else:
+                                # If stop_id doesn't start with '1', store both versions
+                                self.stop_id_mapping[stop_id] = f"1{stop_id}"
+                                
+                        # Always store the original ID in stops_cache
+                        self.stops_cache[stop_id] = {
+                            'name': stop['stop_name'].strip(),
+                            'lat': float(stop['stop_lat']),
+                            'lon': float(stop['stop_lon']),
+                            'agency': agency
+                        }
+                        stop_count += 1
+                        
                     print(f"[DEBUG] Processed {stop_count} stops for {agency}")
+                    print(f"[DEBUG] Stop ID mapping size: {len(self.stop_id_mapping)}")
                     
                     print(f"[DEBUG] Building routes by stop for {agency}...")
                     # Build routes by stop cache
@@ -478,7 +488,7 @@ class BusService:
             params = {
                 "api_key": self.api_key,
                 "agency": "SF",
-                "stopId": "stop_id",  # Use original stop_id for 511.org API
+                "stopId": stop_id,  # Fixed: Using the variable instead of string
                 "format": "json"
             }
 
@@ -508,22 +518,31 @@ class BusService:
                     line_ref = journey.get("LineRef", "").replace("SF:", "")
                     direction = journey.get("DirectionRef", "").lower()
                     
-                    # Fix the string indexing error
-                    destination_raw = journey.get("DestinationName")
-                    if isinstance(destination_raw, list):
-                        destination_name = destination_raw[0] if destination_raw else ""
+                    # Fix the string indexing error for destination name
+                    destination_raw = journey.get("DestinationName", "")
+                    if isinstance(destination_raw, list) and destination_raw:
+                        destination_name = str(destination_raw[0])
                     else:
-                        destination_name = str(destination_raw) if destination_raw else ""
+                        destination_name = str(destination_raw)
 
                     # Get route information from GTFS
                     try:
-                        route_info = self.gtfs_data['routes'][
-                            self.gtfs_data['routes']['route_id'] == line_ref
-                        ].iloc[0]
-
-                        line_name = route_info['route_long_name']
-                        route_number = route_info['route_short_name']
-                    except:
+                        if 'muni' in self.gtfs_data and 'routes' in self.gtfs_data['muni']:
+                            route_info = self.gtfs_data['muni']['routes'][
+                                self.gtfs_data['muni']['routes']['route_id'] == line_ref
+                            ]
+                            if not route_info.empty:
+                                route_info = route_info.iloc[0]
+                                line_name = route_info['route_long_name']
+                                route_number = route_info['route_short_name']
+                            else:
+                                line_name = destination_name
+                                route_number = line_ref
+                        else:
+                            line_name = destination_name
+                            route_number = line_ref
+                    except Exception as e:
+                        print(f"{Fore.YELLOW}⚠️ Error getting route info: {str(e)}{Style.RESET_ALL}")
                         line_name = destination_name
                         route_number = line_ref
 
