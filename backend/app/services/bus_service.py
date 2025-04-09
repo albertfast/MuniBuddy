@@ -21,37 +21,37 @@ AGENCY_IDS = ["SFMTA"]  # Default to SFMTA if not specified
 
 class BusService:
     def __init__(self):
+        # Initialize basic attributes
         self.api_key = API_KEY
         self.base_url = "http://api.511.org/transit"
         self.agency_ids = AGENCY_IDS
         
-        # Cache for static GTFS data
-        self.stops_cache = {}  # stop_id -> stop_info mapping
-        self.routes_by_stop = {}  # stop_id -> list of routes mapping
-        self.stop_id_mapping = {}  # short_id -> gtfs_id mapping
+        # Initialize data structures FIRST
+        self.gtfs_data = {}
+        self.stops_cache = {}
+        self.routes_by_stop = {}
+        self.stop_id_mapping = {}
         
         # Load GTFS data and prepare cache
         try:
-            agency_map = {
-                "SFMTA": "muni",
-                "MUNI": "muni",
-                "SF": "muni",
-                "BA": "bart",
-                "BART": "bart"
-            }
-            
             # Load both MUNI and BART data by default
             for agency in ["muni", "bart"]:
                 gtfs_data = settings.get_gtfs_data(agency)
                 if gtfs_data:
                     routes_df, trips_df, stops_df, stop_times_df, calendar_df = gtfs_data
+                    
+                    # Initialize agency dict if not exists
                     if agency not in self.gtfs_data:
                         self.gtfs_data[agency] = {}
+                        
+                    # Store DataFrames
                     self.gtfs_data[agency]['routes'] = routes_df
                     self.gtfs_data[agency]['trips'] = trips_df
                     self.gtfs_data[agency]['stops'] = stops_df
                     self.gtfs_data[agency]['stop_times'] = stop_times_df
                     self.gtfs_data[agency]['calendar'] = calendar_df
+                    
+                    print(f"[DEBUG] Processing GTFS data for {agency}...")
                     
                     # Build stop ID mapping and cache
                     for _, stop in stops_df.iterrows():
@@ -60,9 +60,9 @@ class BusService:
                             short_id = stop_id[1:]  # Remove leading '1'
                             self.stop_id_mapping[short_id] = stop_id
                             self.stops_cache[stop_id] = {
-                                'name': stop['stop_name'],
-                                'lat': stop['stop_lat'],
-                                'lon': stop['stop_lon'],
+                                'name': stop['stop_name'].strip(),
+                                'lat': float(stop['stop_lat']),
+                                'lon': float(stop['stop_lon']),
                                 'agency': agency
                             }
                     
@@ -72,7 +72,7 @@ class BusService:
                         routes = stop_routes[stop_routes['stop_id'] == stop_id]['route_id'].unique()
                         self.routes_by_stop[stop_id] = list(routes)
                     
-                    print(f"[DEBUG] Loaded GTFS data for {agency}")
+                    print(f"[DEBUG] Successfully loaded GTFS data for {agency}")
                 else:
                     print(f"{Fore.YELLOW}⚠ No GTFS data found for agency {agency}{Style.RESET_ALL}")
 
