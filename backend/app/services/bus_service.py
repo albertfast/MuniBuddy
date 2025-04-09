@@ -586,3 +586,22 @@ class BusService:
             result["outbound"] = data["outbound"][:limit]
 
         return result
+
+    async def get_stop_predictions(self, stop_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get predictions for a specific stop, combining real-time and static data.
+        This is the main method used by the stop-predictions endpoint.
+        """
+        try:
+            # Get real-time data first
+            real_time_data = await self.fetch_stop_data(stop_id)
+            if real_time_data and (real_time_data.get('inbound') or real_time_data.get('outbound')):
+                return real_time_data
+
+            # Fall back to static schedule if no real-time data
+            static_schedule = self._get_static_schedule(stop_id)
+            return static_schedule
+
+        except Exception as e:
+            print(f"{Fore.RED}✗ Error getting predictions for stop {stop_id}: {str(e)}{Style.RESET_ALL}")
+            return {'inbound': [], 'outbound': []}
