@@ -56,11 +56,21 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
-  redis:
-    image: redis:7
-    container_name: redis_cache
-    ports:
-      - "6379:6379"
+  redis_cache:
+    image: redis:7.4.2
+    command: redis-server /etc/redis/redis.conf
+    volumes:
+      - ./backend/redis.conf:/etc/redis/redis.conf
+      - redis_data:/data
+    environment:
+      - REDIS_MAXMEMORY=256mb
+    sysctls:
+      - vm.overcommit_memory=1
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
 
 volumes:
   postgres_data:

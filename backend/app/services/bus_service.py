@@ -36,14 +36,17 @@ class BusService:
         try:
             # Load both MUNI and BART data by default
             for agency in ["muni", "bart"]:
+                print(f"[DEBUG] Starting to load GTFS data for {agency}...")
                 gtfs_data = settings.get_gtfs_data(agency)
                 if gtfs_data:
+                    print(f"[DEBUG] Got GTFS data tuple for {agency}, unpacking...")
                     routes_df, trips_df, stops_df, stop_times_df, calendar_df = gtfs_data
                     
                     # Initialize agency dict if not exists
                     if agency not in self.gtfs_data:
                         self.gtfs_data[agency] = {}
                         
+                    print(f"[DEBUG] Storing DataFrames for {agency}...")
                     # Store DataFrames
                     self.gtfs_data[agency]['routes'] = routes_df
                     self.gtfs_data[agency]['trips'] = trips_df
@@ -51,9 +54,9 @@ class BusService:
                     self.gtfs_data[agency]['stop_times'] = stop_times_df
                     self.gtfs_data[agency]['calendar'] = calendar_df
                     
-                    print(f"[DEBUG] Processing GTFS data for {agency}...")
-                    
+                    print(f"[DEBUG] Building stop ID mapping for {agency}...")
                     # Build stop ID mapping and cache
+                    stop_count = 0
                     for _, stop in stops_df.iterrows():
                         stop_id = stop['stop_id']
                         if len(stop_id) > 4 and stop_id.startswith('1'):
@@ -65,14 +68,20 @@ class BusService:
                                 'lon': float(stop['stop_lon']),
                                 'agency': agency
                             }
+                            stop_count += 1
+                    print(f"[DEBUG] Processed {stop_count} stops for {agency}")
                     
+                    print(f"[DEBUG] Building routes by stop for {agency}...")
                     # Build routes by stop cache
+                    route_count = 0
                     stop_routes = stop_times_df.merge(trips_df[['trip_id', 'route_id']], on='trip_id')
                     for stop_id in stops_df['stop_id'].unique():
                         routes = stop_routes[stop_routes['stop_id'] == stop_id]['route_id'].unique()
                         self.routes_by_stop[stop_id] = list(routes)
+                        route_count += len(routes)
+                    print(f"[DEBUG] Processed {route_count} route assignments for {agency}")
                     
-                    print(f"[DEBUG] Successfully loaded GTFS data for {agency}")
+                    print(f"[DEBUG] Successfully loaded all data for {agency}")
                 else:
                     print(f"{Fore.YELLOW}⚠ No GTFS data found for agency {agency}{Style.RESET_ALL}")
 
