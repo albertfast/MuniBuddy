@@ -9,6 +9,7 @@ from colorama import init, Fore, Style
 import json
 from app.config import settings
 import pytz
+import traceback
 
 # Initialize colorama for colored output
 init()
@@ -62,17 +63,29 @@ class BusService:
             now = datetime.now()
             current_time = now.strftime("%H:%M:%S")
             
-            # Determine which agency's GTFS data to use
+            # Determine which agency's GTFS data to use and format stop_id accordingly
             agency = None
+            gtfs_stop_id = stop_id
+            
+            # Try with original stop_id first
             for ag in ["muni", "bart"]:
                 if ag in self.gtfs_data and 'stops' in self.gtfs_data[ag]:
                     stops_df = self.gtfs_data[ag]['stops']
                     if not stops_df.empty and stop_id in stops_df['stop_id'].values:
                         agency = ag
                         break
+            
+            # If not found and it's a short ID, try with prefix for MUNI
+            if not agency and len(stop_id) <= 4:
+                gtfs_stop_id = f"1{stop_id}"
+                if 'muni' in self.gtfs_data and 'stops' in self.gtfs_data['muni']:
+                    stops_df = self.gtfs_data['muni']['stops']
+                    if not stops_df.empty and gtfs_stop_id in stops_df['stop_id'].values:
+                        agency = 'muni'
+                        print(f"{Fore.BLUE}ℹ️ Found stop {stop_id} as GTFS stop {gtfs_stop_id}{Style.RESET_ALL}")
 
             if not agency:
-                print(f"{Fore.YELLOW}⚠️ No agency found for stop {stop_id}{Style.RESET_ALL}")
+                print(f"{Fore.YELLOW}⚠️ No agency found for stop {stop_id} (tried {gtfs_stop_id}){Style.RESET_ALL}")
                 return {'inbound': [], 'outbound': []}
 
             # Get active services for today
@@ -90,11 +103,11 @@ class BusService:
             
             # Get stop times for this stop
             stop_times = self.gtfs_data[agency]['stop_times'][
-                self.gtfs_data[agency]['stop_times']['stop_id'] == stop_id
+                self.gtfs_data[agency]['stop_times']['stop_id'] == gtfs_stop_id
             ]
             
             if stop_times.empty:
-                print(f"{Fore.YELLOW}⚠️ No stop times found for stop {stop_id} ({agency}){Style.RESET_ALL}")
+                print(f"{Fore.YELLOW}⚠️ No stop times found for stop {gtfs_stop_id} ({agency}){Style.RESET_ALL}")
                 return {'inbound': [], 'outbound': []}
             
             # Merge with trips and routes to get valid routes for this stop
@@ -107,12 +120,12 @@ class BusService:
             )
             
             if schedule_data.empty:
-                print(f"{Fore.YELLOW}⚠️ No schedule data found for stop {stop_id} ({agency}){Style.RESET_ALL}")
+                print(f"{Fore.YELLOW}⚠️ No schedule data found for stop {gtfs_stop_id} ({agency}){Style.RESET_ALL}")
                 return {'inbound': [], 'outbound': []}
 
             # Get unique valid routes for this stop
             valid_routes = schedule_data[['route_short_name']].drop_duplicates()['route_short_name'].tolist()
-            print(f"{Fore.BLUE}ℹ️ Valid routes for stop {stop_id}: {valid_routes}{Style.RESET_ALL}")
+            print(f"{Fore.BLUE}ℹ️ Valid routes for stop {gtfs_stop_id}: {valid_routes}{Style.RESET_ALL}")
             
             # Filter schedule data to only include valid routes
             schedule_data = schedule_data[schedule_data['route_short_name'].isin(valid_routes)]
@@ -267,10 +280,16 @@ class BusService:
                 agency = stop.get('agency', 'muni')  # Default to muni if not specified
 
                 try:
+                    # For MUNI stops, ensure the stop_id has the correct format (with prefix 1)
+                    gtfs_stop_id = stop_id
+                    if agency == 'muni' and not stop_id.startswith('1'):
+                        gtfs_stop_id = f"1{stop_id}"
+                        print(f"{Fore.BLUE}ℹ️ Converting stop ID {stop_id} to GTFS format: {gtfs_stop_id}{Style.RESET_ALL}")
+
                     # Get stop_times for this stop from the correct agency's GTFS data
                     if agency in self.gtfs_data and 'stop_times' in self.gtfs_data[agency]:
                         stop_times = self.gtfs_data[agency]['stop_times'][
-                            self.gtfs_data[agency]['stop_times']['stop_id'] == stop_id
+                            self.gtfs_data[agency]['stop_times']['stop_id'] == gtfs_stop_id
                         ]
 
                         if not stop_times.empty:
@@ -309,9 +328,10 @@ class BusService:
                                     'destination': destination
                                 })
 
-                            print(f"{Fore.BLUE}ℹ️ Found {len(route_info)} routes for stop {stop_id}: {[r['route_number'] for r in route_info]}{Style.RESET_ALL}")
+                            print(f"{Fore.BLUE}ℹ️ Found {len(route_info)} routes for stop {gtfs_stop_id}: {[r['route_number'] for r in route_info]}{Style.RESET_ALL}")
                         else:
                             route_info = []
+                            print(f"{Fore.YELLOW}⚠️ No stop times found for stop {gtfs_stop_id} ({agency}){Style.RESET_ALL}")
                     else:
                         route_info = []
 
@@ -320,7 +340,7 @@ class BusService:
                     stop_info['routes'] = route_info
                     stop_info['id'] = stop_id
                     stop_info['stop_id'] = stop_id
-                    stop_info['gtfs_stop_id'] = stop_id
+                    stop_info['gtfs_stop_id'] = gtfs_stop_id
                     nearby_stops.append(stop_info)
 
                 except KeyError as e:
@@ -331,7 +351,7 @@ class BusService:
                     stop_info['routes'] = []
                     stop_info['id'] = stop_id
                     stop_info['stop_id'] = stop_id
-                    stop_info['gtfs_stop_id'] = stop_id
+                    stop_info['gtfs_stop_id'] = gtfs_stop_id if 'gtfs_stop_id' in locals() else stop_id
                     nearby_stops.append(stop_info)
                 except Exception as e:
                     print(f"{Fore.RED}✗ Error while processing stop {stop_id} ({agency}): {e}{Style.RESET_ALL}")
@@ -561,28 +581,28 @@ class BusService:
             print(f"{Fore.YELLOW}⚠️ Error details: {type(e).__name__}{Style.RESET_ALL}")
             return {'inbound': [], 'outbound': []}
 
-    async def get_stop_schedule(self, stop_id: str) -> Optional[Dict[str, Any]]:
-        """
-        Get schedule for a specific stop, trying real-time data first, falling back to GTFS.
-
-        Args:
-            stop_id (str): The ID of the stop to get schedule for
-
-        Returns:
-            Optional[Dict[str, Any]]: Stop schedule or None if error
-        """
+    def get_stop_schedule(self, stop_id: str) -> Dict[str, Any]:
+        """Get combined schedule (static + real-time) for a stop."""
         try:
-            # Try real-time data first
-            real_time_data = await self.fetch_stop_data(stop_id)
-            if real_time_data and (real_time_data['inbound'] or real_time_data['outbound']):
-                return real_time_data
+            # Format stop_id for GTFS if necessary
+            gtfs_stop_id = stop_id
+            if len(stop_id) <= 4 and not stop_id.startswith('1'):
+                gtfs_stop_id = f"1{stop_id}"
+                print(f"{Fore.YELLOW}Converting stop ID {stop_id} to GTFS format: {gtfs_stop_id}{Style.RESET_ALL}")
 
-            # Fall back to static GTFS data
-            return self._get_static_schedule(stop_id)
-
+            # Get static schedule using GTFS stop ID
+            static_schedule = self._get_static_schedule(gtfs_stop_id)
+            
+            # Get real-time predictions using original stop ID
+            predictions = self._get_real_time_predictions(stop_id)
+            
+            # Merge static and real-time data
+            return self._merge_schedule_and_predictions(static_schedule, predictions)
+            
         except Exception as e:
-            print(f"{Fore.RED}✗ Error fetching schedule for stop {stop_id}: {e}{Style.RESET_ALL}")
-            return None
+            traceback.print_exc()
+            print(f"{Fore.RED}✗ Error getting schedule for stop {stop_id}: {str(e)}{Style.RESET_ALL}")
+            return {'inbound': [], 'outbound': []}
 
     async def get_next_buses(self, stop_id: str, direction: str = "both", limit: int = 5) -> Optional[Dict[str, Any]]:
         """
@@ -627,3 +647,47 @@ class BusService:
         except Exception as e:
             print(f"{Fore.RED}✗ Error getting predictions for stop {stop_id}: {str(e)}{Style.RESET_ALL}")
             return {'inbound': [], 'outbound': []}
+
+    def _merge_schedule_and_predictions(self, schedule: Dict[str, Any], predictions: Dict[str, Any]) -> Dict[str, Any]:
+        """Merge static schedule with real-time predictions."""
+        result = {'inbound': [], 'outbound': []}
+        
+        # Helper function to merge a single direction
+        def merge_direction(static_times: List[Dict], real_time_times: List[Dict]) -> List[Dict]:
+            merged = []
+            
+            # Add real-time predictions first
+            for pred in real_time_times:
+                merged.append({
+                    'time': pred['time'],
+                    'route': pred.get('route', ''),
+                    'is_real_time': True,
+                    'vehicle': pred.get('vehicle', ''),
+                    'destination': pred.get('destination', '')
+                })
+            
+            # Add static times that don't overlap with real-time predictions
+            real_time_routes = {p['route'] for p in real_time_times}
+            for static in static_times:
+                if static['route'] not in real_time_routes:
+                    merged.append({
+                        'time': static['time'],
+                        'route': static.get('route', ''),
+                        'is_real_time': False,
+                        'destination': static.get('destination', '')
+                    })
+            
+            # Sort by time
+            return sorted(merged, key=lambda x: x['time'])
+        
+        # Merge both directions
+        result['inbound'] = merge_direction(
+            schedule.get('inbound', []),
+            predictions.get('inbound', [])
+        )
+        result['outbound'] = merge_direction(
+            schedule.get('outbound', []),
+            predictions.get('outbound', [])
+        )
+        
+        return result
