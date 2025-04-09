@@ -97,7 +97,7 @@ class BusService:
                 print(f"{Fore.YELLOW}⚠️ No stop times found for stop {stop_id} ({agency}){Style.RESET_ALL}")
                 return {'inbound': [], 'outbound': []}
             
-            # Merge with trips and routes
+            # Merge with trips and routes to get valid routes for this stop
             schedule_data = stop_times.merge(
                 active_trips[['trip_id', 'route_id', 'direction_id', 'trip_headsign']],
                 on='trip_id'
@@ -109,6 +109,13 @@ class BusService:
             if schedule_data.empty:
                 print(f"{Fore.YELLOW}⚠️ No schedule data found for stop {stop_id} ({agency}){Style.RESET_ALL}")
                 return {'inbound': [], 'outbound': []}
+
+            # Get unique valid routes for this stop
+            valid_routes = schedule_data[['route_short_name']].drop_duplicates()['route_short_name'].tolist()
+            print(f"{Fore.BLUE}ℹ️ Valid routes for stop {stop_id}: {valid_routes}{Style.RESET_ALL}")
+            
+            # Filter schedule data to only include valid routes
+            schedule_data = schedule_data[schedule_data['route_short_name'].isin(valid_routes)]
             
             # Convert current_time to datetime for comparison
             current_dt = datetime.strptime(current_time, "%H:%M:%S")
@@ -159,20 +166,19 @@ class BusService:
                 # Direction check based on destination and route name
                 route_name = row['route_long_name'].lower()
                 destination_lower = destination.lower()
+                direction_id = row['direction_id']
                 
-                if (any(term in destination_lower for term in ['ocean', 'beach', 'zoo', 'cliff']) or
-                    any(term in route_name for term in ['outbound', 'ocean', 'beach', 'zoo']) or
-                    row['direction_id'] == 0):
-                    outbound.append(bus_info)
-                elif (any(term in destination_lower for term in ['downtown', 'market', 'ferry', 'transit center', 'terminal']) or
-                    any(term in route_name for term in ['inbound', 'downtown', 'market', 'ferry']) or
-                    row['direction_id'] == 1):
+                # Use direction_id as primary indicator, then fall back to destination keywords
+                if direction_id == 1 or any(term in destination_lower for term in ['downtown', 'market', 'ferry', 'transit center', 'terminal']):
                     inbound.append(bus_info)
+                elif direction_id == 0 or any(term in destination_lower for term in ['ocean', 'beach', 'zoo', 'cliff']):
+                    outbound.append(bus_info)
                 else:
-                    if row['direction_id'] == 0:
-                        outbound.append(bus_info)
-                    else:
+                    # If no clear direction, use route name as final fallback
+                    if any(term in route_name for term in ['inbound', 'downtown', 'market', 'ferry']):
                         inbound.append(bus_info)
+                    else:
+                        outbound.append(bus_info)
             
             # Sort arrivals and limit
             inbound.sort(key=lambda x: datetime.strptime(x['arrival_time'], "%I:%M %p"))
@@ -257,24 +263,38 @@ class BusService:
             distance = self._calculate_distance(lat, lon, stop['stop_lat'], stop['stop_lon'])
             if distance <= radius_miles:
                 # Get route information from GTFS data
-                original_stop_id = stop['stop_id']
-                api_stop_id = original_stop_id[1:] if original_stop_id.startswith('1') else original_stop_id
+                stop_id = stop['stop_id']
                 agency = stop.get('agency', 'muni')  # Default to muni if not specified
 
                 try:
                     # Get stop_times for this stop from the correct agency's GTFS data
                     if agency in self.gtfs_data and 'stop_times' in self.gtfs_data[agency]:
                         stop_times = self.gtfs_data[agency]['stop_times'][
-                            self.gtfs_data[agency]['stop_times']['stop_id'] == original_stop_id
+                            self.gtfs_data[agency]['stop_times']['stop_id'] == stop_id
                         ]
 
                         if not stop_times.empty:
-                            trips = self.gtfs_data[agency]['trips'][
-                                self.gtfs_data[agency]['trips']['trip_id'].isin(stop_times['trip_id'])
+                            # Get active services for today
+                            weekday = datetime.now().strftime("%A").lower()
+                            active_services = self.gtfs_data[agency]['calendar'][
+                                (self.gtfs_data[agency]['calendar'][weekday] == 1) &
+                                (pd.to_numeric(self.gtfs_data[agency]['calendar']['start_date']) <= int(datetime.now().strftime("%Y%m%d"))) &
+                                (pd.to_numeric(self.gtfs_data[agency]['calendar']['end_date']) >= int(datetime.now().strftime("%Y%m%d")))
+                            ]['service_id']
+
+                            # Get trips for active services
+                            active_trips = self.gtfs_data[agency]['trips'][
+                                self.gtfs_data[agency]['trips']['service_id'].isin(active_services)
                             ]
 
+                            # Get valid routes for this stop
+                            valid_trips = stop_times.merge(
+                                active_trips[['trip_id', 'route_id', 'direction_id']],
+                                on='trip_id'
+                            )
+
                             routes = self.gtfs_data[agency]['routes'][
-                                self.gtfs_data[agency]['routes']['route_id'].isin(trips['route_id'])
+                                self.gtfs_data[agency]['routes']['route_id'].isin(valid_trips['route_id'])
                             ].drop_duplicates()
 
                             # Prepare route information for the stop
@@ -288,6 +308,8 @@ class BusService:
                                     'route_number': route['route_short_name'],
                                     'destination': destination
                                 })
+
+                            print(f"{Fore.BLUE}ℹ️ Found {len(route_info)} routes for stop {stop_id}: {[r['route_number'] for r in route_info]}{Style.RESET_ALL}")
                         else:
                             route_info = []
                     else:
@@ -296,23 +318,23 @@ class BusService:
                     stop_info = stop.copy()
                     stop_info['distance_miles'] = round(distance, 2)
                     stop_info['routes'] = route_info
-                    stop_info['id'] = api_stop_id  # Frontend için
-                    stop_info['stop_id'] = api_stop_id  # API çağrıları için
-                    stop_info['gtfs_stop_id'] = original_stop_id  # GTFS sorguları için
+                    stop_info['id'] = stop_id
+                    stop_info['stop_id'] = stop_id
+                    stop_info['gtfs_stop_id'] = stop_id
                     nearby_stops.append(stop_info)
 
                 except KeyError as e:
-                    print(f"{Fore.YELLOW}⚠ No route data found for stop {original_stop_id} ({agency}): {e}{Style.RESET_ALL}")
+                    print(f"{Fore.YELLOW}⚠ No route data found for stop {stop_id} ({agency}): {e}{Style.RESET_ALL}")
                     # Still add the stop, just without route information
                     stop_info = stop.copy()
                     stop_info['distance_miles'] = round(distance, 2)
                     stop_info['routes'] = []
-                    stop_info['id'] = api_stop_id
-                    stop_info['stop_id'] = api_stop_id
-                    stop_info['gtfs_stop_id'] = original_stop_id
+                    stop_info['id'] = stop_id
+                    stop_info['stop_id'] = stop_id
+                    stop_info['gtfs_stop_id'] = stop_id
                     nearby_stops.append(stop_info)
                 except Exception as e:
-                    print(f"{Fore.RED}✗ Error while processing stop {original_stop_id} ({agency}): {e}{Style.RESET_ALL}")
+                    print(f"{Fore.RED}✗ Error while processing stop {stop_id} ({agency}): {e}{Style.RESET_ALL}")
                     continue
 
         # Sort by distance
