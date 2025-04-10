@@ -759,7 +759,7 @@ class BusService:
             # Sort by time
             return sorted(merged, key=lambda x: x['time'])
         
-        # Merge both directions
+        # Merge both direction
         result['inbound'] = merge_direction(
             schedule.get('inbound', []),
             predictions.get('inbound', [])
