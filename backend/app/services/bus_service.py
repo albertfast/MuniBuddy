@@ -501,7 +501,11 @@ class BusService:
                 data = json.loads(content)
 
                 delivery = data.get("ServiceDelivery", {})
-                monitoring = delivery.get("StopMonitoringDelivery", {})
+                monitoring = delivery.get("StopMonitoringDelivery")
+                if isinstance(monitoring, list):
+                    monitoring = monitoring[0] if monitoring else {}
+                elif not isinstance(monitoring, dict):
+                    monitoring = {}
                 stops = monitoring.get("MonitoredStopVisit", [])
 
                 if not stops:
