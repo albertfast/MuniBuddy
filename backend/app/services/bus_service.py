@@ -756,7 +756,7 @@ class BusService:
                         'destination': static.get('destination', '')
                     })
             
-            # Sort by tim
+            # Sort by time
             return sorted(merged, key=lambda x: x['time'])
         
         # Merge both directions
