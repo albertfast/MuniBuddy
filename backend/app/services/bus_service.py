@@ -675,13 +675,7 @@ class BusService:
     async def get_stop_schedule(self, stop_id: str) -> Dict[str, Any]:
         """Get combined schedule (static + real-time) for a stop."""
         try:
-            # Format stop_id for GTFS if necessary
-            gtfs_stop_id = stop_id
-            if len(stop_id) <= 4 and not stop_id.startswith('1'):
-                gtfs_stop_id = f"1{stop_id}"
-                print(f"{Fore.YELLOW}Converting stop ID {stop_id} to GTFS format: {gtfs_stop_id}{Style.RESET_ALL}")
-
-            # Use fetch_stop_data which already handles both static and real-time data
+            # Delegate everything to fetch_stop_data
             return await self.fetch_stop_data(stop_id)
             
         except Exception as e:
