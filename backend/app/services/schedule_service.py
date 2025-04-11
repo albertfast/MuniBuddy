@@ -2,34 +2,23 @@ from typing import Dict, Any
 from datetime import datetime, timedelta
 import pandas as pd
 from colorama import Fore, Style
-from app.services.debug_logger import log_debug
 from app.config import settings
+from app.services.debug_logger import log_debug
 
 class SchedulerService:
-    def __init__(self):
-        self.gtfs_data = settings.get_gtfs_data("muni")  # Assuming MUNI for now
-
     def get_schedule(self, stop_id: str) -> Dict[str, Any]:
-        """
-        Get static schedule from GTFS data.
-
-        Args:
-            stop_id (str): GTFS stop ID (must match GTFS CSVs)
-
-        Returns:
-            Dict[str, Any]: inbound and outbound bus info
-        """
         log_debug(f"Looking up static schedule for stop: {stop_id}")
+        gtfs_data = settings.get_gtfs_data("muni")
 
         try:
             now = datetime.now()
             current_time = now.strftime("%H:%M:%S")
             weekday = now.strftime("%A").lower()
 
-            stop_times_df = self.gtfs_data.get("stop_times", pd.DataFrame())
-            trips_df = self.gtfs_data.get("trips", pd.DataFrame())
-            calendar_df = self.gtfs_data.get("calendar", pd.DataFrame())
-            routes_df = self.gtfs_data.get("routes", pd.DataFrame())
+            stop_times_df = gtfs_data.get("stop_times", pd.DataFrame())
+            trips_df = gtfs_data.get("trips", pd.DataFrame())
+            calendar_df = gtfs_data.get("calendar", pd.DataFrame())
+            routes_df = gtfs_data.get("routes", pd.DataFrame())
 
             if stop_times_df.empty or trips_df.empty or calendar_df.empty or routes_df.empty:
                 log_debug("One or more GTFS components are missing or empty.")
