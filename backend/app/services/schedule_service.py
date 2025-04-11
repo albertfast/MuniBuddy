@@ -1,10 +1,10 @@
-from typing import Dict, Any, Optional
+# app/services/schedule_service.py
+
+from typing import Dict, Any
 from datetime import datetime, timedelta
-from collections import defaultdict
 import pandas as pd
 from colorama import Fore, Style
 from app.services.debug_logger import log_debug
-
 
 def get_static_schedule(stop_id: str, gtfs_data: Dict[str, pd.DataFrame]) -> Dict[str, Any]:
     """
@@ -61,9 +61,9 @@ def get_static_schedule(stop_id: str, gtfs_data: Dict[str, pd.DataFrame]) -> Dic
                 arrival_time = datetime.strptime(arrival_str, "%H:%M:%S")
 
                 if extra_days > 0:
-                    arrival_time = arrival_time + timedelta(days=extra_days)
+                    arrival_time += timedelta(days=extra_days)
                 if normalized_hours < current_dt.hour and extra_days == 0:
-                    arrival_time = arrival_time + timedelta(days=1)
+                    arrival_time += timedelta(days=1)
 
                 time_diff = (arrival_time - current_dt).total_seconds() / 3600
                 if 0 <= time_diff <= 2:
