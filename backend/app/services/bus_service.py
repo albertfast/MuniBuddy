@@ -9,11 +9,11 @@ class BusService:
     def __init__(self):
         log_debug("Initializing BusService...")
         self.gtfs_data = settings.get_gtfs_data("muni")
-        self.stops_df = load_stops(self.gtfs_data, "muni")
+        self.stops_df = load_stops(self.gtfs_data)
 
     async def get_nearby_buses(self, lat: float, lon: float, radius: float = 0.15):
         log_debug(f"Finding nearby buses for coordinates: ({lat}, {lon}), radius: {radius}")
-        nearby_stops = find_nearby_stops(lat, lon, radius, self.stops_df)
+        nearby_stops = find_nearby_stops(lat, lon, self.gtfs_data, radius)
         stop_ids = [stop['stop_id'] for stop in nearby_stops]
         log_debug(f"Found {len(stop_ids)} nearby stops.")
         return {"nearby_stop_ids": stop_ids, "stops": nearby_stops}
