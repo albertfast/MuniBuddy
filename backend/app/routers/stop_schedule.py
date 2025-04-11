@@ -1,15 +1,16 @@
 from fastapi import APIRouter, HTTPException
-from app.core.singleton import scheduler_service
+from app.services.schedule_service import get_static_schedule
+from app.config import settings
 
 router = APIRouter()
 
 @router.get("/stop-schedule/{stop_id}")
 async def get_stop_schedule(stop_id: str):
     """
-    Returns real-time schedule if available from 511 API,
-    otherwise falls back to static GTFS schedule from PostgreSQL.
+    Returns static GTFS schedule for a stop using provided GTFS data.
     """
     try:
-        return await scheduler_service.get_schedule(stop_id)
+        gtfs_data = settings.get_gtfs_data("muni")
+        return get_static_schedule(stop_id, gtfs_data)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Schedule fetch failed: {str(e)}")
