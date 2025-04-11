@@ -4,8 +4,7 @@ import math
 from typing import List, Dict, Any
 from datetime import datetime
 import pandas as pd
-# from colorama import Fore, Style
-from app.services.debug_logger import 
+from colorama import Fore, Style
 from app.services.stop_helper import calculate_distance
 
 def calculate_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -13,9 +12,6 @@ def calculate_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> fl
     Calculate distance between two points using Haversine formula.
     Returns distance in miles.
     """
-    from app.services.debug_logger import log_debug
-    import math
-
     if None in [lat1, lon1, lat2, lon2]:
         log_debug(f"Invalid coordinates: ({lat1}, {lon1}) -> ({lat2}, {lon2})")
         return float('inf')
