@@ -1,6 +1,6 @@
 # app/core/singleton.py
 from app.services.bus_service import BusService
-from app.services.scheduler_service import SchedulerService
+from app.services.schedule_service import SchedulerService
 
 
 # Global singleton instances
