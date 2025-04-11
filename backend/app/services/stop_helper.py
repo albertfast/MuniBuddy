@@ -5,7 +5,7 @@ from typing import List, Dict, Any
 from datetime import datetime
 import pandas as pd
 from colorama import Fore, Style
-from app.services.stop_helper import calculate_distance
+distance = calculate_distance(...)
 
 def calculate_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     """
