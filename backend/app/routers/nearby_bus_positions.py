@@ -1,5 +1,10 @@
+# app/routers/nearby_bus_positions.py
+
 from fastapi import APIRouter, HTTPException, Query
-from app.core.singleton import bus_service
+from app.services.realtime_service import fetch_stop_data
+from app.services.schedule_service import get_static_schedule
+from app.services.stop_helper import find_nearby_stops
+from app.config import settings
 
 router = APIRouter()
 
@@ -8,13 +13,14 @@ async def get_nearby_bus_positions(
     lat: float = Query(...),
     lon: float = Query(...),
     bus_number: str = Query(...),
-    agency: str = Query("SF")
+    agency: str = Query("muni")
 ):
     """
-    Get nearby buses (live if possible, fallback to GTFS)
+    Get nearby buses for a specific route, checking live predictions first and falling back to schedule.
     """
     try:
-        nearby_stops = await bus_service.find_nearby_stops(lat, lon, radius_miles=0.2, limit=5)
+        gtfs_data = settings.get_gtfs_data(agency)
+        nearby_stops = await find_nearby_stops(lat, lon, gtfs_data=gtfs_data, radius_miles=0.2, limit=5)
         results = []
 
         for stop in nearby_stops:
@@ -22,10 +28,10 @@ async def get_nearby_bus_positions(
                 continue
 
             stop_id = stop["gtfs_stop_id"]
-            live_data = await bus_service.fetch_real_time_stop_data(stop_id)
+            live_data = await fetch_stop_data(stop_id, gtfs_data=gtfs_data)
             live_match = next((b for b in (live_data.get("inbound", []) + live_data.get("outbound", [])) if b["route_number"] == bus_number), None)
 
-            schedule = await bus_service.get_stop_schedule(stop_id)
+            schedule = get_static_schedule(stop_id, gtfs_data=gtfs_data)
             scheduled_match = next((b for b in (schedule.get("inbound", []) + schedule.get("outbound", [])) if b["route_number"] == bus_number), None)
 
             results.append({
@@ -38,6 +44,7 @@ async def get_nearby_bus_positions(
 
         if not results:
             return {"message": f"No nearby buses found for route {bus_number}"}
+
         return {"bus_number": bus_number, "results": results}
 
     except Exception as e:
