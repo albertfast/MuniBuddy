@@ -1,4 +1,4 @@
-from app.services.realtime_service import fetch_stop_data
+from app.services.realtime_service import fetch_real_time_stop_data
 from app.services.schedule_service import get_static_schedule
 from app.services.stop_helper import calculate_distance, load_stops, find_nearby_stops
 from app.services.debug_logger import log_debug
@@ -24,4 +24,4 @@ class BusService:
 
     async def get_stop_predictions(self, stop_id: str):
         log_debug(f"Fetching real-time predictions for stop ID: {stop_id}")
-        return await fetch_stop_data(stop_id)
+        return await fetch_real_time_stop_data(stop_id)
