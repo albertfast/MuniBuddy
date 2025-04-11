@@ -1,11 +1,11 @@
-from app.services.debug_logger import log_debug
-import pandas as pd
-import math
 from typing import List, Dict, Any
 from datetime import datetime
-import pandas as pd
 from colorama import Fore, Style
-distance = calculate_distance(...)
+import pandas as pd
+import math
+
+from app.services.debug_logger import log_debug
+
 
 def calculate_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     """
@@ -27,8 +27,9 @@ def calculate_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> fl
 
         return R * c
     except (ValueError, TypeError) as e:
-        log_debug(f"[WARN] Error in _calculate_distance: {e}")
+        log_debug(f"[WARN] Error in calculate_distance: {e}")
         return float('inf')
+
 
 async def load_stops(gtfs_data: Dict[str, Any]) -> List[Dict[str, Any]]:
     """
@@ -66,6 +67,7 @@ async def load_stops(gtfs_data: Dict[str, Any]) -> List[Dict[str, Any]]:
         log_debug(f"✗ Error loading stops: {str(e)}")
         return []
 
+
 def find_nearby_stops(lat: float, lon: float, gtfs_data: Dict[str, Any], radius_miles: float = 0.15, limit: int = 3) -> List[Dict[str, Any]]:
     """
     Find nearby transit stops within a radius and attach route info.
@@ -87,10 +89,7 @@ def find_nearby_stops(lat: float, lon: float, gtfs_data: Dict[str, Any], radius_
                 distance = calculate_distance(lat, lon, row['stop_lat'], row['stop_lon'])
                 if distance <= radius_miles:
                     stop_id = row['stop_id']
-                    gtfs_stop_id = stop_id
-                    if agency == 'muni' and not stop_id.startswith('1'):
-                        gtfs_stop_id = f"1{stop_id}"
-                        log_debug(f"ℹ️ Converting stop ID {stop_id} to GTFS format: {gtfs_stop_id}")
+                    gtfs_stop_id = f"1{stop_id}" if agency == 'muni' and not stop_id.startswith('1') else stop_id
 
                     try:
                         stop_times = gtfs_data[agency]['stop_times']
