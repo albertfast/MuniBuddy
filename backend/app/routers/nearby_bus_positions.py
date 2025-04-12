@@ -1,45 +1,47 @@
 from fastapi import APIRouter, HTTPException, Query
-from app.core.singleton import bus_service
+from app.services.realtime_service import fetch_real_time_stop_data
+from app.services.stop_helper import load_stops
 
 router = APIRouter()
 
-@router.get("/bus-positions/nearby")
-def get_nearby_bus_positions(
-    lat: float = Query(...),
-    lon: float = Query(...),
-    bus_number: str = Query(...),
-    agency: str = Query("muni")
+@router.get("/bus-positions/by-stop")
+def get_real_time_buses_by_stop(
+    stop_code: str = Query(..., description="GTFS stop_code (ex: 14212)"),
+    agency: str = Query("muni", description="Transit agency (default: muni)"),
+    bus_number: str = Query(None, description="Optional route number to filter")
 ):
     """
-    Returns nearby stops with real-time info for a specific bus number and agency.
+    Returns real-time bus arrivals for a specific stop using stop_code and agency.
     """
     try:
-        results = bus_service.get_nearby_buses(lat=lat, lon=lon, radius=0.2, agency=agency)
+        stops = load_stops(agency)
+        matched_stop = next((s for s in stops if s.get("stop_code") == stop_code), None)
 
-        filtered_results = []
-        for stop in results["stops"]:
-            buses = stop.get("buses", {})
-            inbound = buses.get("inbound", [])
-            outbound = buses.get("outbound", [])
-            all_buses = inbound + outbound
+        if not matched_stop:
+            raise HTTPException(status_code=404, detail=f"Stop with stop_code {stop_code} not found.")
 
-            matching_buses = [b for b in all_buses if b.get("route_number") == bus_number]
+        realtime_data = fetch_real_time_stop_data(matched_stop, agency)
 
-            if matching_buses:
-                stop_with_filtered_buses = {
-                    "stop_id": stop.get("stop_id"),
-                    "stop_code": stop.get("stop_code"),
-                    "stop_name": stop.get("stop_name"),
-                    "distance_miles": stop.get("distance_miles"),
-                    "buses": matching_buses
-                }
-                filtered_results.append(stop_with_filtered_buses)
+        buses = []
+        for direction in ["inbound", "outbound"]:
+            for bus in realtime_data.get(direction, []):
+                if bus_number and bus.get("route_number") != bus_number:
+                    continue
+                buses.append({
+                    "route_number": bus.get("route_number"),
+                    "destination": bus.get("destination"),
+                    "arrival_time": bus.get("arrival_time"),
+                    "status": bus.get("status"),
+                    "minutes_until": bus.get("minutes_until"),
+                    "is_realtime": bus.get("is_realtime"),
+                    "direction": direction
+                })
 
         return {
-            "bus_number": bus_number,
-            "agency": agency,
-            "results": filtered_results
+            "stop_code": stop_code,
+            "stop_name": matched_stop.get("stop_name"),
+            "buses": buses
         }
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to fetch: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch real-time buses: {e}")

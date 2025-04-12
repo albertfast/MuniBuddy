@@ -5,30 +5,40 @@ from typing import Optional, Dict, Any
 from app.config import settings
 from app.services.debug_logger import log_debug
 from app.services.stop_helper import load_stops
+
 API_KEY = settings.API_KEY
 BASE_URL = settings.TRANSIT_511_BASE_URL
 
 
-def fetch_real_time_stop_data(stop: Dict[str, Any], agency: str = "SF") -> Optional[Dict[str, Any]]:
+def fetch_real_time_stop_data(stop_id: str, agency: str = "muni") -> Optional[Dict[str, Any]]:
     """
-    Fetch real-time arrival data for a specific stop using stop_code if available.
+    Fetch real-time arrival data by finding stop_code via load_stops(),
+    then calling 511 API with it.
     """
     try:
-        # ✅ Use stop_code if present, else fall back to stop_id
-        stop_id = stop.get("stop_code") or stop.get("stop_id")
-        if not stop_id:
-            log_debug("[ERROR] No valid stop_code or stop_id provided")
+
+        stops = load_stops(agency)
+        stop = next((s for s in stops if s["stop_id"] == stop_id or s.get("stop_code") == stop_id), None)
+
+        if not stop:
+            log_debug(f"[ERROR] Stop not found in GTFS for id/code: {stop_id}")
+            return {"inbound": [], "outbound": []}
+
+        stop_code = stop.get("stop_code")
+        if not stop_code:
+            log_debug(f"[ERROR] No stop_code found for stop_id={stop_id}")
             return {"inbound": [], "outbound": []}
 
         url = f"{BASE_URL}/StopMonitoring"
         params = {
             "api_key": API_KEY,
-            "agency": agency,
-            "stopCode": stop_id,
+            "agency": "SF",  
+            "stopCode": stop_code,
             "format": "json"
         }
 
-        log_debug(f"[511 API] Requesting real-time data for stop: {stop_id} | agency: {agency}")
+        log_debug(f"[511 API] Requesting real-time data for stop_code={stop_code} ({stop.get('stop_name')})")
+
         response = httpx.get(url, params=params)
         response.raise_for_status()
 
