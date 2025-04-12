@@ -28,7 +28,6 @@ class BusService:
         results = []
 
         for stop in nearby_stops:
-            # ✅ Burada artık tüm stop dict'ini yolla
             realtime_data = fetch_real_time_stop_data(stop, agency)
 
             results.append({

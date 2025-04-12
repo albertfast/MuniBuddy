@@ -24,6 +24,28 @@ def calculate_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> fl
     except Exception as e:
         log_debug(f"[WARN] Error in calculate_distance: {e}")
         return float('inf')
+def find_nearby_stops(
+    lat: float,
+    lon: float,
+    stops: List[Dict[str, Any]],
+    radius_miles: float = 0.15,
+    limit: int = 5
+) -> List[Dict[str, Any]]:
+    """
+    Find nearby transit stops based on geographic distance only.
+    """
+    nearby_stops = []
+
+    for stop in stops:
+        distance = calculate_distance(lat, lon, stop["stop_lat"], stop["stop_lon"])
+        if distance <= radius_miles:
+            stop_info = stop.copy()
+            stop_info["distance_miles"] = round(distance, 2)
+            nearby_stops.append(stop_info)
+
+    nearby_stops.sort(key=lambda x: x["distance_miles"])
+    log_debug(f"✓ Found {len(nearby_stops)} nearby stops within {radius_miles} miles (no stop_times filtering)")
+    return nearby_stops[:limit]
 
 def load_stops(agency: str) -> List[Dict[str, Any]]:
     try:
@@ -61,26 +83,3 @@ def load_stops(agency: str) -> List[Dict[str, Any]]:
     except Exception as e:
         log_debug(f"✗ Error loading stops for {agency}: {str(e)}")
         return []
-
-def find_nearby_stops(
-    lat: float,
-    lon: float,
-    stops: List[Dict[str, Any]],
-    radius_miles: float = 0.15,
-    limit: int = 5
-) -> List[Dict[str, Any]]:
-    """
-    Find nearby transit stops based on geographic distance only.
-    """
-    nearby_stops = []
-
-    for stop in stops:
-        distance = calculate_distance(lat, lon, stop["stop_lat"], stop["stop_lon"])
-        if distance <= radius_miles:
-            stop_info = stop.copy()
-            stop_info["distance_miles"] = round(distance, 2)
-            nearby_stops.append(stop_info)
-
-    nearby_stops.sort(key=lambda x: x["distance_miles"])
-    log_debug(f"✓ Found {len(nearby_stops)} nearby stops within {radius_miles} miles (no stop_times filtering)")
-    return nearby_stops[:limit]
