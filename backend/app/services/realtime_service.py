@@ -11,7 +11,7 @@ API_KEY = settings.API_KEY
 BASE_URL = settings.TRANSIT_511_BASE_URL
 
 
-async def fetch_real_time_stop_data(stop_id: str, agency: str = "muni") -> Optional[Dict[str, Any]]:
+async def fetch_real_time_stop_data(stop_id: str, agency: str = "muni") -> Dict[str, Any]:
     """
     Fetch real-time arrival data by finding stop_code via load_stops(),
     then calling 511 API with it.
@@ -68,13 +68,13 @@ async def fetch_real_time_stop_data(stop_id: str, agency: str = "muni") -> Optio
                 expected = call.get("ExpectedArrivalTime")
                 aimed = call.get("AimedArrivalTime")
 
-                arrival_time = None
-                time_str = (expected or aimed)
-                if time_str and "T" in time_str:
-                    raw_time = time_str.split("Z")[0]
-                    arrival_time = datetime.strptime(raw_time, "%Y-%m-%dT%H:%M:%S").replace(tzinfo=timezone.utc).astimezone(ZoneInfo("America/Los_Angeles"))
-                else:
-                    continue  # skip if time is malformed
+                time_str = expected or aimed
+                if not time_str or "T" not in time_str:
+                    log_debug(f"[WARN] Skipping visit due to invalid time_str: {time_str}")
+                    continue
+
+                raw_time = time_str.replace("Z", "")[:19]
+                arrival_time = datetime.strptime(raw_time, "%Y-%m-%dT%H:%M:%S").replace(tzinfo=timezone.utc).astimezone(ZoneInfo("America/Los_Angeles"))
 
                 if not arrival_time or (arrival_time - now).total_seconds() > 7200:
                     continue
@@ -104,4 +104,4 @@ async def fetch_real_time_stop_data(stop_id: str, agency: str = "muni") -> Optio
 
     except Exception as e:
         log_debug(f"[ERROR] fetch_real_time_stop_data failed: {e}")
-        return {"inbound": [], "outbound": []}
+        raise
