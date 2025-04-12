@@ -30,7 +30,7 @@ def calculate_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> fl
         log_debug(f"[WARN] Error in calculate_distance: {e}")
         return float('inf')
 
-async def load_stops(gtfs_data: Dict[str, Any]) -> List[Dict[str, Any]]:
+def load_stops(gtfs_data: Dict[str, Any]) -> List[Dict[str, Any]]:
     try:
         stops = []
         for agency in ["muni", "bart"]:
