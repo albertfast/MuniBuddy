@@ -5,7 +5,6 @@ import math
 from app.services.debug_logger import log_debug
 from app.config import settings
 
-
 def calculate_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     """
     Calculate distance between two points using Haversine formula.
@@ -26,34 +25,37 @@ def calculate_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> fl
         log_debug(f"[WARN] Error in calculate_distance: {e}")
         return float('inf')
 
-def load_stops() -> List[Dict[str, Any]]:
+def load_stops(agency: str) -> List[Dict[str, Any]]:
     try:
         stops = []
 
-        for agency in ["muni", "bart"]:
-            gtfs_tuple = settings.get_gtfs_data(agency)
-            if not gtfs_tuple:
-                log_debug(f"⚠️ GTFS data not loaded for agency: {agency}")
-                continue
-
-            _, _, stops_df, *_ = gtfs_tuple  # routes, trips, stops, stop_times, calendar
-
-            if isinstance(stops_df, pd.DataFrame) and not stops_df.empty:
-                for _, row in stops_df.iterrows():
-                    stops.append({
-                        'stop_id': row['stop_id'],
-                        'stop_name': row['stop_name'],
-                        'stop_lat': float(row['stop_lat']),
-                        'stop_lon': float(row['stop_lon']),
-                        'agency': agency
-                    })
-
-        if not stops:
-            log_debug("✗ No stops loaded from GTFS")
+        gtfs_tuple = settings.get_gtfs_data(agency)
+        if not gtfs_tuple:
+            log_debug(f"⚠️ GTFS data not loaded for agency: {agency}")
             return []
 
-        log_debug(f"✓ Loaded {len(stops)} stops from GTFS")
+        _, _, stops_df, *_ = gtfs_tuple
+
+        if isinstance(stops_df, pd.DataFrame) and not stops_df.empty:
+            for _, row in stops_df.iterrows():
+                stops.append({
+                    'stop_id': row['stop_id'],
+                    'stop_name': row['stop_name'],
+                    'stop_lat': float(row['stop_lat']),
+                    'stop_lon': float(row['stop_lon']),
+                    'agency': agency
+                })
+
+        if not stops:
+            log_debug(f"✗ No stops loaded for agency: {agency}")
+            return []
+
+        log_debug(f"✓ Loaded {len(stops)} stops for agency: {agency}")
         return stops
+
+    except Exception as e:
+        log_debug(f"✗ Error loading stops for {agency}: {str(e)}")
+        return []
 
     except Exception as e:
         log_debug(f"✗ Error in load_stops: {str(e)}")

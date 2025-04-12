@@ -10,10 +10,17 @@ class BusService:
         self.scheduler = scheduler
         self.gtfs_data = settings.get_gtfs_data("muni")
 
-    def get_nearby_stops(self, lat: float, lon: float, radius: float = 0.15):
-        log_debug(f"Finding nearby stops for coordinates: ({lat}, {lon}), radius: {radius}")
-        stops = load_stops()
-        return find_nearby_stops(lat, lon, self.gtfs_data, stops, radius)
+    def get_nearby_stops(self, lat: float, lon: float, radius: float = 0.15, agency: str = "muni"):
+        log_debug(f"Finding nearby stops for coordinates: ({lat}, {lon}), radius: {radius}, agency: {agency}")
+        
+        # stops ve gtfs_data sadece ilgili agency için alınır
+        gtfs_data = settings.get_gtfs_data(agency)
+        if not gtfs_data:
+            log_debug(f"✗ No GTFS data found for agency: {agency}")
+            return []
+
+        stops = load_stops(agency)
+        return find_nearby_stops(lat, lon, gtfs_data, stops, radius)
 
     def get_nearby_buses(self, lat: float, lon: float, radius: float = 0.15, agency: str = "muni"):
         log_debug(f"Looking for nearby real-time buses around: ({lat}, {lon}) within {radius} miles for agency: {agency}")
