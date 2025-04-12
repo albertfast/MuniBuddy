@@ -31,21 +31,14 @@ def calculate_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> fl
         return float('inf')
 
 async def load_stops(gtfs_data: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """
-    Load all stops from GTFS data.
-
-    Args:
-        gtfs_data (Dict[str, Any]): GTFS data dictionary.
-
-    Returns:
-        List[Dict[str, Any]]: List of stops with their coordinates
-    """
     try:
         stops = []
         for agency in ["muni", "bart"]:
             if agency in gtfs_data and 'stops' in gtfs_data[agency]:
                 agency_stops = gtfs_data[agency]['stops']
-                if not agency_stops.empty:
+
+                # ✅ Güvenli kontrol
+                if isinstance(agency_stops, pd.DataFrame) and not agency_stops.empty:
                     for _, row in agency_stops.iterrows():
                         stops.append({
                             'stop_id': row['stop_id'],
