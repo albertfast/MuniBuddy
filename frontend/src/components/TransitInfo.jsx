@@ -16,8 +16,8 @@ const CACHE_TTL = 5 * 60 * 1000;
 const API_TIMEOUT = 50000;
 const API_BASE_URL = import.meta.env.VITE_API_BASE ?? 'https://munibuddy.live/api/v1';
 
-// ✅ GTFS ID first for API calls, then fallback to display stop_id
-const normalizeId = (stop) => stop?.gtfs_stop_id || stop?.stop_id;
+// ✅ Prioritize stop_code or gtfs_stop_id for accurate API calls
+const normalizeId = (stop) => stop?.gtfs_stop_id || stop?.stop_code || stop?.stop_id;
 
 const formatTime = (isoTime) => {
   if (!isoTime || isoTime === "Unknown") return "Unknown";
@@ -67,7 +67,9 @@ const TransitInfo = ({ stops }) => {
   }, []);
 
   const handleStopClick = useCallback(async (stopToSelect) => {
-    const stopIdToSelect = stopToSelect.gtfs_stop_id;
+    const stopIdToSelect = normalizeId(stopToSelect);
+    if (!stopIdToSelect) return;
+
     if (selectedStopId === stopIdToSelect) {
       setSelectedStopId(null);
       setStopSchedule(null);
@@ -135,7 +137,7 @@ const TransitInfo = ({ stops }) => {
         <Box display="flex" alignItems="center">
           <DirectionsBusIcon fontSize="small" sx={{ mr: 0.5, color: 'text.secondary' }} />
           <Typography variant="caption" color="text.secondary">
-            Stop ID: {stop.stop_id || stop.gtfs_stop_id || 'Unknown'}
+            Stop ID: {normalizeId(stop) || 'Unknown'}
           </Typography>
         </Box>
         {stop.distance_miles !== undefined && (
@@ -143,7 +145,7 @@ const TransitInfo = ({ stops }) => {
         )}
       </Stack>
     </>
-  ), []);  
+  ), []);
 
   const renderRouteInfo = useCallback((route) => (
     <Box sx={{ borderLeft: '3px solid', borderColor: 'primary.light', pl: 1.5, py: 0.5, mb: 1 }}>
@@ -169,7 +171,7 @@ const TransitInfo = ({ stops }) => {
         </Typography>
         <List>
           {stopsArray.map((stop, index) => {
-            const currentStopId = stop.gtfs_stop_id;
+            const currentStopId = normalizeId(stop);
             const isSelected = selectedStopId === currentStopId;
             return (
               <React.Fragment key={`${stop.stop_id}-${index}`}>
