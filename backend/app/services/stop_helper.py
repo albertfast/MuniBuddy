@@ -73,7 +73,6 @@ def find_nearby_stops(
     Find nearby transit stops and enrich them with route information.
     """
     nearby_stops = []
-    stops = load_stops()
 
     for stop in stops:
         distance = calculate_distance(lat, lon, stop["stop_lat"], stop["stop_lon"])
