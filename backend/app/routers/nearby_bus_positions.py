@@ -4,20 +4,18 @@ from app.core.singleton import bus_service
 router = APIRouter()
 
 @router.get("/bus-positions/nearby")
-async def get_nearby_bus_positions(
+def get_nearby_bus_positions(
     lat: float = Query(...),
     lon: float = Query(...),
     bus_number: str = Query(...),
-    agency: str = Query("SF")
+    agency: str = Query("muni")  # Default can be 'muni' or 'bart'
 ):
     """
-    Returns nearby stops with real-time info for a specific bus number.
+    Returns nearby stops with real-time info for a specific bus number and agency.
     """
     try:
-        # Get nearby buses using the consolidated bus_service logic
-        results = await bus_service.get_nearby_buses(lat=lat, lon=lon, radius=0.2)
+        results = bus_service.get_nearby_buses(lat=lat, lon=lon, radius=0.2, agency=agency)
 
-        # Filter only those stops matching the requested bus number
         filtered_results = []
         for stop in results["stops"]:
             if any(r["route_number"] == bus_number for r in stop["routes"]):
@@ -25,6 +23,7 @@ async def get_nearby_bus_positions(
 
         return {
             "bus_number": bus_number,
+            "agency": agency,
             "results": filtered_results
         }
 

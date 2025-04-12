@@ -15,14 +15,17 @@ class BusService:
         stops = load_stops()
         return find_nearby_stops(lat, lon, self.gtfs_data, stops, radius)
 
-    def get_nearby_buses(self, lat: float, lon: float, radius: float = 0.15):
-        log_debug(f"Looking for nearby real-time buses around: ({lat}, {lon}) within {radius} miles")
-        nearby_stops = self.get_nearby_stops(lat, lon, radius)
+    def get_nearby_buses(self, lat: float, lon: float, radius: float = 0.15, agency: str = "muni"):
+        log_debug(f"Looking for nearby real-time buses around: ({lat}, {lon}) within {radius} miles for agency: {agency}")
+        
+        nearby_stops = self.get_nearby_stops(lat, lon, radius, agency)
 
         results = []
         for stop in nearby_stops:
             stop_id = stop["gtfs_stop_id"]
-            realtime_data = fetch_real_time_stop_data(stop_id)
+
+            realtime_data = fetch_real_time_stop_data(stop_id, agency)
+
             results.append({
                 "stop_id": stop["stop_id"],
                 "stop_name": stop["stop_name"],
@@ -30,8 +33,8 @@ class BusService:
                 "buses": realtime_data
             })
 
-        return results
+        return {"stops": results}
 
-    async def get_stop_schedule(self, stop_id: str):
+    def get_stop_schedule(self, stop_id: str):
         log_debug(f"Fetching GTFS schedule for stop ID: {stop_id}")
         return self.scheduler.get_schedule(stop_id)

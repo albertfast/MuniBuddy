@@ -9,7 +9,7 @@ API_KEY = settings.API_KEY
 BASE_URL = settings.TRANSIT_511_BASE_URL
 
 
-def fetch_real_time_stop_data(stop_id: str) -> Optional[Dict[str, Any]]:
+def fetch_real_time_stop_data(stop_id: str, agency: str = "SF") -> Optional[Dict[str, Any]]:
     """
     Fetch real-time arrival data for a specific stop from 511 API (synchronously).
     """
@@ -17,11 +17,11 @@ def fetch_real_time_stop_data(stop_id: str) -> Optional[Dict[str, Any]]:
         url = f"{BASE_URL}/StopMonitoring"
         params = {
             "api_key": API_KEY,
-            "agency": "SF",
+            "agency": agency,
             "stopId": stop_id,
             "format": "json"
         }
-        log_debug(f"[511 API] Requesting real-time data for stop: {stop_id}")
+        log_debug(f"[511 API] Requesting real-time data for stop: {stop_id} | agency: {agency}")
         response = httpx.get(url, params=params)
         response.raise_for_status()
         content = response.content.decode('utf-8-sig')
