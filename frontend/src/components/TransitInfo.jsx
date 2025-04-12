@@ -28,13 +28,13 @@ const formatTime = (isoTime) => {
   try {
     const date = new Date(isoTime);
     return isNaN(date.getTime())
-      ? isoTime
-      : date.toLocaleTimeString('en-US', {
-          hour: '2-digit',
-          minute: '2-digit',
-          hour12: true,
-          timeZone: 'America/Los_Angeles'
-        });
+    ? isoTime
+    : date.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+      timeZone: 'America/Los_Angeles'
+    });
   } catch {
     return isoTime;
   }
@@ -57,8 +57,8 @@ const TransitInfo = ({ stops }) => {
   const getCachedSchedule = useCallback((stopId) => {
     const cacheItem = SCHEDULE_CACHE[stopId];
     return cacheItem && (Date.now() - cacheItem.timestamp < CACHE_TTL)
-      ? cacheItem.data
-      : null;
+    ? cacheItem.data
+    : null;
   }, []);
 
   const setCachedSchedule = useCallback((stopId, data) => {
@@ -126,116 +126,121 @@ const TransitInfo = ({ stops }) => {
 
   const renderStopInfo = useCallback((stop) => (
     <>
-      <Stack direction="row" alignItems="center" spacing={1} mb={0.5}>
-        <LocationOnIcon color="primary" fontSize="small" />
-        <Typography variant="body1" fontWeight={500} noWrap>
-          {stop.stop_name || 'Unknown Stop Name'}
-        </Typography>
-      </Stack>
-      <Stack direction="row" justifyContent="space-between" alignItems="center">
-        <Box display="flex" alignItems="center">
-          <DirectionsBusIcon fontSize="small" sx={{ mr: 0.5, color: 'text.secondary' }} />
-          <Typography variant="caption" color="text.secondary">
-            Stop ID: {normalizeId(stop) || 'Unknown'}
-          </Typography>
-        </Box>
-        {stop.distance_miles !== undefined && (
-          <Chip size="small" label={`${stop.distance_miles} miles`} />
-        )}
-      </Stack>
+    <Stack direction="row" alignItems="center" spacing={1} mb={0.5}>
+    <LocationOnIcon color="primary" fontSize="small" />
+    <Typography variant="body1" fontWeight={500} noWrap>
+    {stop.stop_name || 'Unknown Stop Name'}
+    </Typography>
+    </Stack>
+    <Stack direction="row" justifyContent="space-between" alignItems="center">
+    <Box display="flex" alignItems="center">
+    <DirectionsBusIcon fontSize="small" sx={{ mr: 0.5, color: 'text.secondary' }} />
+    <Typography variant="caption" color="text.secondary">
+    Stop ID: {normalizeId(stop) || 'Unknown'}
+    </Typography>
+    </Box>
+    {stop.distance_miles !== undefined && (
+      <Chip size="small" label={`${stop.distance_miles} miles`} />
+    )}
+    </Stack>
     </>
   ), []);
 
   const renderRouteInfo = useCallback((route) => (
     <Box sx={{ borderLeft: '3px solid', borderColor: 'primary.light', pl: 1.5, py: 0.5, mb: 1 }}>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
-        <Typography variant="body2" fontWeight="medium" color="primary.main">
-          {route.route_number || 'Route ?'} → <Box component="span">{route.destination || 'Unknown Destination'}</Box>
-        </Typography>
-        {route.status && (
-            <Chip size="small" label={route.status} color={getStatusColor(route.status)} />
-        )}
-      </Stack>
-      <Typography variant="body2" color="text.secondary" mt={0.5}>
-        Arrival: <b>{formatTime(route.arrival_time)}</b>
-      </Typography>
+    <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
+    <Typography variant="body2" fontWeight="medium" color="primary.main">
+    {route.route_number || 'Route ?'} → <Box component="span">{route.destination || 'Unknown Destination'}</Box>
+    </Typography>
+    {route.status && (
+      <Chip size="small" label={route.status} color={getStatusColor(route.status)} />
+    )}
+    </Stack>
+    <Typography variant="body2" color="text.secondary" mt={0.5}>
+    Arrival: <b>{formatTime(route.arrival_time)}</b>
+    </Typography>
     </Box>
   ), []);
 
   return (
     <Card elevation={2}>
-      <CardContent>
-        <Typography variant="h6" component="h2" fontWeight="bold" color="primary.main" gutterBottom>
-          Nearby Stops ({stopsArray.length})
-        </Typography>
-        <List>
-          {stopsArray.map((stop, index) => {
-            const currentStopId = normalizeId(stop);
-            if (!currentStopId) return null;
+    <CardContent>
+    <Typography variant="h6" component="h2" fontWeight="bold" color="primary.main" gutterBottom>
+    Nearby Stops ({stopsArray.length})
+    </Typography>
+    <List>
+    {stopsArray.map((stop, index) => {
+      const currentStopId = normalizeId(stop);
+      if (!currentStopId) return null;
 
-            const isSelected = selectedStopId === currentStopId;
+      const isSelected = selectedStopId === currentStopId;
 
-            return (
-              <React.Fragment key={`${stop.stop_id}-${index}`}>
-                <ListItemButton
-                  onClick={() => handleStopClick(stop)}
-                  selected={isSelected}
-                >
-                  <Box sx={{ flex: 1 }}>{renderStopInfo(stop)}</Box>
-                  {isSelected ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-                </ListItemButton>
+      return (
+        <React.Fragment key={`${stop.stop_id}-${index}`}>
+        <ListItemButton
+        onClick={() => handleStopClick(stop)}
+        selected={isSelected}
+        >
+        <Box sx={{ flex: 1 }}>{renderStopInfo(stop)}</Box>
+        {isSelected ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+        </ListItemButton>
 
-                <Collapse in={isSelected} timeout="auto" unmountOnExit>
-                  <Box px={2} pb={2} pt={1}>
-                    {loading ? (
-                      <Box display="flex" justifyContent="center" py={3}>
-                        <CircularProgress size={32} />
-                      </Box>
-                    ) : stopSchedule ? (
-                      <>
-                        {error && <Alert severity="warning" sx={{ mb: 2 }}>{error}</Alert>}
-                        {stopSchedule.inbound?.length > 0 && (
-                          <Box mb={2}>
-                            <Typography variant="subtitle1">Inbound</Typography>
-                            <List dense disablePadding>
-                              {stopSchedule.inbound.map((route, i) => (
-                                <ListItem key={`in-${i}`} disablePadding>
-                                  <ListItemText primary={renderRouteInfo(route)} disableTypography />
-                                </ListItem>
-                              ))}
-                            </List>
-                          </Box>
-                        )}
-                        {stopSchedule.outbound?.length > 0 && (
-                          <Box>
-                            <Typography variant="subtitle1">Outbound</Typography>
-                            <List dense disablePadding>
-                              {stopSchedule.outbound.map((route, i) => (
-                                <ListItem key={`out-${i}`} disablePadding>
-                                  <ListItemText primary={renderRouteInfo(route)} disableTypography />
-                                </ListItem>
-                              ))}
-                            </List>
-                          </Box>
-                        )}
-                        {stopSchedule.inbound?.length === 0 && stopSchedule.outbound?.length === 0 && (
-                          <Typography variant="body2" color="text.secondary">
-                            No upcoming buses found.
-                          </Typography>
-                        )}
-                      </>
-                    ) : (
-                      <Typography variant="body2" color="text.secondary">
-                        No schedule available.
-                      </Typography>
-                    )}
-                  </Box>
-                </Collapse>
-              </React.Fragment>
-            );
-          })}
-        </List>
-      </CardContent>
+        <Collapse in={isSelected} timeout="auto" unmountOnExit>
+        <Box px={2} pb={2} pt={1}>
+        {loading ? (
+          <Box display="flex" justifyContent="center" py={3}>
+          <CircularProgress size={32} />
+          </Box>
+        ) : stopSchedule ? (
+          <>
+          {error && <Alert severity="warning" sx={{ mb: 2 }}>{error}</Alert>}
+          {stopSchedule.inbound?.length > 0 && (
+            <Box mb={2}>
+            <Typography variant="subtitle1">Inbound</Typography>
+            <List dense disablePadding>
+            {stopSchedule.inbound.map((route, i) => (
+              <ListItem key={`in-${i}`} disablePadding>
+              <ListItemText primary={renderRouteInfo(route)} disableTypography />
+              </ListItem>
+            ))}
+            </List>
+            </Box>
+          )}
+          {stopSchedule.outbound?.length > 0 && (
+            <Box>
+            <Typography variant="subtitle1">Outbound</Typography>
+            <List dense disablePadding>
+            {stopSchedule.outbound.map((route, i) => (
+              <ListItem key={`out-${i}`} disablePadding>
+              <ListItemText primary={renderRouteInfo(route)} disableTypography />
+              </ListItem>
+            ))}
+            </List>
+            </Box>
+          )}
+          {stopSchedule.inbound?.length === 0 && stopSchedule.outbound?.length === 0 && (
+            <Typography variant="body2" color="text.secondary">
+            No upcoming buses found.
+            </Typography>
+          )}
+          <Box display="flex" justifyContent="center" mt={3}>
+          <Button startIcon={<RefreshIcon />} onClick={handleRefreshSchedule} disabled={loading}>
+          {loading ? 'Refreshing...' : 'Refresh'}
+          </Button>
+          </Box>
+          </>
+        ) : (
+          <Typography variant="body2" color="text.secondary">
+          No schedule available.
+          </Typography>
+        )}
+        </Box>
+        </Collapse>
+        </React.Fragment>
+      );
+    })}
+    </List>
+    </CardContent>
     </Card>
   );
 };
