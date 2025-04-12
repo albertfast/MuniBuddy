@@ -1,7 +1,7 @@
 import httpx
 import json
 from datetime import datetime, timezone
-from zoneinfo import ZoneInfo
+import pytz
 from typing import Optional, Dict, Any
 from app.config import settings
 from app.services.debug_logger import log_debug
@@ -54,7 +54,9 @@ async def fetch_real_time_stop_data(stop_id: str, agency: str = "muni") -> Optio
 
         inbound = []
         outbound = []
-        now = datetime.now(tz=ZoneInfo("America/Los_Angeles"))
+        la_tz = pytz.timezone("America/Los_Angeles")
+        now = datetime.now(tz=la_tz)
+        arrival_time = la_tz.normalize(pytz.utc.localize(datetime.strptime(expected.split("Z")[0], "%Y-%m-%dT%H:%M:%S")))
 
         for visit in visits:
             journey = visit.get("MonitoredVehicleJourney", {})
