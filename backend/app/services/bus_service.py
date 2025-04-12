@@ -25,15 +25,14 @@ class BusService:
         log_debug(f"Looking for nearby real-time buses around: ({lat}, {lon}) within {radius} miles for agency: {agency}")
         
         nearby_stops = self.get_nearby_stops(lat, lon, radius, agency)
-
         results = []
-        for stop in nearby_stops:
-            
-            stop_id = stop.get("gtfs_stop_id", stop["stop_id"])
-            if agency == "muni" and not str(stop_id).startswith("1"):
-                stop_id = f"1{stop_id}"
 
-            realtime_data = fetch_real_time_stop_data(stop_id, agency)
+        for stop in nearby_stops:
+            # Use stop_code for 511 API, fall back to stop_id if not available
+            stop_code = stop.get("stop_code", stop["stop_id"])
+
+            # 511 API requires raw stopCode like '14212' (not '4212' or GTFS-style)
+            realtime_data = fetch_real_time_stop_data(stop_code, agency)
 
             results.append({
                 "stop_id": stop["stop_id"],
