@@ -9,9 +9,9 @@ API_KEY = settings.API_KEY
 BASE_URL = settings.TRANSIT_511_BASE_URL
 
 
-async def fetch_real_time_stop_data(stop_id: str) -> Optional[Dict[str, Any]]:
+def fetch_real_time_stop_data(stop_id: str) -> Optional[Dict[str, Any]]:
     """
-    Fetch real-time arrival data for a specific stop from 511 API.
+    Fetch real-time arrival data for a specific stop from 511 API (synchronously).
     """
     try:
         url = f"{BASE_URL}/StopMonitoring"
@@ -22,11 +22,10 @@ async def fetch_real_time_stop_data(stop_id: str) -> Optional[Dict[str, Any]]:
             "format": "json"
         }
         log_debug(f"[511 API] Requesting real-time data for stop: {stop_id}")
-        async with httpx.AsyncClient() as client:
-            response = await client.get(url, params=params)
-            response.raise_for_status()
-            content = response.content.decode('utf-8-sig')
-            data = json.loads(content)
+        response = httpx.get(url, params=params)
+        response.raise_for_status()
+        content = response.content.decode('utf-8-sig')
+        data = json.loads(content)
 
         monitoring = data.get("ServiceDelivery", {}).get("StopMonitoringDelivery", [])
         if isinstance(monitoring, list):
