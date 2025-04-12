@@ -13,8 +13,8 @@ class BusService:
     
     async def get_nearby_stops(self, lat: float, lon: float, radius: float = 0.15):
         log_debug(f"Finding nearby stops for coordinates: ({lat}, {lon}), radius: {radius}")
-        nearby_stops = find_nearby_stops(lat, lon, self.gtfs_data, radius)
-        return nearby_stops
+        stops = await self._load_stops()
+        return find_nearby_stops(lat, lon, self.gtfs_data, stops, radius)
 
     async def get_nearby_buses(self, lat: float, lon: float, radius: float = 0.15):
         log_debug(f"Looking for nearby real-time buses around: ({lat}, {lon}) within {radius} miles")
