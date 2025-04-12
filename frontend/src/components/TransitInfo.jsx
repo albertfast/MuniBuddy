@@ -1,238 +1,282 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState } from 'react';
 import {
-  Card, CardContent, Typography, List, ListItem, ListItemText, ListItemButton,
-  Divider, Box, Collapse, CircularProgress, Stack, Chip, IconButton,
-  Button, Alert
+  Card,
+  CardContent,
+  Typography,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemButton,
+  Divider,
+  Box,
+  Collapse,
+  CircularProgress,
+  Stack,
+  Chip,
+  IconButton,
+  Button
 } from '@mui/material';
 import DirectionsBusIcon from '@mui/icons-material/DirectionsBus';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
+import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import axios from 'axios';
 
-const SCHEDULE_CACHE = {};
-const CACHE_TTL = 5 * 60 * 1000;
-const API_TIMEOUT = 50000;
-const API_BASE_URL = import.meta.env.VITE_API_BASE ?? 'https://munibuddy.live/api/v1';
-
-// ✅ GTFS ID first for API calls, then fallback to display stop_id
-const normalizeId = (stop) => stop?.gtfs_stop_id || stop?.stop_id;
-
-const formatTime = (isoTime) => {
-  if (!isoTime || isoTime === "Unknown") return "Unknown";
-  if (/\d{1,2}:\d{2}\s[AP]M/i.test(isoTime)) {
-    const [time, period] = isoTime.split(' ');
-    const [hours, minutes] = time.split(':');
-    return `${hours.padStart(2, '0')}:${minutes} ${period}`;
-  }
-  try {
-    const date = new Date(isoTime);
-    return isNaN(date.getTime())
-      ? isoTime
-      : date.toLocaleTimeString('en-US', {
-          hour: '2-digit',
-          minute: '2-digit',
-          hour12: true,
-          timeZone: 'America/Los_Angeles'
-        });
-  } catch {
-    return isoTime;
-  }
-};
-
-const getStatusColor = (status = '') => {
-  const lowerStatus = status.toLowerCase();
-  if (lowerStatus.includes('late')) return 'error';
-  if (lowerStatus.includes('early')) return 'warning';
-  return 'success';
-};
-
 const TransitInfo = ({ stops }) => {
-  const [selectedStopId, setSelectedStopId] = useState(null);
+  const [selectedStop, setSelectedStop] = useState(null);
   const [stopSchedule, setStopSchedule] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const stopsArray = useMemo(() => Array.isArray(stops) ? stops : Object.values(stops), [stops]);
 
-  const getCachedSchedule = useCallback((stopId) => {
-    const cacheItem = SCHEDULE_CACHE[stopId];
-    return cacheItem && (Date.now() - cacheItem.timestamp < CACHE_TTL)
-      ? cacheItem.data
-      : null;
-  }, []);
+  // Convert stops object to array
+  const stopsArray = Object.entries(stops).map(([id, stop]) => ({
+    id,
+    ...stop
+  }));
 
-  const setCachedSchedule = useCallback((stopId, data) => {
-    SCHEDULE_CACHE[stopId] = { data, timestamp: Date.now() };
-  }, []);
-
-  const handleStopClick = useCallback(async (stopToSelect) => {
-    const stopIdToSelect = stopToSelect.gtfs_stop_id;
-    if (selectedStopId === stopIdToSelect) {
-      setSelectedStopId(null);
+  const handleStopClick = async (stop) => {
+    if (selectedStop?.id === stop.id) {
+      setSelectedStop(null);
       setStopSchedule(null);
-      setError(null);
       return;
     }
 
-    setSelectedStopId(stopIdToSelect);
+    setSelectedStop(stop);
     setLoading(true);
-    setError(null);
-    setStopSchedule(null);
-
-    const cachedData = getCachedSchedule(stopIdToSelect);
-    if (cachedData) {
-      setStopSchedule(cachedData);
-      setLoading(false);
-      return;
-    }
 
     try {
-      const response = await axios.get(`${API_BASE_URL}/stop-predictions/${stopIdToSelect}`, {
-        timeout: API_TIMEOUT
-      });
-      if (response.data) {
-        setCachedSchedule(stopIdToSelect, response.data);
-        setStopSchedule(response.data);
-      } else {
-        setStopSchedule({ inbound: [], outbound: [] });
-      }
-    } catch (err) {
-      setError('Failed to load stop schedule. Please check network or try again.');
-      setStopSchedule({ inbound: [], outbound: [] });
-    } finally {
-      setLoading(false);
-    }
-  }, [selectedStopId, getCachedSchedule, setCachedSchedule]);
-
-  const handleRefreshSchedule = useCallback(async () => {
-    if (!selectedStopId) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await axios.get(`${API_BASE_URL}/stop-predictions/${selectedStopId}`, {
-        timeout: API_TIMEOUT,
-        params: { _t: Date.now() }
-      });
-      setCachedSchedule(selectedStopId, response.data);
+      const response = await axios.get(`${import.meta.env.VITE_API_URL}/api/stop-schedule/${stop.id}`);
       setStopSchedule(response.data);
-    } catch (err) {
-      setError('Failed to refresh schedule. Please check connection.');
+    } catch (error) {
+      console.error('Error fetching stop schedule:', error);
     } finally {
       setLoading(false);
     }
-  }, [selectedStopId, setCachedSchedule]);
+  };
 
-  const renderStopInfo = useCallback((stop) => (
+  const formatTime = (isoTime) => {
+    if (!isoTime || isoTime === "Unknown") return "Unknown";
+    
+    // If time format is like '12:34 AM', it's already formatted, return directly
+    if (/\d{1,2}:\d{2}\s[AP]M/.test(isoTime)) {
+      return isoTime;
+    }
+    
+    try {
+      const date = new Date(isoTime);
+      // Check if date is valid
+      if (isNaN(date.getTime())) {
+        // If not ISO format, it's probably already a formatted string
+        return isoTime;
+      }
+      
+      return date.toLocaleTimeString('en-US', { 
+        hour: '2-digit', 
+        minute: '2-digit'
+      });
+    } catch (error) {
+      console.error('Date parsing error:', error, 'Value:', isoTime);
+      return isoTime; // Return original value in case of error
+    }
+  };
+
+  const getStatusColor = (status) => {
+    if (status.includes('late')) return 'error';
+    if (status === 'Early') return 'warning';
+    return 'success';
+  };
+
+  const renderStopInfo = (stop) => (
     <>
-      <Stack direction="row" alignItems="center" spacing={1} mb={0.5}>
-        <LocationOnIcon color="primary" fontSize="small" />
-        <Typography variant="body1" fontWeight={500} noWrap>
-          {stop.stop_name || 'Unknown Stop Name'}
+      <Stack direction="row" alignItems="center" spacing={1}>
+        <LocationOnIcon color="primary" sx={{ color: '#1976d2' }} />
+        <Typography variant="body1" sx={{ fontWeight: 500 }}>
+          {stop.stop_name}
         </Typography>
       </Stack>
-      <Stack direction="row" justifyContent="space-between" alignItems="center">
-        <Box display="flex" alignItems="center">
-          <DirectionsBusIcon fontSize="small" sx={{ mr: 0.5, color: 'text.secondary' }} />
-          <Typography variant="caption" color="text.secondary">
-            ID: {stop.stop_id || 'Unknown'}
+      <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mt: 0.5 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+          <DirectionsBusIcon fontSize="small" sx={{ color: '#757575', mr: 0.5 }} />
+          <Typography variant="body2" color="text.secondary">
+            Stop ID: {stop.id}
           </Typography>
         </Box>
-        {stop.distance_miles !== undefined && (
-            <Chip size="small" label={`${stop.distance_miles} miles`} />
-        )}
+        <Chip 
+          size="small" 
+          label={`${stop.distance_miles} miles`} 
+          sx={{ 
+            height: '20px', 
+            fontSize: '0.7rem',
+            bgcolor: 'rgba(25, 118, 210, 0.08)',
+            color: 'primary.main'
+          }} 
+        />
       </Stack>
     </>
-  ), []);
+  );
 
-  const renderRouteInfo = useCallback((route) => (
-    <Box sx={{ borderLeft: '3px solid', borderColor: 'primary.light', pl: 1.5, py: 0.5, mb: 1 }}>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
-        <Typography variant="body2" fontWeight="medium" color="primary.main">
-          {route.route_number || 'Route ?'} → <Box component="span">{route.destination || 'Unknown Destination'}</Box>
+  const renderRouteInfo = (route) => (
+    <Box sx={{ borderLeft: '3px solid #1976d2', pl: 1, py: 0.5, mb: 1 }}>
+      <Stack direction="row" alignItems="center" spacing={1} justifyContent="space-between">
+        <Typography variant="body1" sx={{ fontWeight: 'medium', color: '#1976d2' }}>
+          {route.route_number} → {route.destination}
         </Typography>
-        {route.status && (
-            <Chip size="small" label={route.status} color={getStatusColor(route.status)} />
-        )}
+        <Chip 
+          size="small"
+          label={route.status}
+          color={getStatusColor(route.status)}
+          sx={{ 
+            height: '22px', 
+            fontSize: '0.7rem',
+            '& .MuiChip-label': { px: 1 }
+          }}
+        />
       </Stack>
-      <Typography variant="body2" color="text.secondary" mt={0.5}>
-        Arrival: <b>{formatTime(route.arrival_time)}</b>
+      <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+        <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center' }}>
+          Arrival: <Box component="span" sx={{ fontWeight: 'bold', ml: 0.5 }}>{formatTime(route.arrival_time)}</Box>
+          {route.stops_away && ` • ${route.stops_away} stops away`}
+        </Box>
       </Typography>
     </Box>
-  ), []);
+  );
 
   return (
-    <Card elevation={2}>
-      <CardContent>
-        <Typography variant="h6" component="h2" fontWeight="bold" color="primary.main" gutterBottom>
+    <Card elevation={2} sx={{ borderRadius: 2, overflow: 'hidden' }}>
+      <CardContent sx={{ pb: 1 }}>
+        <Typography variant="h6" component="div" gutterBottom sx={{ fontWeight: 'bold', color: '#1976d2' }}>
           Nearby Stops ({stopsArray.length})
         </Typography>
-        <List>
-          {stopsArray.map((stop, index) => {
-            const currentStopId = stop.gtfs_stop_id;
-            const isSelected = selectedStopId === currentStopId;
-            return (
-              <React.Fragment key={`${stop.stop_id}-${index}`}>
-                <ListItemButton onClick={() => handleStopClick(stop)} selected={isSelected}>
-                  <ListItemText primary={renderStopInfo(stop)} />
-                  <IconButton onClick={(e) => { e.stopPropagation(); handleStopClick(stop); }} size="small">
-                    {isSelected ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-                  </IconButton>
-                </ListItemButton>
-                <Collapse in={isSelected} timeout="auto" unmountOnExit>
-                  <Box px={2} pb={2} pt={1}>
-                    {loading ? (
-                      <Box display="flex" justifyContent="center" py={3}>
-                        <CircularProgress size={32} />
-                      </Box>
-                    ) : stopSchedule ? (
-                      <>
-                        {error && <Alert severity="warning" sx={{ mb: 2 }}>{error}</Alert>}
-                        {stopSchedule.inbound?.length > 0 && (
-                          <Box mb={2}>
-                            <Typography variant="subtitle1">Inbound</Typography>
-                            <List dense disablePadding>
-                              {stopSchedule.inbound.map((route, i) => (
-                                <ListItem key={`in-${i}`} disablePadding>
-                                  <ListItemText primary={renderRouteInfo(route)} disableTypography />
-                                </ListItem>
-                              ))}
-                            </List>
-                          </Box>
-                        )}
-                        {stopSchedule.outbound?.length > 0 && (
-                          <Box>
-                            <Typography variant="subtitle1">Outbound</Typography>
-                            <List dense disablePadding>
-                              {stopSchedule.outbound.map((route, i) => (
-                                <ListItem key={`out-${i}`} disablePadding>
-                                  <ListItemText primary={renderRouteInfo(route)} disableTypography />
-                                </ListItem>
-                              ))}
-                            </List>
-                          </Box>
-                        )}
-                        {!stopSchedule.inbound?.length && !stopSchedule.outbound?.length && !error && (
-                          <Typography textAlign="center" color="text.secondary" py={2}>
-                            No scheduled routes found at this time.
-                          </Typography>
-                        )}
-                        <Box display="flex" justifyContent="center" mt={3}>
-                          <Button startIcon={<RefreshIcon />} onClick={handleRefreshSchedule} disabled={loading}>
-                            {loading ? 'Refreshing...' : 'Refresh'}
-                          </Button>
+        <List sx={{ mt: 1 }}>
+          {stopsArray.map((stop, stopIndex) => (
+            <React.Fragment key={stop.id}>
+              <ListItemButton 
+                onClick={() => handleStopClick(stop)}
+                selected={selectedStop?.id === stop.id}
+                sx={{ 
+                  borderRadius: 1,
+                  mb: 0.5,
+                  '&.Mui-selected': {
+                    backgroundColor: 'rgba(25, 118, 210, 0.08)',
+                  },
+                  '&:hover': {
+                    backgroundColor: 'rgba(25, 118, 210, 0.04)',
+                  }
+                }}
+              >
+                <ListItemText
+                  primary={renderStopInfo(stop)}
+                />
+                <IconButton
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleStopClick(stop);
+                  }}
+                  size="small"
+                  sx={{ 
+                    backgroundColor: selectedStop?.id === stop.id ? 'rgba(25, 118, 210, 0.12)' : 'transparent',
+                    '&:hover': {
+                      backgroundColor: 'rgba(25, 118, 210, 0.18)',
+                    }
+                  }}
+                >
+                  {selectedStop?.id === stop.id ? (
+                    <ExpandLessIcon fontSize="small" />
+                  ) : (
+                    <ExpandMoreIcon fontSize="small" />
+                  )}
+                </IconButton>
+              </ListItemButton>
+
+              <Collapse in={selectedStop?.id === stop.id}>
+                <Box sx={{ pl: 2, pr: 2, pb: 2 }}>
+                  {loading ? (
+                    <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
+                      <CircularProgress size={28} />
+                    </Box>
+                  ) : stopSchedule ? (
+                    <Box>
+                      {stopSchedule.inbound && stopSchedule.inbound.length > 0 && (
+                        <Box sx={{ mb: 2 }}>
+                          <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+                            <ArrowDownwardIcon color="primary" fontSize="small" />
+                            <Typography variant="subtitle2" color="primary" sx={{ fontWeight: 'bold' }}>
+                              Inbound Routes
+                            </Typography>
+                          </Stack>
+                          <List dense sx={{ pl: 1 }}>
+                            {stopSchedule.inbound.map((route, index) => (
+                              <ListItem key={index} sx={{ px: 0 }}>
+                                <ListItemText
+                                  primary={renderRouteInfo(route)}
+                                  disableTypography
+                                />
+                              </ListItem>
+                            ))}
+                          </List>
                         </Box>
-                      </>
-                    ) : null}
-                  </Box>
-                </Collapse>
-              </React.Fragment>
-            );
-          })}
+                      )}
+
+                      {stopSchedule.outbound && stopSchedule.outbound.length > 0 && (
+                        <Box>
+                          <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+                            <ArrowUpwardIcon color="primary" fontSize="small" />
+                            <Typography variant="subtitle2" color="primary" sx={{ fontWeight: 'bold' }}>
+                              Outbound Routes
+                            </Typography>
+                          </Stack>
+                          <List dense sx={{ pl: 1 }}>
+                            {stopSchedule.outbound.map((route, index) => (
+                              <ListItem key={index} sx={{ px: 0 }}>
+                                <ListItemText
+                                  primary={renderRouteInfo(route)}
+                                  disableTypography
+                                />
+                              </ListItem>
+                            ))}
+                          </List>
+                        </Box>
+                      )}
+
+                      {(!stopSchedule.inbound?.length && !stopSchedule.outbound?.length) && (
+                        <Typography color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
+                          No scheduled routes at this time.
+                        </Typography>
+                      )}
+                      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+                        <Button
+                          startIcon={<RefreshIcon />}
+                          onClick={() => handleStopClick(selectedStop)}
+                          disabled={loading}
+                          size="small"
+                          variant="outlined"
+                          sx={{ 
+                            borderRadius: '20px',
+                            textTransform: 'none',
+                            px: 2
+                          }}
+                        >
+                          Refresh
+                        </Button>
+                      </Box>
+                    </Box>
+                  ) : (
+                    <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
+                      <CircularProgress size={28} />
+                    </Box>
+                  )}
+                </Box>
+              </Collapse>
+
+              {stopIndex < stopsArray.length - 1 && <Divider sx={{ my: 0.5 }} />}
+            </React.Fragment>
+          ))}
         </List>
       </CardContent>
     </Card>
   );
 };
 
-export default TransitInfo;
+export default TransitInfo; 
