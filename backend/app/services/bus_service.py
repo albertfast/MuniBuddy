@@ -23,19 +23,28 @@ class BusService:
 
     def get_nearby_buses(self, lat: float, lon: float, radius: float = 0.15, agency: str = "muni"):
         log_debug(f"Looking for nearby real-time buses around: ({lat}, {lon}) within {radius} miles for agency: {agency}")
-        
+
         nearby_stops = self.get_nearby_stops(lat, lon, radius, agency)
         results = []
 
         for stop in nearby_stops:
+            # fetch_real_time_stop_data stop sözlüğü alacak şekilde güncellenmiştir.
             realtime_data = fetch_real_time_stop_data(stop, agency)
 
-            results.append({
-                "stop_id": stop["stop_id"],
-                "stop_code": stop.get("stop_code"),
-                "stop_name": stop["stop_name"],
-                "distance_miles": stop["distance_miles"],
-                "buses": realtime_data
-            })
+            for direction in ["inbound", "outbound"]:
+                for bus in realtime_data.get(direction, []):
+                    results.append({
+                        "stop_id": stop["stop_id"],
+                        "stop_code": stop.get("stop_code"),
+                        "stop_name": stop["stop_name"],
+                        "distance_miles": stop["distance_miles"],
+                        "direction": direction,
+                        "route_number": bus.get("route_number"),
+                        "destination": bus.get("destination"),
+                        "arrival_time": bus.get("arrival_time"),
+                        "status": bus.get("status"),
+                        "minutes_until": bus.get("minutes_until"),
+                        "is_realtime": bus.get("is_realtime")
+                    })
 
-        return {"stops": results}
+        return {"buses": results}
