@@ -6,6 +6,7 @@ from app.db.database import init_db
 
 # Routers
 from app.routers.nearby_stops import router as nearby_stops_router
+from app.routers.stop_predictions import router as stop_predictions_router
 from app.routers.nearby_bus_positions import router as nearby_bus_router
 from app.routers.stop_schedule import router as stop_schedule_router
 from app.routers.deploy import router as deploy_router
@@ -27,6 +28,7 @@ app.add_middleware(
 
 # ✅ Mount API routers with versioning
 app.include_router(nearby_stops_router, prefix="/api/v1", tags=["Nearby Stops"])
+app.include_router(stop_predictions_router, prefix="/api/v1", tags=["Stop Predictions"])
 app.include_router(nearby_bus_router, prefix="/api/v1", tags=["Nearby Bus Positions"])
 app.include_router(stop_schedule_router, prefix="/api/v1", tags=["Stop Schedule"])
 app.include_router(deploy_router, prefix="/api/v1/deploy", tags=["Deploy"])
