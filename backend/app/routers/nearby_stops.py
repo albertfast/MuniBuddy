@@ -7,12 +7,10 @@ router = APIRouter()
 def get_nearby_stops(
     lat: float = Query(...),
     lon: float = Query(...),
-    radius: float = 0.15
+    radius: float = 0.15,
+    agency: str = Query("muni")
 ):
-    """
-    Get nearby transit stops using BusService.
-    """
     try:
-        return bus_service.get_nearby_stops(lat=lat, lon=lon, radius=radius)
+        return bus_service.get_nearby_stops(lat=lat, lon=lon, radius=radius, agency=agency)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch nearby stops: {e}")
