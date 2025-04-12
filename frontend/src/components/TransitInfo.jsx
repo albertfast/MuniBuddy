@@ -135,15 +135,15 @@ const TransitInfo = ({ stops }) => {
         <Box display="flex" alignItems="center">
           <DirectionsBusIcon fontSize="small" sx={{ mr: 0.5, color: 'text.secondary' }} />
           <Typography variant="caption" color="text.secondary">
-            ID: {stop.stop_id || 'Unknown'}
+            Stop ID: {stop.stop_id || stop.gtfs_stop_id || 'Unknown'}
           </Typography>
         </Box>
         {stop.distance_miles !== undefined && (
-            <Chip size="small" label={`${stop.distance_miles} miles`} />
+          <Chip size="small" label={`${stop.distance_miles} miles`} />
         )}
       </Stack>
     </>
-  ), []);
+  ), []);  
 
   const renderRouteInfo = useCallback((route) => (
     <Box sx={{ borderLeft: '3px solid', borderColor: 'primary.light', pl: 1.5, py: 0.5, mb: 1 }}>
