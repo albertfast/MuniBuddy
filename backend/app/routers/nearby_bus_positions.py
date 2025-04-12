@@ -23,13 +23,12 @@ def get_nearby_bus_positions(
             outbound = buses.get("outbound", [])
             all_buses = inbound + outbound
 
-            # Burada her bus için route_number ile filtreleme yapılıyor
             matching_buses = [b for b in all_buses if b.get("route_number") == bus_number]
 
             if matching_buses:
                 stop_with_filtered_buses = {
                     "stop_id": stop.get("stop_id"),
-                    "stop_code": stop.get("stop_code"),  # varsa bunu da taşıyalım
+                    "stop_code": stop.get("stop_code"),
                     "stop_name": stop.get("stop_name"),
                     "distance_miles": stop.get("distance_miles"),
                     "buses": matching_buses
