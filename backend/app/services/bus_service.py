@@ -1,12 +1,13 @@
 from app.services.realtime_service import fetch_real_time_stop_data
-from app.core.singleton import scheduler_service
+from app.services.schedule_service import SchedulerService
 from app.services.stop_helper import calculate_distance, load_stops, find_nearby_stops
 from app.services.debug_logger import log_debug
 from app.config import settings
 
 class BusService:
-    def __init__(self):
+    def __init__(self, scheduler: SchedulerService):
         log_debug("Initializing BusService...")
+        self.scheduler = scheduler
         self.gtfs_data = settings.get_gtfs_data("muni")
         self.stops_df = load_stops(self.gtfs_data)
 
@@ -19,7 +20,7 @@ class BusService:
 
     async def get_stop_schedule(self, stop_id: str):
         log_debug(f"Fetching GTFS schedule for stop ID: {stop_id}")
-        return scheduler_service.get_schedule(stop_id)
+        return self.scheduler.get_schedule(stop_id)
 
     async def get_stop_predictions(self, stop_id: str):
         log_debug(f"Fetching real-time predictions for stop ID: {stop_id}")
