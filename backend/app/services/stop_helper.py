@@ -66,90 +66,68 @@ async def load_stops(gtfs_data: Dict[str, Any]) -> List[Dict[str, Any]]:
         log_debug(f"✗ Error loading stops: {str(e)}")
         return []
 
-def find_nearby_stops(lat: float, lon: float, gtfs_data: Dict[str, Any], radius_miles: float = 0.15, limit: int = 3) -> List[Dict[str, Any]]:
+async def find_nearby_stops(
+    lat: float,
+    lon: float,
+    gtfs_data: Dict[str, pd.DataFrame],
+    stops: List[Dict[str, Any]],
+    radius_miles: float = 0.1,
+    limit: int = 3
+) -> List[Dict[str, Any]]:
     """
-    Find nearby transit stops within a radius and attach route info.
+    Find nearby transit stops and enrich with route info.
     """
-    stops = []
+    nearby_stops = []
 
-    for agency in ['muni', 'bart']:
-        if agency not in gtfs_data or 'stops' not in gtfs_data[agency]:
-            continue
+    for stop in stops:
+        distance = calculate_distance(lat, lon, stop['stop_lat'], stop['stop_lon'])
 
-        stops_df = gtfs_data[agency]['stops']
-        if stops_df.empty:
-            continue
-
-        for _, row in stops_df.iterrows():
-            distance = calculate_distance(lat, lon, row['stop_lat'], row['stop_lon'])
-            if distance > radius_miles:
-                continue
-
-            stop_id = row['stop_id']
-            gtfs_stop_id = f"1{stop_id}" if agency == 'muni' and not stop_id.startswith('1') else stop_id
+        if distance <= radius_miles:
+            original_stop_id = stop['stop_id']
+            api_stop_id = original_stop_id[1:] if original_stop_id.startswith('1') else original_stop_id
 
             try:
-                stop_times_df = gtfs_data[agency].get('stop_times', pd.DataFrame())
-                if stop_times_df.empty:
+                stop_times_df = gtfs_data.get('stop_times', pd.DataFrame())
+                trips_df = gtfs_data.get('trips', pd.DataFrame())
+                routes_df = gtfs_data.get('routes', pd.DataFrame())
+
+                if stop_times_df.empty or trips_df.empty or routes_df.empty:
+                    log_debug(f"✗ One or more GTFS components missing for stop {original_stop_id}")
                     continue
-                stop_times = stop_times_df[stop_times_df['stop_id'] == gtfs_stop_id]
+
+                stop_times = stop_times_df[stop_times_df['stop_id'] == original_stop_id]
                 if stop_times.empty:
-                    log_debug(f"⚠️ No stop_times for {gtfs_stop_id}")
+                    log_debug(f"⚠️ No stop_times for stop {original_stop_id}")
                     continue
 
-                weekday = datetime.now().strftime("%A").lower()
-                calendar_df = gtfs_data[agency].get('calendar', pd.DataFrame())
-                if calendar_df.empty:
-                    continue
-
-                active_services = calendar_df[
-                    (calendar_df[weekday].fillna(0).astype(int) == 1) &
-                    (pd.to_numeric(calendar_df['start_date']) <= int(datetime.now().strftime("%Y%m%d"))) &
-                    (pd.to_numeric(calendar_df['end_date']) >= int(datetime.now().strftime("%Y%m%d")))
-                ]['service_id']
-
-                trips_df = gtfs_data[agency].get('trips', pd.DataFrame())
-                if trips_df.empty:
-                    continue
-
-                active_trips = trips_df[trips_df['service_id'].isin(active_services)]
-                valid_trips = stop_times.merge(
-                    active_trips[['trip_id', 'route_id', 'direction_id']],
-                    on='trip_id'
-                )
-
-                routes_df = gtfs_data[agency].get('routes', pd.DataFrame())
-                if routes_df.empty:
-                    continue
-
-                routes = routes_df[routes_df['route_id'].isin(valid_trips['route_id'])].drop_duplicates()
+                trips = trips_df[trips_df['trip_id'].isin(stop_times['trip_id'])]
+                routes = routes_df[routes_df['route_id'].isin(trips['route_id'])].drop_duplicates()
 
                 route_info = []
                 for _, route in routes.iterrows():
                     destination = route['route_long_name'].split(' - ')[-1] if ' - ' in route['route_long_name'] else route['route_long_name']
+
                     route_info.append({
                         'route_id': route['route_id'],
                         'route_number': route['route_short_name'],
                         'destination': destination
                     })
 
-                log_debug(f"✓ Found {len(route_info)} routes for stop {gtfs_stop_id}")
+                stop_info = stop.copy()
+                stop_info['distance_miles'] = round(distance, 2)
+                stop_info['routes'] = route_info
+                stop_info['id'] = api_stop_id
+                stop_info['stop_id'] = api_stop_id
+                stop_info['gtfs_stop_id'] = original_stop_id
 
-                stops.append({
-                    'stop_id': stop_id,
-                    'gtfs_stop_id': gtfs_stop_id,
-                    'stop_name': row['stop_name'],
-                    'stop_lat': row['stop_lat'],
-                    'stop_lon': row['stop_lon'],
-                    'agency': agency,
-                    'distance_miles': round(distance, 2),
-                    'routes': route_info,
-                    'id': stop_id
-                })
+                nearby_stops.append(stop_info)
 
+            except KeyError as e:
+                log_debug(f"✗ KeyError while processing stop {original_stop_id}: {e}")
+                continue
             except Exception as e:
-                log_debug(f"✗ Error for stop {stop_id} ({agency}): {e}")
+                log_debug(f"✗ Error while processing stop {original_stop_id}: {e}")
                 continue
 
-    stops.sort(key=lambda x: x['distance_miles'])
-    return stops[:limit]
+    nearby_stops.sort(key=lambda x: x['distance_miles'])
+    return nearby_stops[:limit]
