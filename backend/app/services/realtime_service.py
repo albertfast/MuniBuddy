@@ -1,7 +1,7 @@
 import httpx
 import json
 from datetime import datetime, timezone
-import pytz
+from zoneinfo import ZoneInfo
 from typing import Optional, Dict, Any
 from app.config import settings
 from app.services.debug_logger import log_debug
@@ -54,46 +54,51 @@ async def fetch_real_time_stop_data(stop_id: str, agency: str = "muni") -> Optio
 
         inbound = []
         outbound = []
-        la_tz = pytz.timezone("America/Los_Angeles")
-        now = datetime.now(tz=la_tz)
-        arrival_time = la_tz.normalize(pytz.utc.localize(datetime.strptime(expected.split("Z")[0], "%Y-%m-%dT%H:%M:%S")))
+        now = datetime.now(tz=ZoneInfo("America/Los_Angeles"))
 
         for visit in visits:
-            journey = visit.get("MonitoredVehicleJourney", {})
-            line_ref = journey.get("LineRef", "")
-            published = journey.get("PublishedLineName", "Unknown")
-            route_number = f"{line_ref} {published}".strip()
-            destination = journey.get("DestinationName", "Unknown")
-            direction = journey.get("DirectionRef", "").lower()
-            call = journey.get("MonitoredCall", {})
-            expected = call.get("ExpectedArrivalTime")
-            aimed = call.get("AimedArrivalTime")
+            try:
+                journey = visit.get("MonitoredVehicleJourney", {})
+                line_ref = journey.get("LineRef", "")
+                published = journey.get("PublishedLineName", "Unknown")
+                route_number = f"{line_ref} {published}".strip()
+                destination = journey.get("DestinationName", "Unknown")
+                direction = journey.get("DirectionRef", "").lower()
+                call = journey.get("MonitoredCall", {})
+                expected = call.get("ExpectedArrivalTime")
+                aimed = call.get("AimedArrivalTime")
 
-            arrival_time = None
-            if expected:
-                arrival_time = datetime.strptime(expected.split("Z")[0], "%Y-%m-%dT%H:%M:%S").replace(tzinfo=timezone.utc).astimezone(ZoneInfo("America/Los_Angeles"))
-            elif aimed:
-                arrival_time = datetime.strptime(aimed.split("Z")[0], "%Y-%m-%dT%H:%M:%S").replace(tzinfo=timezone.utc).astimezone(ZoneInfo("America/Los_Angeles"))
+                arrival_time = None
+                time_str = (expected or aimed)
+                if time_str and "T" in time_str:
+                    raw_time = time_str.split("Z")[0]
+                    arrival_time = datetime.strptime(raw_time, "%Y-%m-%dT%H:%M:%S").replace(tzinfo=timezone.utc).astimezone(ZoneInfo("America/Los_Angeles"))
+                else:
+                    continue  # skip if time is malformed
 
-            if not arrival_time or (arrival_time - now).total_seconds() > 7200:
+                if not arrival_time or (arrival_time - now).total_seconds() > 7200:
+                    continue
+
+                minutes_until = int((arrival_time - now).total_seconds() / 60)
+                status = "Due" if minutes_until <= 0 else f"{minutes_until} min"
+
+                bus_info = {
+                    "route_number": route_number,
+                    "destination": destination,
+                    "arrival_time": arrival_time.strftime("%I:%M %p").lstrip("0"),
+                    "status": status,
+                    "minutes_until": minutes_until,
+                    "is_realtime": True
+                }
+
+                if direction == "1":
+                    inbound.append(bus_info)
+                else:
+                    outbound.append(bus_info)
+
+            except Exception as inner_err:
+                log_debug(f"[WARN] Skipping malformed vehicle entry: {inner_err}")
                 continue
-
-            minutes_until = int((arrival_time - now).total_seconds() / 60)
-            status = "Due" if minutes_until <= 0 else f"{minutes_until} min"
-
-            bus_info = {
-                "route_number": route_number,
-                "destination": destination,
-                "arrival_time": arrival_time.strftime("%I:%M %p").lstrip("0"),
-                "status": status,
-                "minutes_until": minutes_until,
-                "is_realtime": True
-            }
-
-            if direction == "1":
-                inbound.append(bus_info)
-            else:
-                outbound.append(bus_info)
 
         return {"inbound": inbound, "outbound": outbound}
 
