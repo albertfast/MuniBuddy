@@ -38,13 +38,18 @@ def load_stops(agency: str) -> List[Dict[str, Any]]:
 
         if isinstance(stops_df, pd.DataFrame) and not stops_df.empty:
             for _, row in stops_df.iterrows():
-                stops.append({
+                stop = {
                     'stop_id': row['stop_id'],
                     'stop_name': row['stop_name'],
                     'stop_lat': float(row['stop_lat']),
                     'stop_lon': float(row['stop_lon']),
                     'agency': agency
-                })
+                }
+                # ✅ Add stop_code only if present
+                if 'stop_code' in row and pd.notna(row['stop_code']):
+                    stop['stop_code'] = str(row['stop_code'])
+
+                stops.append(stop)
 
         if not stops:
             log_debug(f"✗ No stops loaded for agency: {agency}")
@@ -55,10 +60,6 @@ def load_stops(agency: str) -> List[Dict[str, Any]]:
 
     except Exception as e:
         log_debug(f"✗ Error loading stops for {agency}: {str(e)}")
-        return []
-
-    except Exception as e:
-        log_debug(f"✗ Error in load_stops: {str(e)}")
         return []
 
 def find_nearby_stops(
