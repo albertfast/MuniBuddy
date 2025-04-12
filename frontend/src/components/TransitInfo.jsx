@@ -16,7 +16,6 @@ const CACHE_TTL = 5 * 60 * 1000;
 const API_TIMEOUT = 50000;
 const API_BASE_URL = import.meta.env.VITE_API_BASE ?? 'https://munibuddy.live/api/v1';
 
-// ✅ Prioritize stop_code or gtfs_stop_id for accurate API calls
 const normalizeId = (stop) => stop?.gtfs_stop_id || stop?.stop_code || stop?.stop_id;
 
 const formatTime = (isoTime) => {
@@ -172,15 +171,20 @@ const TransitInfo = ({ stops }) => {
         <List>
           {stopsArray.map((stop, index) => {
             const currentStopId = normalizeId(stop);
+            if (!currentStopId) return null;
+
             const isSelected = selectedStopId === currentStopId;
+
             return (
               <React.Fragment key={`${stop.stop_id}-${index}`}>
-                <ListItemButton onClick={() => handleStopClick(stop)} selected={isSelected}>
+                <ListItemButton
+                  onClick={() => handleStopClick(stop)}
+                  selected={isSelected}
+                >
                   <Box sx={{ flex: 1 }}>{renderStopInfo(stop)}</Box>
-                  <IconButton onClick={(e) => { e.stopPropagation(); handleStopClick(stop); }} size="small">
-                    {isSelected ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-                  </IconButton>
+                  {isSelected ? <ExpandLessIcon /> : <ExpandMoreIcon />}
                 </ListItemButton>
+
                 <Collapse in={isSelected} timeout="auto" unmountOnExit>
                   <Box px={2} pb={2} pt={1}>
                     {loading ? (
@@ -214,18 +218,17 @@ const TransitInfo = ({ stops }) => {
                             </List>
                           </Box>
                         )}
-                        {!stopSchedule.inbound?.length && !stopSchedule.outbound?.length && !error && (
-                          <Typography textAlign="center" color="text.secondary" py={2}>
-                            No scheduled routes found at this time.
+                        {stopSchedule.inbound?.length === 0 && stopSchedule.outbound?.length === 0 && (
+                          <Typography variant="body2" color="text.secondary">
+                            No upcoming buses found.
                           </Typography>
                         )}
-                        <Box display="flex" justifyContent="center" mt={3}>
-                          <Button startIcon={<RefreshIcon />} onClick={handleRefreshSchedule} disabled={loading}>
-                            {loading ? 'Refreshing...' : 'Refresh'}
-                          </Button>
-                        </Box>
                       </>
-                    ) : null}
+                    ) : (
+                      <Typography variant="body2" color="text.secondary">
+                        No schedule available.
+                      </Typography>
+                    )}
                   </Box>
                 </Collapse>
               </React.Fragment>
