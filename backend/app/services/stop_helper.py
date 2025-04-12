@@ -103,7 +103,7 @@ def find_nearby_stops(lat: float, lon: float, gtfs_data: Dict[str, Any], radius_
                     continue
 
                 active_services = calendar_df[
-                    (calendar_df[weekday] == 1) &
+                    (calendar_df[weekday].fillna(0).astype(int) == 1) &
                     (pd.to_numeric(calendar_df['start_date']) <= int(datetime.now().strftime("%Y%m%d"))) &
                     (pd.to_numeric(calendar_df['end_date']) >= int(datetime.now().strftime("%Y%m%d")))
                 ]['service_id']
