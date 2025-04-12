@@ -8,7 +8,7 @@ def get_nearby_bus_positions(
     lat: float = Query(...),
     lon: float = Query(...),
     bus_number: str = Query(...),
-    agency: str = Query("muni")  # Default can be 'muni' or 'bart'
+    agency: str = Query("muni")  # Default agency
 ):
     """
     Returns nearby stops with real-time info for a specific bus number and agency.
@@ -18,7 +18,12 @@ def get_nearby_bus_positions(
 
         filtered_results = []
         for stop in results["stops"]:
-            if any(r["route_number"] == bus_number for r in stop["routes"]):
+            all_buses = stop.get("buses", {})
+            inbound = all_buses.get("inbound", [])
+            outbound = all_buses.get("outbound", [])
+            combined = inbound + outbound
+
+            if any(bus.get("route_number") == bus_number for bus in combined):
                 filtered_results.append(stop)
 
         return {

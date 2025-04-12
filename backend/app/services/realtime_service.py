@@ -9,11 +9,17 @@ API_KEY = settings.API_KEY
 BASE_URL = settings.TRANSIT_511_BASE_URL
 
 
-def fetch_real_time_stop_data(stop_id: str, agency: str = "SF") -> Optional[Dict[str, Any]]:
+def fetch_real_time_stop_data(stop: Dict[str, Any], agency: str = "SF") -> Optional[Dict[str, Any]]:
     """
-    Fetch real-time arrival data for a specific stop from 511 API (synchronously).
+    Fetch real-time arrival data for a specific stop using stop_code if available.
     """
     try:
+        # ✅ Use stop_code if present, else fall back to stop_id
+        stop_id = stop.get("stop_code") or stop.get("stop_id")
+        if not stop_id:
+            log_debug("[ERROR] No valid stop_code or stop_id provided")
+            return {"inbound": [], "outbound": []}
+
         url = f"{BASE_URL}/StopMonitoring"
         params = {
             "api_key": API_KEY,
@@ -21,9 +27,11 @@ def fetch_real_time_stop_data(stop_id: str, agency: str = "SF") -> Optional[Dict
             "stopId": stop_id,
             "format": "json"
         }
+
         log_debug(f"[511 API] Requesting real-time data for stop: {stop_id} | agency: {agency}")
         response = httpx.get(url, params=params)
         response.raise_for_status()
+
         content = response.content.decode('utf-8-sig')
         data = json.loads(content)
 
@@ -52,10 +60,7 @@ def fetch_real_time_stop_data(stop_id: str, agency: str = "SF") -> Optional[Dict
             elif aimed:
                 arrival_time = datetime.strptime(aimed.split("Z")[0], "%Y-%m-%dT%H:%M:%S")
 
-            if not arrival_time:
-                continue
-
-            if (arrival_time - now).total_seconds() > 7200:
+            if not arrival_time or (arrival_time - now).total_seconds() > 7200:
                 continue
 
             minutes_until = int((arrival_time - now).total_seconds() / 60)
@@ -76,6 +81,7 @@ def fetch_real_time_stop_data(stop_id: str, agency: str = "SF") -> Optional[Dict
                 outbound.append(bus_info)
 
         return {"inbound": inbound, "outbound": outbound}
+
     except Exception as e:
         log_debug(f"[ERROR] fetch_real_time_stop_data failed: {e}")
         return {"inbound": [], "outbound": []}
