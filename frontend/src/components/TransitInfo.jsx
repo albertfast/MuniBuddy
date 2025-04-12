@@ -18,7 +18,7 @@ const CACHE_TTL = 5 * 60 * 1000;
 const API_TIMEOUT = 50000;
 const API_BASE_URL = import.meta.env.VITE_API_BASE ?? 'https://munibuddy.live/api/v1';
 
-const normalizeId = (stop) => stop?.stop_id || stop?.id;
+const normalizeId = (stop) => stop?.stop_id || stop?.gtfs_stop_id;
 
 const formatTime = (isoTime) => {
   if (!isoTime || isoTime === "Unknown") return "Unknown";
