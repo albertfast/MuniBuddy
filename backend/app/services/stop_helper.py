@@ -80,7 +80,6 @@ def find_nearby_stops(
         List[Dict]: Stops with distance, agency, route info
     """
     nearby_stops = []
-    stops = load_stops()
 
     for stop in stops:
         distance = calculate_distance(lat, lon, stop["stop_lat"], stop["stop_lon"])
