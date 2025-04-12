@@ -26,39 +26,37 @@ def calculate_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> fl
         log_debug(f"[WARN] Error in calculate_distance: {e}")
         return float('inf')
 
-
 def load_stops() -> List[Dict[str, Any]]:
-    """
-    Load stops from GTFS using settings and return in flat list with agency label.
-    """
     try:
         stops = []
-        for agency in settings.GTFS_AGENCIES:
-            data = settings.get_gtfs_data(agency)
-            if not data or not isinstance(data, tuple) or len(data) < 3:
-                log_debug(f"✗ Invalid GTFS data tuple for {agency}")
+
+        for agency in ["muni", "bart"]:
+            gtfs_tuple = settings.get_gtfs_data(agency)
+            if not gtfs_tuple:
+                log_debug(f"⚠️ GTFS data not loaded for agency: {agency}")
                 continue
 
-            _, _, stops_df, *_ = data
+            _, _, stops_df, *_ = gtfs_tuple  # routes, trips, stops, stop_times, calendar
+
             if isinstance(stops_df, pd.DataFrame) and not stops_df.empty:
                 for _, row in stops_df.iterrows():
                     stops.append({
-                        "stop_id": row["stop_id"],
-                        "stop_name": row["stop_name"],
-                        "stop_lat": float(row["stop_lat"]),
-                        "stop_lon": float(row["stop_lon"]),
-                        "agency": agency
+                        'stop_id': row['stop_id'],
+                        'stop_name': row['stop_name'],
+                        'stop_lat': float(row['stop_lat']),
+                        'stop_lon': float(row['stop_lon']),
+                        'agency': agency
                     })
 
         if not stops:
-            log_debug("✗ No stops data in GTFS")
+            log_debug("✗ No stops loaded from GTFS")
             return []
 
         log_debug(f"✓ Loaded {len(stops)} stops from GTFS")
         return stops
 
     except Exception as e:
-        log_debug(f"✗ Error loading stops: {str(e)}")
+        log_debug(f"✗ Error in load_stops: {str(e)}")
         return []
 
 def find_nearby_stops(

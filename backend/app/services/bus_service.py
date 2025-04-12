@@ -10,9 +10,9 @@ class BusService:
         self.scheduler = scheduler
         self.gtfs_data = settings.get_gtfs_data("muni")
 
-    async def get_nearby_stops(self, lat: float, lon: float, radius: float = 0.15):
+    def get_nearby_stops(self, lat: float, lon: float, radius: float = 0.15):
         log_debug(f"Finding nearby stops for coordinates: ({lat}, {lon}), radius: {radius}")
-        stops = await load_stops(self.gtfs_data)
+        stops = load_stops()
         return find_nearby_stops(lat, lon, self.gtfs_data, stops, radius)
 
     async def get_nearby_buses(self, lat: float, lon: float, radius: float = 0.15):
