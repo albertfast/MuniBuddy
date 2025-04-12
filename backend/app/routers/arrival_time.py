@@ -1,19 +1,19 @@
 # Add parent directory to path
-import os
-import sys
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+# import os
+# import sys
+# sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
-from app.db.database import get_db
-from app.models.bus_route import BusRoute
+# from fastapi import APIRouter, Depends, HTTPException
+# from sqlalchemy.orm import Session
+# from app.db.database import get_db
+# from app.models.bus_route import BusRoute
 
-router = APIRouter()
+# router = APIRouter()
 
-@router.get("/arrival-time")
-def get_arrival_time(db: Session = Depends(get_db)):
-    """Fetch scheduled arrival times."""
-    return db.query(BusRoute).all()
+# @router.get("/arrival-time")
+# def get_arrival_time(db: Session = Depends(get_db)):
+#     """Fetch scheduled arrival times."""
+#     return db.query(BusRoute).all()
 
 
 # from fastapi import APIRouter, HTTPException, Query

@@ -28,7 +28,7 @@ class BusService:
         results = []
 
         for stop in nearby_stops:
-            # fetch_real_time_stop_data stop sözlüğü alacak şekilde güncellenmiştir.
+
             realtime_data = fetch_real_time_stop_data(stop, agency)
 
             for direction in ["inbound", "outbound"]:
