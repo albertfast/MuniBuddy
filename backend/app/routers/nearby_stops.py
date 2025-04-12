@@ -13,6 +13,6 @@ async def get_nearby_stops(
     Get nearby transit stops using BusService.
     """
     try:
-        return await bus_service.get_nearby_buses(lat=lat, lon=lon, radius=radius)
+        return await bus_service.get_nearby_stops(lat=lat, lon=lon, radius=radius)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch nearby stops: {e}")
