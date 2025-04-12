@@ -9,12 +9,11 @@ class BusService:
         log_debug("Initializing BusService...")
         self.scheduler = scheduler
         self.gtfs_data = settings.get_gtfs_data("muni")
-        self.stops_df = load_stops(self.gtfs_data)
-    
+
     async def get_nearby_stops(self, lat: float, lon: float, radius: float = 0.15):
         log_debug(f"Finding nearby stops for coordinates: ({lat}, {lon}), radius: {radius}")
-        stops = load_stops(self.gtfs_data)
-        return  find_nearby_stops(lat, lon, self.gtfs_data, stops, radius)
+        stops = await load_stops(self.gtfs_data)
+        return find_nearby_stops(lat, lon, self.gtfs_data, stops, radius)
 
     async def get_nearby_buses(self, lat: float, lon: float, radius: float = 0.15):
         log_debug(f"Looking for nearby real-time buses around: ({lat}, {lon}) within {radius} miles")
@@ -36,7 +35,3 @@ class BusService:
     async def get_stop_schedule(self, stop_id: str):
         log_debug(f"Fetching GTFS schedule for stop ID: {stop_id}")
         return self.scheduler.get_schedule(stop_id)
-
-    # async def get_stop_predictions(self, stop_id: str):
-    #     log_debug(f"Fetching real-time predictions for stop ID: {stop_id}")
-    #     return await fetch_real_time_stop_data(stop_id)
