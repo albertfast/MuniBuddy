@@ -1,6 +1,7 @@
 import httpx
-from typing import Optional, Dict, Any
+import json
 from datetime import datetime
+from typing import Optional, Dict, Any
 from app.config import settings
 from app.services.debug_logger import log_debug
 
@@ -10,88 +11,72 @@ BASE_URL = settings.TRANSIT_511_BASE_URL
 
 async def fetch_real_time_stop_data(stop_id: str) -> Optional[Dict[str, Any]]:
     """
-    Fetches real-time bus arrival data from 511.org API for a given stop.
-
-    Args:
-        stop_id (str): The stop ID (ex: 4212 or 14212)
-
-    Returns:
-        dict with 'inbound' and 'outbound' bus info lists
+    Fetch real-time arrival data for a specific stop from 511 API.
     """
-    log_debug(f"Fetching real-time data for stop {stop_id}")
-
-    params = {
-        "api_key": API_KEY,
-        "agency": "SF",  # Can be made dynamic
-        "stopCode": stop_id,
-        "format": "json"
-    }
-
-    url = f"{BASE_URL}/StopMonitoring"
-
     try:
-        async with httpx.AsyncClient(timeout=12.0) as client:
+        url = f"{BASE_URL}/StopMonitoring"
+        params = {
+            "api_key": API_KEY,
+            "agency": "SF",
+            "stopId": stop_id,
+            "format": "json"
+        }
+        log_debug(f"[511 API] Requesting real-time data for stop: {stop_id}")
+        async with httpx.AsyncClient() as client:
             response = await client.get(url, params=params)
             response.raise_for_status()
+            content = response.content.decode('utf-8-sig')
+            data = json.loads(content)
 
-            raw_text = response.text.encode().decode("utf-8-sig")
-            data = response.json()
-            log_debug(f"Raw data received for stop {stop_id}: {str(data)[:300]}...")
+        monitoring = data.get("ServiceDelivery", {}).get("StopMonitoringDelivery", [])
+        if isinstance(monitoring, list):
+            monitoring = monitoring[0] if monitoring else {}
 
-    except Exception as e:
-        log_debug(f"Error fetching real-time data: {e}")
-        return None
+        stops = monitoring.get("MonitoredStopVisit", [])
 
-    delivery = data.get("ServiceDelivery", {})
-    monitoring = delivery.get("StopMonitoringDelivery", [])
-    if isinstance(monitoring, list):
-        monitoring = monitoring[0] if monitoring else {}
+        inbound = []
+        outbound = []
+        now = datetime.now()
 
-    stops = monitoring.get("MonitoredStopVisit", [])
-    if not stops:
-        log_debug(f"No real-time buses found for stop {stop_id}")
-        return {"inbound": [], "outbound": []}
+        for stop in stops:
+            journey = stop.get("MonitoredVehicleJourney", {})
+            route_number = journey.get("PublishedLineName", "Unknown")
+            destination = journey.get("DestinationName", "Unknown")
+            direction = journey.get("DirectionRef", "").lower()
+            call = journey.get("MonitoredCall", {})
+            expected = call.get("ExpectedArrivalTime")
+            aimed = call.get("AimedArrivalTime")
 
-    inbound = []
-    outbound = []
-    now = datetime.utcnow()
+            arrival_time = None
+            if expected:
+                arrival_time = datetime.strptime(expected.split("Z")[0], "%Y-%m-%dT%H:%M:%S")
+            elif aimed:
+                arrival_time = datetime.strptime(aimed.split("Z")[0], "%Y-%m-%dT%H:%M:%S")
 
-    for stop in stops:
-        journey = stop.get("MonitoredVehicleJourney", {})
-        call = journey.get("MonitoredCall", {})
-        line_ref = journey.get("LineRef", "")
-        destination = journey.get("DestinationName", "Unknown")
+            if not arrival_time:
+                continue
 
-        expected = call.get("ExpectedArrivalTime") or call.get("AimedArrivalTime")
-        if not expected:
-            continue
+            if (arrival_time - now).total_seconds() > 7200:
+                continue
 
-        try:
-            if expected.endswith("Z"):
-                arrival = datetime.fromisoformat(expected.replace("Z", "+00:00"))
+            minutes_until = int((arrival_time - now).total_seconds() / 60)
+            status = "Due" if minutes_until <= 0 else f"{minutes_until} min"
+
+            bus_info = {
+                "route_number": route_number,
+                "destination": destination,
+                "arrival_time": arrival_time.strftime("%I:%M %p").lstrip("0"),
+                "status": status,
+                "minutes_until": minutes_until,
+                "is_realtime": True
+            }
+
+            if direction == "1":
+                inbound.append(bus_info)
             else:
-                arrival = datetime.fromisoformat(expected)
-        except Exception as e:
-            log_debug(f"Error parsing arrival time: {e}")
-            continue
+                outbound.append(bus_info)
 
-        if (arrival - now).total_seconds() < -60:
-            continue
-
-        status = "On Time"
-        display_time = arrival.strftime("%I:%M %p").lstrip("0")
-
-        direction = journey.get("DirectionRef", "0")
-        info = {
-            "route_number": line_ref.split(":")[-1],
-            "destination": destination,
-            "arrival_time": display_time,
-            "status": status
-        }
-
-        if direction == "1":
-            inbound.append(info)
-        else:
-            outbound.append(info)
-
-    return {"inbound": inbound[:3], "outbound": outbound[:3]}
+        return {"inbound": inbound, "outbound": outbound}
+    except Exception as e:
+        log_debug(f"[ERROR] fetch_real_time_stop_data failed: {e}")
+        return {"inbound": [], "outbound": []}
