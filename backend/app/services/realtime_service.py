@@ -1,6 +1,7 @@
 import httpx
 import json
-from datetime import datetime
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 from typing import Optional, Dict, Any
 from app.config import settings
 from app.services.debug_logger import log_debug
@@ -10,13 +11,13 @@ API_KEY = settings.API_KEY
 BASE_URL = settings.TRANSIT_511_BASE_URL
 
 
-def fetch_real_time_stop_data(stop_id: str, agency: str = "muni") -> Optional[Dict[str, Any]]:
+async def fetch_real_time_stop_data(stop_id: str, agency: str = "muni") -> Optional[Dict[str, Any]]:
     """
     Fetch real-time arrival data by finding stop_code via load_stops(),
     then calling 511 API with it.
+    Returns parsed inbound/outbound data with route number, arrival time, etc.
     """
     try:
-
         stops = load_stops(agency)
         stop = next((s for s in stops if s["stop_id"] == stop_id or s.get("stop_code") == stop_id), None)
 
@@ -32,7 +33,7 @@ def fetch_real_time_stop_data(stop_id: str, agency: str = "muni") -> Optional[Di
         url = f"{BASE_URL}/StopMonitoring"
         params = {
             "api_key": API_KEY,
-            "agency": "SF",  
+            "agency": "SF",
             "stopCode": stop_code,
             "format": "json"
         }
@@ -49,15 +50,17 @@ def fetch_real_time_stop_data(stop_id: str, agency: str = "muni") -> Optional[Di
         if isinstance(monitoring, list):
             monitoring = monitoring[0] if monitoring else {}
 
-        stops = monitoring.get("MonitoredStopVisit", [])
+        visits = monitoring.get("MonitoredStopVisit", [])
 
         inbound = []
         outbound = []
-        now = datetime.now()
+        now = datetime.now(tz=ZoneInfo("America/Los_Angeles"))
 
-        for stop in stops:
-            journey = stop.get("MonitoredVehicleJourney", {})
-            route_number = journey.get("PublishedLineName", "Unknown")
+        for visit in visits:
+            journey = visit.get("MonitoredVehicleJourney", {})
+            line_ref = journey.get("LineRef", "")
+            published = journey.get("PublishedLineName", "Unknown")
+            route_number = f"{line_ref} {published}".strip()
             destination = journey.get("DestinationName", "Unknown")
             direction = journey.get("DirectionRef", "").lower()
             call = journey.get("MonitoredCall", {})
@@ -66,9 +69,9 @@ def fetch_real_time_stop_data(stop_id: str, agency: str = "muni") -> Optional[Di
 
             arrival_time = None
             if expected:
-                arrival_time = datetime.strptime(expected.split("Z")[0], "%Y-%m-%dT%H:%M:%S")
+                arrival_time = datetime.strptime(expected.split("Z")[0], "%Y-%m-%dT%H:%M:%S").replace(tzinfo=timezone.utc).astimezone(ZoneInfo("America/Los_Angeles"))
             elif aimed:
-                arrival_time = datetime.strptime(aimed.split("Z")[0], "%Y-%m-%dT%H:%M:%S")
+                arrival_time = datetime.strptime(aimed.split("Z")[0], "%Y-%m-%dT%H:%M:%S").replace(tzinfo=timezone.utc).astimezone(ZoneInfo("America/Los_Angeles"))
 
             if not arrival_time or (arrival_time - now).total_seconds() > 7200:
                 continue
