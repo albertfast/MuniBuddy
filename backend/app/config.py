@@ -60,7 +60,7 @@ class Settings(BaseSettings):
     # Transit API (511.org)
     API_KEY: Optional[str] = None
     TRANSIT_511_BASE_URL: str = "http://api.511.org/transit"
-    DEFAULT_AGENCY: str = "SFMTA"
+    DEFAULT_AGENCY: str = "SF"
 
     # GTFS Paths per agency (e.g., muni, bart)
     GTFS_AGENCIES: List[str] = ["muni", "bart"]
