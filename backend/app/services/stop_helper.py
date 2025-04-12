@@ -62,6 +62,8 @@ def load_stops() -> List[Dict[str, Any]]:
 def find_nearby_stops(
     lat: float,
     lon: float,
+    gtfs_data: Dict[str, pd.DataFrame],
+    stops: List[Dict[str, Any]],
     radius_miles: float = 0.15,
     limit: int = 3
 ) -> List[Dict[str, Any]]:
@@ -95,10 +97,10 @@ def find_nearby_stops(
                 log_debug(f"✗ GTFS data missing or incomplete for agency {agency}")
                 continue
 
-            routes_df, trips_df, stops_df, stop_times_df, calendar_df = gtfs_data
+            routes_df, trips_df, _, stop_times_df, calendar_df = gtfs_data
 
             if any(df.empty for df in [routes_df, trips_df, stop_times_df, calendar_df]):
-                log_debug(f"✗ One or more GTFS dataframes empty for {gtfs_stop_id}")
+                log_debug(f"✗ One or more GTFS dataframes empty for stop {gtfs_stop_id}")
                 continue
 
             stop_times = stop_times_df[stop_times_df["stop_id"] == gtfs_stop_id]
@@ -123,7 +125,7 @@ def find_nearby_stops(
             valid_routes = routes_df[routes_df["route_id"].isin(valid_trips["route_id"])].drop_duplicates()
 
             if valid_routes.empty:
-                log_debug(f"⚠️ No routes found for {gtfs_stop_id}")
+                log_debug(f"⚠️ No routes found for stop {gtfs_stop_id}")
                 continue
 
             route_info = []
