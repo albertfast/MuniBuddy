@@ -28,14 +28,12 @@ class BusService:
         results = []
 
         for stop in nearby_stops:
-            # Use stop_code for 511 API, fall back to stop_id if not available
-            stop_code = stop.get("stop_code", stop["stop_id"])
-
-            # 511 API requires raw stopCode like '14212' (not '4212' or GTFS-style)
-            realtime_data = fetch_real_time_stop_data(stop_code, agency)
+            # ✅ Burada artık tüm stop dict'ini yolla
+            realtime_data = fetch_real_time_stop_data(stop, agency)
 
             results.append({
                 "stop_id": stop["stop_id"],
+                "stop_code": stop.get("stop_code"),
                 "stop_name": stop["stop_name"],
                 "distance_miles": stop["distance_miles"],
                 "buses": realtime_data
