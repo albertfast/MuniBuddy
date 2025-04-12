@@ -174,7 +174,7 @@ const TransitInfo = ({ stops }) => {
             return (
               <React.Fragment key={`${stop.stop_id}-${index}`}>
                 <ListItemButton onClick={() => handleStopClick(stop)} selected={isSelected}>
-                  <ListItemText primary={renderStopInfo(stop)} />
+                  <Box sx={{ flex: 1 }}>{renderStopInfo(stop)}</Box>
                   <IconButton onClick={(e) => { e.stopPropagation(); handleStopClick(stop); }} size="small">
                     {isSelected ? <ExpandLessIcon /> : <ExpandMoreIcon />}
                   </IconButton>
