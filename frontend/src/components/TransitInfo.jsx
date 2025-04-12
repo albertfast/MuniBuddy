@@ -8,8 +8,6 @@ import DirectionsBusIcon from '@mui/icons-material/DirectionsBus';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
-import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
-import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import axios from 'axios';
 
@@ -18,7 +16,8 @@ const CACHE_TTL = 5 * 60 * 1000;
 const API_TIMEOUT = 50000;
 const API_BASE_URL = import.meta.env.VITE_API_BASE ?? 'https://munibuddy.live/api/v1';
 
-const normalizeId = (stop) => stop?.stop_id || stop?.gtfs_stop_id;
+// ✅ GTFS ID first for API calls, then fallback to display stop_id
+const normalizeId = (stop) => stop?.gtfs_stop_id || stop?.stop_id;
 
 const formatTime = (isoTime) => {
   if (!isoTime || isoTime === "Unknown") return "Unknown";
@@ -68,7 +67,7 @@ const TransitInfo = ({ stops }) => {
   }, []);
 
   const handleStopClick = useCallback(async (stopToSelect) => {
-    const stopIdToSelect = normalizeId(stopToSelect);
+    const stopIdToSelect = stopToSelect.gtfs_stop_id;
     if (selectedStopId === stopIdToSelect) {
       setSelectedStopId(null);
       setStopSchedule(null);
@@ -136,7 +135,7 @@ const TransitInfo = ({ stops }) => {
         <Box display="flex" alignItems="center">
           <DirectionsBusIcon fontSize="small" sx={{ mr: 0.5, color: 'text.secondary' }} />
           <Typography variant="caption" color="text.secondary">
-            ID: {normalizeId(stop)}
+            ID: {stop.stop_id || 'Unknown'}
           </Typography>
         </Box>
         {stop.distance_miles !== undefined && (
@@ -170,10 +169,10 @@ const TransitInfo = ({ stops }) => {
         </Typography>
         <List>
           {stopsArray.map((stop, index) => {
-            const currentStopId = normalizeId(stop);
+            const currentStopId = stop.gtfs_stop_id;
             const isSelected = selectedStopId === currentStopId;
             return (
-              <React.Fragment key={currentStopId || index}>
+              <React.Fragment key={`${stop.stop_id}-${index}`}>
                 <ListItemButton onClick={() => handleStopClick(stop)} selected={isSelected}>
                   <ListItemText primary={renderStopInfo(stop)} />
                   <IconButton onClick={(e) => { e.stopPropagation(); handleStopClick(stop); }} size="small">

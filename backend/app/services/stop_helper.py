@@ -64,6 +64,8 @@ def load_stops(agency: str) -> List[Dict[str, Any]]:
 def find_nearby_stops(
     lat: float,
     lon: float,
+    gtfs_data: Dict[str, pd.DataFrame],
+    stops: List[Dict[str, Any]],
     radius_miles: float = 0.15,
     limit: int = 3
 ) -> List[Dict[str, Any]]:
