@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Optional, Dict, Any
 from app.config import settings
 from app.services.debug_logger import log_debug
-
+from app.services.stop_helper import load_stops
 API_KEY = settings.API_KEY
 BASE_URL = settings.TRANSIT_511_BASE_URL
 
@@ -24,7 +24,7 @@ def fetch_real_time_stop_data(stop: Dict[str, Any], agency: str = "SF") -> Optio
         params = {
             "api_key": API_KEY,
             "agency": agency,
-            "stopId": stop_id,
+            "stopCode": stop_id,
             "format": "json"
         }
 
