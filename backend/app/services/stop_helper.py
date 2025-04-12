@@ -59,7 +59,7 @@ def load_stops(gtfs_data: Dict[str, Any]) -> List[Dict[str, Any]]:
         log_debug(f"✗ Error loading stops: {str(e)}")
         return []
 
-async def find_nearby_stops(
+def find_nearby_stops(
     lat: float,
     lon: float,
     gtfs_data: Dict[str, pd.DataFrame],
