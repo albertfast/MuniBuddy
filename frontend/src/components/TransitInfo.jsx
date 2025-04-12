@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import {
   Card, CardContent, Typography, List, ListItem, ListItemText, ListItemButton,
-  Divider, Box, Collapse, CircularProgress, Stack, Chip, IconButton,
+  Box, Collapse, CircularProgress, Stack, Chip, IconButton,
   Button, Alert
 } from '@mui/material';
 import DirectionsBusIcon from '@mui/icons-material/DirectionsBus';
@@ -16,8 +16,8 @@ const CACHE_TTL = 5 * 60 * 1000;
 const API_TIMEOUT = 50000;
 const API_BASE_URL = import.meta.env.VITE_API_BASE ?? 'https://munibuddy.live/api/v1';
 
-// ✅ GTFS ID first for API calls, then fallback to display stop_id
-const normalizeId = (stop) => stop?.gtfs_stop_id || stop?.stop_id;
+// Always normalize the ID for internal use and display
+const normalizeId = (stop) => String(stop?.gtfs_stop_id || stop?.stop_id || '');
 
 const formatTime = (isoTime) => {
   if (!isoTime || isoTime === "Unknown") return "Unknown";
@@ -67,7 +67,7 @@ const TransitInfo = ({ stops }) => {
   }, []);
 
   const handleStopClick = useCallback(async (stopToSelect) => {
-    const stopIdToSelect = stopToSelect.gtfs_stop_id;
+    const stopIdToSelect = normalizeId(stopToSelect);
     if (selectedStopId === stopIdToSelect) {
       setSelectedStopId(null);
       setStopSchedule(null);
@@ -135,7 +135,7 @@ const TransitInfo = ({ stops }) => {
         <Box display="flex" alignItems="center">
           <DirectionsBusIcon fontSize="small" sx={{ mr: 0.5, color: 'text.secondary' }} />
           <Typography variant="caption" color="text.secondary">
-            Stop ID: {stop.stop_id || stop.gtfs_stop_id || 'Unknown'}
+            Stop ID: {normalizeId(stop)}
           </Typography>
         </Box>
         {stop.distance_miles !== undefined && (
@@ -143,7 +143,7 @@ const TransitInfo = ({ stops }) => {
         )}
       </Stack>
     </>
-  ), []);  
+  ), []);
 
   const renderRouteInfo = useCallback((route) => (
     <Box sx={{ borderLeft: '3px solid', borderColor: 'primary.light', pl: 1.5, py: 0.5, mb: 1 }}>
@@ -152,7 +152,7 @@ const TransitInfo = ({ stops }) => {
           {route.route_number || 'Route ?'} → <Box component="span">{route.destination || 'Unknown Destination'}</Box>
         </Typography>
         {route.status && (
-            <Chip size="small" label={route.status} color={getStatusColor(route.status)} />
+          <Chip size="small" label={route.status} color={getStatusColor(route.status)} />
         )}
       </Stack>
       <Typography variant="body2" color="text.secondary" mt={0.5}>
@@ -169,10 +169,10 @@ const TransitInfo = ({ stops }) => {
         </Typography>
         <List>
           {stopsArray.map((stop, index) => {
-            const currentStopId = stop.gtfs_stop_id;
+            const currentStopId = normalizeId(stop);
             const isSelected = selectedStopId === currentStopId;
             return (
-              <React.Fragment key={`${stop.stop_id}-${index}`}>
+              <React.Fragment key={currentStopId || index}>
                 <ListItemButton onClick={() => handleStopClick(stop)} selected={isSelected}>
                   <Box sx={{ flex: 1 }}>{renderStopInfo(stop)}</Box>
                   <IconButton onClick={(e) => { e.stopPropagation(); handleStopClick(stop); }} size="small">
