@@ -19,7 +19,13 @@ class BusService:
             return []
 
         stops = load_stops(agency)
-        return find_nearby_stops(lat, lon, stops, radius)
+        nearby = find_nearby_stops(lat, lon, stops, radius)
+
+        # ✅ Make sure agency is included explicitly
+        for stop in nearby:
+            stop["agency"] = agency
+
+        return nearby
 
     def get_nearby_buses(self, lat: float, lon: float, radius: float = 0.15, agency: str = "muni"):
         log_debug(f"Looking for nearby real-time buses around: ({lat}, {lon}) within {radius} miles for agency: {agency}")
