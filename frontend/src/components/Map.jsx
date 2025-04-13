@@ -10,9 +10,8 @@ const Map = ({ center = DEFAULT_CENTER, markers = [], onMapClick, zoom = DEFAULT
   const [selectedMarker, setSelectedMarker] = useState(null);
   const [map, setMap] = useState(null);
   const markersRef = useRef([]);
-
-  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
   const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
+  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 
   useEffect(() => {
     console.log("🧭 Google Maps API Key Present:", !!apiKey);
@@ -56,6 +55,13 @@ const Map = ({ center = DEFAULT_CENTER, markers = [], onMapClick, zoom = DEFAULT
     console.log("🧹 Map unmounted, clearing map instance state");
     setMap(null);
   }, []);
+
+  // 🔁 When center prop changes, pan the map to new location
+  useEffect(() => {
+    if (map && center) {
+      map.panTo(center);
+    }
+  }, [map, center]);
 
   useEffect(() => {
     if (!map || !window.google || !window.google.maps.marker) return;
