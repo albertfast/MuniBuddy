@@ -12,9 +12,10 @@ async def get_stop_predictions(
     agency: str = Query("muni")
 ):
     try:
-        if agency.lower() in ["bart", "ba"]:
+        agency = agency.lower()
+        if agency in ["bart", "ba"]:
             return await bart_service.get_real_time_arrivals(stop_id, lat, lon)
-        else:
-            return await fetch_real_time_stop_data(stop_id, agency="muni")
+        return await fetch_real_time_stop_data(stop_id, agency=agency)
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Real-time prediction failed: {str(e)}")
