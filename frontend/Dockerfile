@@ -18,7 +18,7 @@ ENV VITE_GOOGLE_MAPS_API_KEY=$VITE_GOOGLE_MAPS_API_KEY
 RUN npm run build
 
 # Serve with lightweight server
-FROM node:20-alpine
+FROM node:20-alpine3.18
 WORKDIR /app
 RUN npm install -g serve
 COPY --from=builder /app/dist /app/dist

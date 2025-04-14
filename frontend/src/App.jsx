@@ -23,9 +23,18 @@ const App = () => {
   const [theme, setTheme] = useState('system');
   const [showLocationDialog, setShowLocationDialog] = useState(true);
 
-  useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
-  }, [theme]);
+// Theme seçimini izleyen effect
+useEffect(() => {
+  const el = document.documentElement;
+  if (theme === 'system') {
+    const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    el.setAttribute('data-theme', systemTheme);
+  } else {
+    el.setAttribute('data-theme', theme);
+  }
+  console.log("Theme changed to:", theme);
+}, [theme]);
+
 
   const requestLocation = () => {
     setShowLocationDialog(false);
@@ -117,7 +126,12 @@ const App = () => {
     <Container maxWidth="lg">
       <Box sx={{ my: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Typography variant="h4">MuniBuddy</Typography>
-        <Select value={theme} onChange={(e) => setTheme(e.target.value)} size="small">
+        <Select
+          value={theme}
+          onChange={(e) => setTheme(e.target.value)}
+          size="small"
+          native
+        >
           <MenuItem value="system">System</MenuItem>
           <MenuItem value="light">Light</MenuItem>
           <MenuItem value="dark">Dark</MenuItem>
