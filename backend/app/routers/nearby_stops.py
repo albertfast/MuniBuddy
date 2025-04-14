@@ -1,16 +1,33 @@
-from fastapi import APIRouter, HTTPException, Query
-from app.core.singleton import bus_service
+from fastapi import APIRouter, Query, HTTPException
+from app.core.singleton import bus_service, bart_service
 
 router = APIRouter()
 
 @router.get("/nearby-stops")
-def get_nearby_stops(
+def get_combined_nearby_stops(
     lat: float = Query(...),
     lon: float = Query(...),
-    radius: float = 0.15,
-    agency: str = Query("muni")
+    radius: float = Query(0.15),
+    agency: str = Query(None)
 ):
     try:
-        return bus_service.get_nearby_stops(lat=lat, lon=lon, radius=radius, agency=agency)
+        # Eğer agency belirtilmişse ona göre yönlendir
+        if agency:
+            if agency.lower() in ["muni", "sf", "sfmta"]:
+                return bus_service.get_nearby_stops(lat, lon, radius, agency="muni")
+            elif agency.lower() in ["bart", "ba"]:
+                return bart_service.get_nearby_stops(lat, lon, radius, agency="bart")
+            else:
+                return []
+
+        # Eğer agency verilmemişse tüm ajansları birleştirerek dön
+        muni_stops = bus_service.get_nearby_stops(lat, lon, radius, agency="muni")
+        bart_stops = bart_service.get_nearby_stops(lat, lon, radius, agency="bart")
+
+        all_stops = muni_stops + bart_stops
+        all_stops.sort(key=lambda s: s.get("distance_miles", 999))
+
+        return all_stops
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch nearby stops: {e}")

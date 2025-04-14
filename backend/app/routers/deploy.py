@@ -6,10 +6,9 @@ import os
 
 router = APIRouter()
 
-# Secret key from your GitHub webhook (set also in your .env file)
-GITHUB_SECRET = os.getenv("GITHUB_SECRET", "xyz123")
+GITHUB_SECRET = settings.GITHUB_SECRET
 
-@router.post("/deploy")
+@router.post("/")
 async def deploy(request: Request):
     """Webhook listener to auto-deploy when main branch is updated"""
     body = await request.body()

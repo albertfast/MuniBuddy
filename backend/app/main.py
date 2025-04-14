@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.core.singleton import bus_service  # ✅ Singleton BusService instance
+from app.core.singleton import bus_service
 from app.db.database import init_db
 
 # Routers
@@ -12,22 +12,25 @@ from app.routers.nearby_bus_positions import router as nearby_bus_router
 from app.routers.stop_schedule import router as stop_schedule_router
 from app.routers.deploy import router as deploy_router
 
+from dotenv import load_dotenv
+load_dotenv()
+
+import os
+print(os.getenv("GITHUB_SECRET"))
+
 app = FastAPI(
     title="MuniBuddy API",
     description="Transit info and route planner for SF",
     version="1.0.0"
 )
-
-# CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Replace with specific domain(s) in production
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# ✅ Mount API routers with versioning
 app.include_router(nearby_stops_router, prefix="/api/v1", tags=["Nearby Stops"])
 app.include_router(bart_router, prefix="/api/v1", tags=["BART"])
 app.include_router(stop_predictions_router, prefix="/api/v1", tags=["Stop Predictions"])
