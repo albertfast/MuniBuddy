@@ -8,7 +8,7 @@ router = APIRouter()
 
 GITHUB_SECRET = settings.GITHUB_SECRET
 
-@router.post("/")
+@router.post("/deploy")
 async def deploy(request: Request):
     """Webhook listener to auto-deploy when main branch is updated"""
     body = await request.body()
