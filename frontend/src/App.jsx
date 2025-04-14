@@ -1,4 +1,3 @@
-// src/App.jsx - optimized hybrid version
 import React, { useState, useEffect } from 'react';
 import {
   Container, Box, Typography, Alert, TextField, InputAdornment,
@@ -23,7 +22,6 @@ const App = () => {
   const [theme, setTheme] = useState('system');
   const [showLocationDialog, setShowLocationDialog] = useState(true);
 
-// Theme seçimini izleyen effect
 useEffect(() => {
   const el = document.documentElement;
   if (theme === 'system') {
