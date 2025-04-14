@@ -142,8 +142,8 @@ const TransitInfo = ({ stops }) => {
       </Stack>
         <Typography variant="body2">
           Arrival:{" "}
-          {bus.arrival_time && !isNaN(new Date(bus.arrival_time))
-            ? new Date(bus.arrival_time).toLocaleTimeString([], {
+          {route.arrival_time && !isNaN(new Date(route.arrival_time))
+            ? new Date(route.arrival_time).toLocaleTimeString([], {
                 hour: "2-digit",
                 minute: "2-digit",
               })
