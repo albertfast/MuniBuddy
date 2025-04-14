@@ -92,3 +92,4 @@ const Map = ({ center = DEFAULT_CENTER, markers = [], onMapClick, zoom = DEFAULT
     </Box>
   );
 }
+export default Map;
