@@ -1,4 +1,3 @@
-// src/components/Map.jsx
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { GoogleMap, useJsApiLoader, InfoWindow } from '@react-google-maps/api';
 import { Box, CircularProgress, Typography } from '@mui/material';
@@ -11,7 +10,6 @@ const Map = ({ center = DEFAULT_CENTER, markers = [], onMapClick, zoom = DEFAULT
   const [selectedMarker, setSelectedMarker] = useState(null);
   const [map, setMap] = useState(null);
   const markersRef = useRef([]);
-
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 
   const { isLoaded, loadError } = useJsApiLoader({
@@ -20,27 +18,14 @@ const Map = ({ center = DEFAULT_CENTER, markers = [], onMapClick, zoom = DEFAULT
     mapIds: ['munibuddy_map']
   });
 
-  const mapContainerStyle = {
-    width: '100%',
-    height: 'calc(100dvh - 250px)',
-    maxHeight: '65vh'
-  };
+  const mapContainerStyle = { width: '100%', height: 'calc(100dvh - 250px)', maxHeight: '65vh' };
 
-  const handleMarkerClick = useCallback((markerData) => {
-    setSelectedMarker(markerData);
-  }, []);
-
-  const onLoad = useCallback((mapInstance) => {
-    setMap(mapInstance);
-  }, []);
-
-  const onUnmount = useCallback(() => {
-    setMap(null);
-  }, []);
+  const handleMarkerClick = useCallback((markerData) => setSelectedMarker(markerData), []);
+  const onLoad = useCallback((mapInstance) => setMap(mapInstance), []);
+  const onUnmount = useCallback(() => setMap(null), []);
 
   useEffect(() => {
     if (!map || !window.google?.maps?.marker) return;
-
     markersRef.current.forEach(m => m.map = null);
     markersRef.current = [];
 
@@ -51,7 +36,7 @@ const Map = ({ center = DEFAULT_CENTER, markers = [], onMapClick, zoom = DEFAULT
       markerElement.style.cursor = 'pointer';
 
       const markerImage = document.createElement('img');
-      markerImage.src = markerData.icon?.url || 'frontend/src/assets/bus-marker.png';
+      markerImage.src = markerData.icon?.url || '/images/bus-marker.png';
       markerImage.onerror = () => markerImage.style.display = 'none';
       markerImage.style.width = `${markerData.icon?.scaledSize?.width || 32}px`;
       markerImage.style.height = `${markerData.icon?.scaledSize?.height || 32}px`;
@@ -106,6 +91,4 @@ const Map = ({ center = DEFAULT_CENTER, markers = [], onMapClick, zoom = DEFAULT
       </GoogleMap>
     </Box>
   );
-};
-
-export default Map;
+}
