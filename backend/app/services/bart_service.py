@@ -18,23 +18,17 @@ class BartService:
         for stop in nearby:
             arrivals = await self.realtime.fetch_if_bart_stop_nearby(stop["stop_id"], lat, lon, radius)
             stop["arrivals"] = arrivals
+            stop["agency"] = self.agency
             enriched.append(stop)
 
         return enriched
 
     def get_nearby_stops(self, lat: float, lon: float, radius: float = 0.15, agency: str = "bart") -> List[Dict[str, Any]]:
-        log_debug(f"Finding nearby stops for coordinates: ({lat}, {lon}), radius: {radius}, agency: {agency}")
-
-        if agency not in ["muni", "bart"]:
-            log_debug(f"⚠️ Unsupported agency requested: {agency}")
-            return []
-
+        log_debug(f"[BART] Finding nearby stops for coordinates: ({lat}, {lon}), radius: {radius}, agency: {agency}")
         stops = load_stops(agency)
         nearby = find_nearby_stops(lat, lon, stops, radius)
-
         for stop in nearby:
             stop["agency"] = agency
-
         return nearby
 
     async def get_real_time_arrivals(self, stop_id: str, lat: float = None, lon: float = None, radius: float = 0.15) -> Dict[str, Any]:
@@ -56,7 +50,6 @@ class BartService:
             ]["trip_id"].unique()
 
             filtered_stop_times = stop_times_df[stop_times_df["trip_id"].isin(trip_ids)]
-
             ordered_stop_ids = (
                 filtered_stop_times.sort_values("stop_sequence")["stop_id"]
                 .drop_duplicates()
@@ -64,7 +57,6 @@ class BartService:
             )
 
             stop_lookup = stops_df.set_index("stop_id").to_dict("index")
-
             route_stops = []
             for stop_id in ordered_stop_ids:
                 stop = stop_lookup.get(stop_id)
@@ -73,7 +65,8 @@ class BartService:
                         "stop_id": stop_id,
                         "stop_name": stop.get("stop_name"),
                         "stop_lat": stop.get("stop_lat"),
-                        "stop_lon": stop.get("stop_lon")
+                        "stop_lon": stop.get("stop_lon"),
+                        "agency": self.agency
                     })
 
             return route_stops
@@ -81,4 +74,5 @@ class BartService:
         except Exception as e:
             log_debug(f"[BART] Error fetching route stops: {e}")
             return []
+            
 bart_service = BartService()
