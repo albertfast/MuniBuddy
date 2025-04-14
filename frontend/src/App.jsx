@@ -63,13 +63,13 @@ const App = () => {
         position: { lat: parseFloat(stop.stop_lat), lng: parseFloat(stop.stop_lon) },
         title: stop.stop_name,
         stopId: id,
-        icon: { url: '/images/bus-stop-icon.png', scaledSize: { width: 32, height: 32 } }
+        icon: { url: '/assets/bus-stop-icon32.svg', scaledSize: { width: 32, height: 32 } }
       }));
       if (userLocation) {
         newMarkers.push({
           position: userLocation,
           title: 'You',
-          icon: { url: '/user-location-icon.svg', scaledSize: { width: 32, height: 32 } }
+          icon: { url: '/assets/user-location-icon.svg', scaledSize: { width: 32, height: 32 } }
         });
       }
       setMarkers(newMarkers);
