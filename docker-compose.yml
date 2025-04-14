@@ -64,8 +64,6 @@ services:
       - redis_data:/data
     environment:
       - REDIS_MAXMEMORY=256mb
-    sysctls:
-      - vm.overcommit_memory=1
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
