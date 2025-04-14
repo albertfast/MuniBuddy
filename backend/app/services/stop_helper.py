@@ -5,6 +5,7 @@ import math
 from app.services.debug_logger import log_debug
 from app.config import settings
 
+
 def calculate_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     """
     Calculate distance between two points using Haversine formula.
@@ -24,33 +25,11 @@ def calculate_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> fl
     except Exception as e:
         log_debug(f"[WARN] Error in calculate_distance: {e}")
         return float('inf')
-def find_nearby_stops(
-    lat: float,
-    lon: float,
-    stops: List[Dict[str, Any]],
-    radius_miles: float = 0.15,
-    limit: int = 5
-) -> List[Dict[str, Any]]:
-    """
-    Find nearby transit stops based on geographic distance only.
-    """
-    nearby_stops = []
 
-    for stop in stops:
-        distance = calculate_distance(lat, lon, stop["stop_lat"], stop["stop_lon"])
-        if distance <= radius_miles:
-            stop_info = stop.copy()
-            stop_info["distance_miles"] = round(distance, 2)
-            nearby_stops.append(stop_info)
-
-    nearby_stops.sort(key=lambda x: x["distance_miles"])
-    log_debug(f"✓ Found {len(nearby_stops)} nearby stops within {radius_miles} miles (no stop_times filtering)")
-    return nearby_stops[:limit]
 
 def load_stops(agency: str) -> List[Dict[str, Any]]:
     try:
         stops = []
-
         gtfs_tuple = settings.get_gtfs_data(agency)
         if not gtfs_tuple:
             log_debug(f"⚠️ GTFS data not loaded for agency: {agency}")
@@ -67,10 +46,8 @@ def load_stops(agency: str) -> List[Dict[str, Any]]:
                     'stop_lon': float(row['stop_lon']),
                     'agency': agency
                 }
-                # ✅ Add stop_code only if present
                 if 'stop_code' in row and pd.notna(row['stop_code']):
                     stop['stop_code'] = str(row['stop_code'])
-
                 stops.append(stop)
 
         if not stops:
@@ -83,3 +60,38 @@ def load_stops(agency: str) -> List[Dict[str, Any]]:
     except Exception as e:
         log_debug(f"✗ Error loading stops for {agency}: {str(e)}")
         return []
+
+
+def find_nearby_stops(
+    lat: float,
+    lon: float,
+    stops: List[Dict[str, Any]],
+    radius_miles: float = 0.15,
+    limit: int = 5
+) -> List[Dict[str, Any]]:
+    """
+    Find nearby transit stops based on geographic distance only.
+    """
+    nearby_stops = []
+    for stop in stops:
+        distance = calculate_distance(lat, lon, stop["stop_lat"], stop["stop_lon"])
+        if distance <= radius_miles:
+            stop_info = stop.copy()
+            stop_info["distance_miles"] = round(distance, 2)
+            nearby_stops.append(stop_info)
+
+    nearby_stops.sort(key=lambda x: x["distance_miles"])
+    log_debug(f"✓ Found {len(nearby_stops)} nearby stops within {radius_miles} miles (no stop_times filtering)")
+    return nearby_stops[:limit]
+
+
+def get_nearby_stops(lat: float, lon: float, radius: float = 0.15, agency: str = "muni", limit: int = 5) -> List[Dict[str, Any]]:
+    """
+    Unified nearby stop discovery logic used by all services.
+    """
+    log_debug(f"[Unified] Fetching nearby stops for agency={agency} at location=({lat}, {lon})")
+    stops = load_stops(agency)
+    if not stops:
+        return []
+
+    return find_nearby_stops(lat, lon, stops, radius, limit)

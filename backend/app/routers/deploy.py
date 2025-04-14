@@ -1,37 +1,35 @@
 from fastapi import APIRouter, Request, HTTPException
 import subprocess
-import hmac
-import hashlib
-import os
+import hmac, hashlib
+from app.config import settings
 
 router = APIRouter()
 
-GITHUB_SECRET = settings.GITHUB_SECRET
-
-@router.post("/deploy")
+@router.post("/")  # this matches /api/v1/deploy when prefix is set in main.py
 async def deploy(request: Request):
-    """Webhook listener to auto-deploy when main branch is updated"""
     body = await request.body()
     signature = request.headers.get('X-Hub-Signature-256')
 
     if not signature:
         raise HTTPException(status_code=400, detail="Missing signature")
 
-    sha_name, signature_hash = signature.split('=')
-    mac = hmac.new(GITHUB_SECRET.encode(), msg=body, digestmod=hashlib.sha256)
+    try:
+        sha_name, signature_hash = signature.split('=')
+    except Exception:
+        raise HTTPException(status_code=400, detail="Malformed signature")
 
+    if sha_name != "sha256":
+        raise HTTPException(status_code=400, detail="Unsupported signature method")
+
+    mac = hmac.new(settings.GITHUB_SECRET.encode(), msg=body, digestmod=hashlib.sha256)
     if not hmac.compare_digest(mac.hexdigest(), signature_hash):
         raise HTTPException(status_code=403, detail="Invalid signature")
 
     try:
-        # Pull the latest code
-        output = subprocess.check_output(["git", "pull"], cwd="/app")  # adjust path if needed
-
-        # Rebuild and restart the container
+        output = subprocess.check_output(["git", "pull"], cwd="/app")
         subprocess.check_output(["docker-compose", "up", "--build", "-d"], cwd="/app")
-
         return {
-            "message": "✅ Deployment successful!",
+            "message": "✅ Deployment successful",
             "details": output.decode()
         }
     except subprocess.CalledProcessError as e:
