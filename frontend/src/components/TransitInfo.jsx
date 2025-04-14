@@ -140,9 +140,15 @@ const TransitInfo = ({ stops }) => {
         </Typography>
         {route.status && <Chip size="small" label={route.status} color={getStatusColor(route.status)} />}
       </Stack>
-      <Typography variant="body2" color="text.secondary" mt={0.5}>
-        Arrival: <b>{formatTime(route.arrival_time)}</b>
-      </Typography>
+        <Typography variant="body2">
+          Arrival:{" "}
+          {bus.arrival_time && !isNaN(new Date(bus.arrival_time))
+            ? new Date(bus.arrival_time).toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              })
+            : "Invalid Date"}
+        </Typography>
     </Box>
   ), []);
 
