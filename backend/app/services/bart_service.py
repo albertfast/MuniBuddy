@@ -26,6 +26,8 @@ class BartService:
 
     def get_nearby_stops(self, lat: float, lon: float, radius: float = 0.15, agency: str = "bart"):
         log_debug(f"Finding nearby stops for coordinates: ({lat}, {lon}), radius: {radius}, agency: {agency}")
+        stops = load_stops(agency)
+        return find_nearby_stops(lat, lon, stops, radius)
 
     async def get_real_time_arrivals(self, stop_id: str, lat: float = None, lon: float = None, radius: float = 0.15) -> Dict[str, Any]:
         log_debug(f"[BART] Getting real-time arrivals for stop_id: {stop_id}")
