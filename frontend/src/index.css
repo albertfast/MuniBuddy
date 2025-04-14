@@ -1,95 +1,65 @@
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
-
-  color-scheme: light dark;
-  --dark: darkslategrey;
-	--light: beige;
-	--fg: light-dark(var(--dark), var(--light));
-	--bg: light-dark(var(--light), var(--dark));
-	color: var(--fg);
-	background: var(--bg);
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
-
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  --color-bg-light: #ffffff;
+  --color-text-light: #111;
+  --color-bg-dark: #1e1e1e;
+  --color-text-dark: #f1f1f1;
+  --font-main: 'Roboto', system-ui, sans-serif;
+  --transition: all 0.3s ease;
 }
 
-:root[data-theme="system"],
-:root:has(option[id="theme-system"]:checked) {
-	color-scheme: light dark;
-}
-
-:root[data-theme="light"],
-:root:has(option[id="theme-light"]:checked) {
-	color-scheme: light;
-}
-
-:root[data-theme="dark"],
-:root:has(option[id="theme-dark"]:checked) {
-	color-scheme: dark;
-	color: rgb(153, 25, 192);
-	background: rgb(15, 139, 197);
-}
-
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
-}
-
-body {
+html, body {
   margin: 0;
-  display: flex;
-  place-items: center;
-  min-width: 320px;
+  padding: 0;
+  font-family: var(--font-main);
+  transition: var(--transition);
   min-height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
+#root {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
 }
 
-.MuiTypography-h1 {
-  font-weight: bold;
+#theme-toggle {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  background: #eee;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 0.9em;
+  z-index: 1000;
 }
 
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  background-color: #1a1a1a;
-  cursor: pointer;
-  transition: border-color 0.25s;
-}
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+/* Default (system) */
+:root[data-theme="system"] {
+  color-scheme: light dark;
 }
 
 @media (prefers-color-scheme: light) {
-  :root {
-    color: #191b1d;
-    background-color: #1b93ca;
+  :root[data-theme="system"] {
+    background-color: var(--color-bg-light);
+    color: var(--color-text-light);
   }
-  a:hover {
-    color: #747bff;
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="system"] {
+    background-color: var(--color-bg-dark);
+    color: var(--color-text-dark);
   }
-  button {
-    background-color: #f9f9f9;
-  }
+}
+
+/* Light mode */
+:root[data-theme="light"] {
+  background-color: var(--color-bg-light);
+  color: var(--color-text-light);
+}
+
+/* Dark mode */
+:root[data-theme="dark"] {
+  background-color: var(--color-bg-dark);
+  color: var(--color-text-dark);
 }
