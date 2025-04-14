@@ -11,7 +11,7 @@ services:
       - "8000:8000"
     depends_on:
       - db
-      - redis
+      - redis_cache
     volumes:
       - ./backend:/app
       - ./backend/gtfs_data:/app/app/gtfs_data:ro
