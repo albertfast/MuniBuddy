@@ -1,65 +1,84 @@
+/* index.css - core styles */
+
 :root {
-  --color-bg-light: #ffffff;
-  --color-text-light: #111;
-  --color-bg-dark: #1e1e1e;
-  --color-text-dark: #f1f1f1;
+  --bg-light: #ffffff;
+  --fg-light: #1e1e1e;
+  --bg-dark: #121212;
+  --fg-dark: #f1f1f1;
+  --accent: #1976d2;
   --font-main: 'Roboto', system-ui, sans-serif;
-  --transition: all 0.3s ease;
 }
 
-html, body {
+html,
+body {
   margin: 0;
   padding: 0;
   font-family: var(--font-main);
-  transition: var(--transition);
+  background-color: var(--bg-light);
+  color: var(--fg-light);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.3s ease, color 0.3s ease;
   min-height: 100vh;
-  display: flex;
-  flex-direction: column;
 }
 
-#root {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
+:root[data-theme="dark"] {
+  background-color: var(--bg-dark);
+  color: var(--fg-dark);
 }
 
-#theme-toggle {
-  position: fixed;
-  top: 1rem;
-  right: 1rem;
-  background: #eee;
-  padding: 6px 10px;
-  border-radius: 6px;
-  font-size: 0.9em;
-  z-index: 1000;
+:root[data-theme="light"] {
+  background-color: var(--bg-light);
+  color: var(--fg-light);
 }
 
-/* Default (system) */
 :root[data-theme="system"] {
   color-scheme: light dark;
 }
 
-@media (prefers-color-scheme: light) {
-  :root[data-theme="system"] {
-    background-color: var(--color-bg-light);
-    color: var(--color-text-light);
-  }
-}
 @media (prefers-color-scheme: dark) {
   :root[data-theme="system"] {
-    background-color: var(--color-bg-dark);
-    color: var(--color-text-dark);
+    background-color: var(--bg-dark);
+    color: var(--fg-dark);
   }
 }
 
-/* Light mode */
-:root[data-theme="light"] {
-  background-color: var(--color-bg-light);
-  color: var(--color-text-light);
+@media (prefers-color-scheme: light) {
+  :root[data-theme="system"] {
+    background-color: var(--bg-light);
+    color: var(--fg-light);
+  }
 }
 
-/* Dark mode */
-:root[data-theme="dark"] {
-  background-color: var(--color-bg-dark);
-  color: var(--color-text-dark);
+h1, h2, h3, h4, h5, h6 {
+  margin: 0;
+  font-weight: 500;
+}
+
+button {
+  font-family: inherit;
+}
+
+/* Custom marker image fallback */
+.custom-map-marker img {
+  border-radius: 50%;
+  object-fit: contain;
+}
+
+/* Fade animation (for future use) */
+.fade-enter {
+  opacity: 0;
+  transform: translateY(10px);
+}
+.fade-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 300ms, transform 300ms;
+}
+
+/* Slider fix */
+.MuiSlider-root {
+  padding-top: 16px;
+  padding-bottom: 16px;
 }
