@@ -1,7 +1,6 @@
 import os
 import sys
 
-# Go to backend/ directory and set it as root
 os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.getcwd())
 from dotenv import load_dotenv
@@ -10,7 +9,6 @@ import pandas as pd
 from pydantic_settings import BaseSettings
 from pydantic import Field, model_validator, PrivateAttr, field_validator
 
-# 👇 Add root folder so `from app...` imports work
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 load_dotenv()
@@ -19,8 +17,7 @@ class Settings(BaseSettings):
     # General Config
     PROJECT_NAME: str = "MuniBuddy"
     API_V1_STR: str = "/api/v1"
-
-    # Agencies from .env (ex: '["SFMTA", "SF", "BA"]' or 'SFMTA,SF,BA')
+    
     AGENCY_ID: List[str] = ["SFMTA"]
 
     @field_validator("AGENCY_ID", mode="before")
@@ -30,13 +27,14 @@ class Settings(BaseSettings):
         if isinstance(v, str):
             import json
             try:
-                return json.loads(v)  # Expects '["SFMTA", "SF", "BA"]'
+                return json.loads(v)
             except json.JSONDecodeError:
-                return v.split(",")  # Fallback to CSV format
+                return v.split(",") 
         return v
 
     # Database Config
-    DATABASE_URL: str = Field(default="postgresql://myuser:mypassword@postgres_db:5432/munibuddy_db")
+    DATABASE_URL: str = Field(..., env="DATABASE_URL")
+    GITHUB_SECRET: str = Field(..., env="GITHUB_SECRET")
     SQLALCHEMY_DATABASE_URI: Optional[str] = None
 
     @model_validator(mode="before")
@@ -95,5 +93,4 @@ class Settings(BaseSettings):
         case_sensitive = True
         extra = "allow"
 
-# ✅ Global settings instance to use across your project
 settings = Settings()
