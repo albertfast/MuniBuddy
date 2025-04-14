@@ -1,5 +1,5 @@
 
-#root {
+:root {
   max-width: 100%;
   margin: 0 auto;
   padding: 1rem;
@@ -103,7 +103,7 @@
 
 /* Responsive spacing */
 @media screen and (max-width: 768px) {
-  #root {
+  :root {
     padding: 1rem 0.75rem;
   }
 
