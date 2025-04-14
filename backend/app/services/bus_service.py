@@ -21,7 +21,6 @@ class BusService:
         stops = load_stops(agency)
         nearby = find_nearby_stops(lat, lon, stops, radius)
 
-        # ✅ Make sure agency is included explicitly
         for stop in nearby:
             stop["agency"] = agency
 
