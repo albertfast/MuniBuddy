@@ -1,146 +1,55 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="system">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
-    
-    <!-- Primary Meta Tags -->
     <title>MuniBuddy - San Francisco Transit Finder</title>
-    <meta name="title" content="MuniBuddy - San Francisco Transit Finder">
+    
+    <!-- SEO -->
     <meta name="description" content="Find nearby bus and train stops in San Francisco. Get real-time arrivals and departures for MUNI and BART.">
-    <meta name="keywords" content="san francisco, muni, bart, transit, bus, train, transportation, real-time arrivals">
+    <meta name="keywords" content="SF, transit, MUNI, BART, buses, train, realtime, schedule">
     <meta name="author" content="MuniBuddy Team">
     <meta name="theme-color" content="#1976d2">
-    
-    <!-- Open Graph / Facebook -->
+
+    <!-- Open Graph -->
     <meta property="og:type" content="website">
-    <meta property="og:url" content="https://munibuddy.live/">
-    <meta property="og:title" content="MuniBuddy - San Francisco Transit Finder">
-    <meta property="og:description" content="Find nearby bus and train stops in San Francisco. Get real-time arrivals and departures for MUNI and BART.">
+    <meta property="og:title" content="MuniBuddy - SF Transit">
+    <meta property="og:description" content="Get live MUNI & BART info in San Francisco.">
     <meta property="og:image" content="/ogimage.png">
-    
+    <meta property="og:url" content="https://munibuddy.live">
+
     <!-- Twitter -->
-    <meta property="twitter:card" content="summary_large_image">
-    <meta property="twitter:url" content="https://munibuddy.live/">
-    <meta property="twitter:title" content="MuniBuddy - San Francisco Transit Finder">
-    <meta property="twitter:description" content="Find nearby bus and train stops in San Francisco. Get real-time arrivals and departures for MUNI and BART.">
-    <meta property="twitter:image" content="/ogimage.png">
-    
-    <!-- Favicons -->
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
-    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
-    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="MuniBuddy">
+    <meta name="twitter:description" content="Live SF transit arrivals and maps.">
+    <meta name="twitter:image" content="/ogimage.png">
+
+    <!-- Icons -->
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
     <link rel="manifest" href="/site.webmanifest">
-    
-    <!-- Preconnect and Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
-    
-    <!-- Preload Critical Assets -->
-    <link rel="preload" href="/src/assets/bus-icon.svg" as="image" type="image/svg+xml">
-    
-    <!-- Additional Styles -->
-    <style>
-      html, body {
-        margin: 0;
-        padding: 0;
-        font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-        -webkit-font-smoothing: antialiased;
-        -moz-osx-font-smoothing: grayscale;
-        background-color: #ffffff;
-        color: #3e075a;
-      }
-      
-      #root {
-        display: flex;
-        flex-direction: column;
-        min-height: 100vh;
-      }
-      
-    :root {
-      font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
-      line-height: 1.5;
-      font-weight: 400;
 
-      color-scheme: light dark;
-      --dark: darkslategrey;
-      --light: beige;
-      --fg: light-dark(var(--dark), var(--light));
-      --bg: light-dark(var(--light), var(--dark));
-      color: var(--fg);
-      background: var(--bg);
-      color: rgba(255, 255, 255, 0.87);
-      background-color: #242424;
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&display=swap" />
 
-      font-synthesis: none;
-      text-rendering: optimizeLegibility;
-      -webkit-font-smoothing: antialiased;
-      -moz-osx-font-smoothing: grayscale;
-    }
-
-    :root[data-theme="system"],
-    :root:has(option[id="theme-system"]:checked) {
-      color-scheme: light dark;
-    }
-
-    :root[data-theme="light"],
-    :root:has(option[id="theme-light"]:checked) {
-      color-scheme: light;
-    }
-
-    :root[data-theme="dark"],
-    :root:has(option[id="theme-dark"]:checked) {
-      color-scheme: dark;
-      color: rgb(153, 25, 192);
-      background: rgb(15, 139, 197);
-    }
-
-      /* Loading indicator */
-      .initial-loader {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        height: 100vh;
-        width: 100%;
-        position: fixed;
-        top: 0;
-        left: 0;
-        background-color: #ebe718;
-        z-index: 9999;
-      }
-      
-      .loader {
-        width: 48px;
-        height: 48px;
-        border: 5px solid #1976d2;
-        border-bottom-color: transparent;
-        border-radius: 50%;
-        animation: rotation 1s linear infinite;
-      }
-      
-      @keyframes rotation {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-      }
-    </style>
+    <!-- Styles -->
+    <link rel="stylesheet" href="/frontend/src/index.css" />
   </head>
   <body>
-    <div id="root">
-      <!-- Initial loading state -->
-      <div class="initial-loader">
-        <div class="loader"></div>
-      </div>
+    <div id="theme-toggle">
+      Theme: 
+      <select onchange="document.documentElement.setAttribute('data-theme', this.value)">
+        <option id="theme-system" value="system">System</option>
+        <option id="theme-light" value="light">Light</option>
+        <option id="theme-dark" value="dark">Dark</option>
+      </select>
     </div>
-    
-    <noscript>
-      <div style="padding: 20px; text-align: center; max-width: 600px; margin: 0 auto;">
-        <h1>JavaScript Required</h1>
-        <p>MuniBuddy requires JavaScript to work. Please enable JavaScript in your browser settings and reload the page.</p>
-      </div>
-    </noscript>
-    
+
+    <div id="root">
+      <!-- Your app will mount here -->
+    </div>
+
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
