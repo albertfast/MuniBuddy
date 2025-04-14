@@ -83,15 +83,3 @@ def find_nearby_stops(
     nearby_stops.sort(key=lambda x: x["distance_miles"])
     log_debug(f"✓ Found {len(nearby_stops)} nearby stops within {radius_miles} miles (no stop_times filtering)")
     return nearby_stops[:limit]
-
-
-def get_nearby_stops(lat: float, lon: float, radius: float = 0.15, agency: str = "muni", limit: int = 5) -> List[Dict[str, Any]]:
-    """
-    Unified nearby stop discovery logic used by all services.
-    """
-    log_debug(f"[Unified] Fetching nearby stops for agency={agency} at location=({lat}, {lon})")
-    stops = load_stops(agency)
-    if not stops:
-        return []
-
-    return find_nearby_stops(lat, lon, stops, radius, limit)
