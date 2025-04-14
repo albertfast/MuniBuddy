@@ -59,6 +59,44 @@
         min-height: 100vh;
       }
       
+    :root {
+      font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+      line-height: 1.5;
+      font-weight: 400;
+
+      color-scheme: light dark;
+      --dark: darkslategrey;
+      --light: beige;
+      --fg: light-dark(var(--dark), var(--light));
+      --bg: light-dark(var(--light), var(--dark));
+      color: var(--fg);
+      background: var(--bg);
+      color: rgba(255, 255, 255, 0.87);
+      background-color: #242424;
+
+      font-synthesis: none;
+      text-rendering: optimizeLegibility;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    :root[data-theme="system"],
+    :root:has(option[id="theme-system"]:checked) {
+      color-scheme: light dark;
+    }
+
+    :root[data-theme="light"],
+    :root:has(option[id="theme-light"]:checked) {
+      color-scheme: light;
+    }
+
+    :root[data-theme="dark"],
+    :root:has(option[id="theme-dark"]:checked) {
+      color-scheme: dark;
+      color: rgb(153, 25, 192);
+      background: rgb(15, 139, 197);
+    }
+
       /* Loading indicator */
       .initial-loader {
         display: flex;
