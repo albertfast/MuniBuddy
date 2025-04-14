@@ -1,8 +1,9 @@
 from typing import List, Dict, Any
 from app.config import settings
 from app.services.stop_helper import load_stops, find_nearby_stops
-from app.services.fetch_real_time_stop_data import RealtimeBartService
+from app.services.realtime_bart_service import RealtimeBartService
 from app.services.debug_logger import log_debug
+from app.services.realtime_service import fetch_real_time_stop_data
 
 class BartService:
     def __init__(self):
@@ -23,12 +24,12 @@ class BartService:
 
         return enriched
 
-    def get_nearby_stops(self, lat: float, lon: float, radius: float = 0.15, agency: str = "bart") -> List[Dict[str, Any]]:
-        log_debug(f"[BART] Finding nearby stops for coordinates: ({lat}, {lon}), radius: {radius}, agency: {agency}")
-        stops = load_stops(agency)
+    def get_nearby_stops(self, lat: float, lon: float, radius: float = 0.15) -> List[Dict[str, Any]]:
+        log_debug(f"[BART] Finding nearby stops for coordinates: ({lat}, {lon}), radius: {radius}")
+        stops = load_stops(self.agency)
         nearby = find_nearby_stops(lat, lon, stops, radius)
         for stop in nearby:
-            stop["agency"] = agency
+            stop["agency"] = self.agency
         return nearby
 
     async def get_real_time_arrivals(self, stop_id: str, lat: float = None, lon: float = None, radius: float = 0.15) -> Dict[str, Any]:
@@ -36,6 +37,10 @@ class BartService:
         if lat is not None and lon is not None:
             return await self.realtime.fetch_if_bart_stop_nearby(stop_id, lat, lon, radius)
         return await self.realtime.fetch_if_bart_stop_nearby(stop_id, 0, 0, 0)
+
+    async def get_bart_511_raw_data(self, stop_code: str) -> Dict[str, Any]:
+        log_debug(f"[BART] Requesting raw 511 data for stop_code={stop_code}")
+        return await self.realtime.get_bart_511_raw_data(stop_code)
 
     def get_route_stops(self, route_id: str, direction_id: int = 0) -> List[Dict[str, Any]]:
         try:
@@ -74,62 +79,5 @@ class BartService:
         except Exception as e:
             log_debug(f"[BART] Error fetching route stops: {e}")
             return []
-    
-     async def fetch_if_bart_stop_nearby(self, stop_id: str, lat: float, lon: float, radius: float = 0.15) -> Dict[str, Any]:
-        stops = load_stops(self.agency)
-        nearby = find_nearby_stops(lat, lon, stops, radius)
-        if not nearby:
-            log_debug(f"[RealtimeBART] No nearby BART stops for location ({lat}, {lon}) - Skipping real-time fetch")
-            return {"inbound": [], "outbound": []}
-
-        log_debug(f"[RealtimeBART] Nearby BART stops found for location ({lat}, {lon}) - Fetching real-time data for stop {stop_id}")
-        realtime_data = await fetch_real_time_stop_data(stop_id, agency=self.agency)
-
-        gtfs_data = settings.get_gtfs_data(self.agency)
-        if not isinstance(gtfs_data, dict):
-            log_debug("[BART] Error: GTFS data not properly loaded for BART")
-            return realtime_data
-
-        trips_df = gtfs_data.get("trips")
-        routes_df = gtfs_data.get("routes")
-        directions_df = gtfs_data.get("directions")
-
-        for direction_key in ["inbound", "outbound"]:
-            enriched = []
-            for bus in realtime_data.get(direction_key, []):
-                route_number = bus.get("route_number")
-                destination = bus.get("destination")
-                route_row = routes_df[routes_df["route_short_name"] == route_number]
-
-                if not route_row.empty:
-                    route_id = route_row.iloc[0]["route_id"]
-                    trip_rows = trips_df[(trips_df["route_id"] == route_id) & (trips_df["trip_headsign"] == destination)]
-
-                    if not trip_rows.empty:
-                        direction_id = trip_rows.iloc[0]["direction_id"]
-                        direction_label = "Outbound"
-                        match = directions_df[(directions_df["route_id"] == route_id) & (directions_df["direction_id"] == direction_id)]
-                        if not match.empty:
-                            direction_label = match.iloc[0]["direction"]
-
-                        enriched.append({
-                            **bus,
-                            "route_id": route_id,
-                            "direction_id": direction_id,
-                            "direction": direction_label
-                        })
-                    else:
-                        enriched.append(bus)
-                else:
-                    enriched.append(bus)
-
-            realtime_data[direction_key] = enriched
-
-        return realtime_data
-
-    async def get_bart_511_raw_data(self, stop_code: str) -> Dict[str, Any]:
-        log_debug(f"[RealtimeBART] Requesting raw 511 data for stop_code={stop_code}")
-        return await fetch_real_time_stop_data(stop_code, agency=self.agency, raw=True)
-
 
 bart_service = BartService()
