@@ -1,5 +1,4 @@
-/* index.css - core styles */
-
+/* ==== Theme Variables ==== */
 :root {
   --bg-light: #ffffff;
   --fg-light: #c9b2b2;
@@ -7,10 +6,15 @@
   --fg-dark: #f1f1f1;
   --accent: #1976d2;
   --font-main: 'Roboto', system-ui, sans-serif;
+  max-width: 100%;
+  margin: 0 auto;
+  padding: 1rem;
+  text-align: left;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-html,
-body {
+/* ==== Base Elements ==== */
+html, body {
   margin: 0;
   padding: 0;
   font-family: var(--font-main);
@@ -19,10 +23,20 @@ body {
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  transition: background-color 0.3s ease, color 0.3s ease;
   min-height: 100vh;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
+h1, h2, h3, h4, h5, h6 {
+  margin: 0;
+  font-weight: 500;
+}
+
+button {
+  font-family: inherit;
+}
+
+/* ==== Theme Modes ==== */
 :root[data-theme="dark"] {
   background-color: var(--bg-dark);
   color: var(--fg-dark);
@@ -51,34 +65,138 @@ body {
   }
 }
 
-h1, h2, h3, h4, h5, h6 {
-  margin: 0;
-  font-weight: 500;
+/* ==== Transit Info Panel (for Desktop only) ==== */
+@media screen and (min-width: 768px) {
+  .transit-info-panel {
+    overflow-y: auto;
+    max-height: calc(100vh - 260px);
+    padding-left: 0.5rem;
+  }
 }
 
-button {
-  font-family: inherit;
+/* ==== Card Styles ==== */
+.card {
+  padding: 1.5rem;
+  border-radius: 12px;
+  background-color: white;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
 }
 
-/* Custom marker image fallback */
-.custom-map-marker img {
+html[data-theme="light"] .card {
+  background-color: #ffffff;
+  color: #000000;
+}
+
+html[data-theme="dark"] .card {
+  background-color: #1f1f1f;
+  color: #ffffff;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
+}
+
+/* ==== Map Marker Styling ==== */
+.advanced-marker {
+  --marker-color: #1976d2;
+}
+
+.marker-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.marker-icon {
+  width: 32px;
+  height: 32px;
+  background-color: var(--marker-color);
   border-radius: 50%;
-  object-fit: contain;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+  border: 2px solid white;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
-/* Fade animation (for future use) */
-.fade-enter {
-  opacity: 0;
-  transform: translateY(10px);
-}
-.fade-enter-active {
-  opacity: 1;
-  transform: translateY(0);
-  transition: opacity 300ms, transform 300ms;
+.marker-icon:hover {
+  transform: scale(1.1);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.2);
 }
 
-/* Slider fix */
-.MuiSlider-root {
-  padding-top: 16px;
-  padding-bottom: 16px;
+.marker-label {
+  background-color: rgba(0,0,0,0.6);
+  color: white;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  margin-top: 4px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* ==== Google Maps InfoWindow ==== */
+.gm-style .gm-style-iw-c {
+  padding: 12px;
+  border-radius: 10px;
+  max-width: 250px;
+}
+
+.gm-style .gm-style-iw-d {
+  overflow: hidden !important;
+  max-height: none !important;
+  font-size: 0.95rem;
+}
+
+.gm-style .gm-style-iw-t::after {
+  background: linear-gradient(45deg, rgba(255,255,255,1) 50%, rgba(255,255,255,0) 51%);
+}
+
+/* ==== Responsive === */
+@media screen and (max-width: 768px) {
+  :root {
+    padding: 1rem 0.75rem;
+  }
+
+  .marker-icon {
+    width: 28px;
+    height: 28px;
+  }
+
+  .marker-label {
+    font-size: 9px;
+  }
+
+  .card {
+    padding: 1rem;
+  }
+}
+
+/* ==== Logo Styling (Optional) ==== */
+.logo {
+  height: 4em;
+  padding: 1em;
+  transition: filter 300ms;
+}
+
+.logo:hover {
+  filter: drop-shadow(0 0 1.5em #646cffaa);
+}
+
+.logo.react:hover {
+  filter: drop-shadow(0 0 1.5em #61dafbaa);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .logo.animate {
+    animation: logo-spin infinite 20s linear;
+  }
+}
+
+@keyframes logo-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.read-the-docs {
+  color: #666;
+  font-size: 0.9rem;
 }

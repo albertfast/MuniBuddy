@@ -9,8 +9,10 @@ import MyLocationIcon from '@mui/icons-material/MyLocation';
 import Map from './components/Map';
 import TransitInfo from './components/TransitInfo';
 import { geocodeAddress, parseCoordinates, formatCoordinates } from './utility/geocode';
+import './index.css';
 
 const BASE_URL = import.meta.env.VITE_API_BASE;
+
 const App = () => {
   const [userLocation, setUserLocation] = useState(null);
   const [nearbyStops, setNearbyStops] = useState({});
@@ -22,17 +24,16 @@ const App = () => {
   const [theme, setTheme] = useState('system');
   const [showLocationDialog, setShowLocationDialog] = useState(true);
 
-useEffect(() => {
-  const el = document.documentElement;
-  if (theme === 'system') {
-    const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-    el.setAttribute('data-theme', systemTheme);
-  } else {
-    el.setAttribute('data-theme', theme);
-  }
-  console.log("Theme changed to:", theme);
-}, [theme]);
-
+  useEffect(() => {
+    const el = document.documentElement;
+    if (theme === 'system') {
+      const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      el.setAttribute('data-theme', systemTheme);
+    } else {
+      el.setAttribute('data-theme', theme);
+    }
+    console.log("Theme changed to:", theme);
+  }, [theme]);
 
   const requestLocation = () => {
     setShowLocationDialog(false);
@@ -135,9 +136,9 @@ useEffect(() => {
           <option value="dark">Dark</option>
         </Select>
       </Box>
-  
+
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-  
+
       <Grid container spacing={2} alignItems="center" sx={{ mb: 2 }}>
         <Grid item xs={12} sm={8}>
           <TextField
@@ -166,11 +167,10 @@ useEffect(() => {
           <Slider value={radius} min={0.1} max={1.0} step={0.05} onChange={(e, v) => setRadius(v)} valueLabelDisplay="auto" />
         </Grid>
       </Grid>
-  
-      {/* 🌐 Map + TransitInfo Layout */}
+
       <Grid container spacing={2}>
         <Grid item xs={12} md={8}>
-          <Box sx={{ position: 'relative', height: '450px', mb: { xs: 3, md: 0 } }}>
+          <Box className="map-container" sx={{ position: 'relative', height: '450px', mb: { xs: 3, md: 0 } }}>
             <Map
               center={userLocation || { lat: 37.7749, lng: -122.4194 }}
               markers={markers}
@@ -188,8 +188,8 @@ useEffect(() => {
             )}
           </Box>
         </Grid>
-  
-        <Grid item xs={12} md={4}>
+
+        <Grid item xs={12} md={4} className="transit-info-panel">
           {!isLoading && Object.keys(nearbyStops).length > 0 ? (
             <TransitInfo stops={nearbyStops} />
           ) : (
@@ -201,7 +201,7 @@ useEffect(() => {
           )}
         </Grid>
       </Grid>
-  
+
       <Dialog open={showLocationDialog} onClose={() => setShowLocationDialog(false)}>
         <DialogTitle>Use Your Location?</DialogTitle>
         <DialogContent>
