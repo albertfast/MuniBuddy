@@ -15,7 +15,6 @@ jobs:
       run: |
         echo "DO_HOST=${{ secrets.DO_HOST }}"
         echo "DO_USERNAME=${{ secrets.DO_USERNAME }}"
-        echo "DO_FINGERPRINT=${{ secrets.DO_FINGERPRINT }}"
         echo "DO_SSH_KEY length: $(echo '${{ secrets.DO_SSH_KEY }}' | wc -c)"
 
     - name: Connect to DigitalOcean and deploy
@@ -24,7 +23,6 @@ jobs:
         host: ${{ secrets.DO_HOST }}
         username: ${{ secrets.DO_USERNAME }}
         key: ${{ secrets.DO_SSH_KEY }}
-        fingerprint: ${{ secrets.DO_FINGERPRINT }}
         debug: true
         script: |
           echo "[ACTION STARTED]"
