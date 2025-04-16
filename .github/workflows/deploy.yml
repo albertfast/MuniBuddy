@@ -17,7 +17,7 @@ jobs:
         host: ${{ secrets.DO_HOST }}
         username: ${{ secrets.DO_USERNAME }}
         key: ${{ secrets.DO_SSH_KEY }}
-        fingerprint: "SHA256:w1xr+ywN+lHL8XdKDSV2OeVAigh3cW8g5O//76nDPvk"
+        fingerprint: ${{ secrets.DO_FINGERPRINT }}
         script: |
           cd /root/MuniBuddy
           git pull origin main
