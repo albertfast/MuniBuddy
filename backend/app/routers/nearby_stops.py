@@ -11,7 +11,6 @@ def get_combined_nearby_stops(
     agency: str = Query(None)
 ):
     try:
-        # Eğer agency belirtilmişse ona göre yönlendir
         if agency:
             if agency.lower() in ["muni", "sf", "sfmta"]:
                 return bus_service.get_nearby_stops(lat, lon, radius, agency="muni")
@@ -20,7 +19,6 @@ def get_combined_nearby_stops(
             else:
                 return []
 
-        # Eğer agency verilmemişse tüm ajansları birleştirerek dön
         muni_stops = bus_service.get_nearby_stops(lat, lon, radius, agency="muni")
         bart_stops = bart_service.get_nearby_stops(lat, lon, radius, agency="bart")
 

@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Query, HTTPException
-from app.core.singleton import bart_service  # ✅ singleton üzerinden import
+from app.core.singleton import bart_service
 
 router = APIRouter()
 
