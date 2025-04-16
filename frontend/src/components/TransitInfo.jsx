@@ -133,7 +133,7 @@ const TransitInfo = ({ stops }) => {
   ), []);
 
   const renderRoute = useCallback((route) => (
-    <Box sx={{ borderLeft: '3px solid', borderColor: 'primary.light', pl: 1.5, py: 0.5, mb: 1 }}>
+    <Box className="transit-info-panel" sx={{ borderLeft: '3px solid', borderColor: 'primary.light', pl: 1.5, py: 0.5, mb: 1 }}>
       <Stack direction="row" justifyContent="space-between">
         <Typography variant="body2" fontWeight={500} color="primary.main">
           {route.route_number || 'Route ?'} → {route.destination || 'Unknown'}
