@@ -130,14 +130,14 @@ useEffect(() => {
           size="small"
           native
         >
-          <MenuItem value="system">System</MenuItem>
-          <MenuItem value="light">Light</MenuItem>
-          <MenuItem value="dark">Dark</MenuItem>
+          <option value="system">System</option>
+          <option value="light">Light</option>
+          <option value="dark">Dark</option>
         </Select>
       </Box>
-
+  
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-
+  
       <Grid container spacing={2} alignItems="center" sx={{ mb: 2 }}>
         <Grid item xs={12} sm={8}>
           <TextField
@@ -166,35 +166,42 @@ useEffect(() => {
           <Slider value={radius} min={0.1} max={1.0} step={0.05} onChange={(e, v) => setRadius(v)} valueLabelDisplay="auto" />
         </Grid>
       </Grid>
-
-      <Box sx={{ position: 'relative', height: '450px', mb: 3 }}>
-        <Map
-          center={userLocation || { lat: 37.7749, lng: -122.4194 }}
-          markers={markers}
-          onMapClick={(e) => {
-            const location = { lat: e.latLng.lat(), lng: e.latLng.lng() };
-            setUserLocation(location);
-            setSearchAddress(formatCoordinates(location.lat, location.lng));
-            fetchNearbyStops(location);
-          }}
-        />
-        {isLoading && (
-          <Box sx={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(255,255,255,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-            <CircularProgress />
+  
+      {/* 🌐 Map + TransitInfo Layout */}
+      <Grid container spacing={2}>
+        <Grid item xs={12} md={8}>
+          <Box sx={{ position: 'relative', height: '450px', mb: { xs: 3, md: 0 } }}>
+            <Map
+              center={userLocation || { lat: 37.7749, lng: -122.4194 }}
+              markers={markers}
+              onMapClick={(e) => {
+                const location = { lat: e.latLng.lat(), lng: e.latLng.lng() };
+                setUserLocation(location);
+                setSearchAddress(formatCoordinates(location.lat, location.lng));
+                fetchNearbyStops(location);
+              }}
+            />
+            {isLoading && (
+              <Box sx={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(255,255,255,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                <CircularProgress />
+              </Box>
+            )}
           </Box>
-        )}
-      </Box>
-
-      {!isLoading && Object.keys(nearbyStops).length > 0 ? (
-        <TransitInfo stops={nearbyStops} />
-      ) : (
-        !isLoading && (
-          <Typography align="center" color="text.secondary" sx={{ py: 3 }}>
-            {userLocation ? 'No nearby stops found.' : 'Enter or select a location to see stops.'}
-          </Typography>
-        )
-      )}
-
+        </Grid>
+  
+        <Grid item xs={12} md={4}>
+          {!isLoading && Object.keys(nearbyStops).length > 0 ? (
+            <TransitInfo stops={nearbyStops} />
+          ) : (
+            !isLoading && (
+              <Typography align="center" color="text.secondary" sx={{ py: 3 }}>
+                {userLocation ? 'No nearby stops found.' : 'Enter or select a location to see stops.'}
+              </Typography>
+            )
+          )}
+        </Grid>
+      </Grid>
+  
       <Dialog open={showLocationDialog} onClose={() => setShowLocationDialog(false)}>
         <DialogTitle>Use Your Location?</DialogTitle>
         <DialogContent>
