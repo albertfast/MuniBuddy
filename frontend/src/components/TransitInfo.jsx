@@ -19,15 +19,18 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE ?? 'https://munibuddy.live/ap
 const normalizeId = (stop) => stop?.gtfs_stop_id || stop?.stop_code || stop?.stop_id;
 
 const formatTime = (isoTime) => {
-  if (!isoTime || isoTime === 'Unknown') return 'Unknown';
+  if (!isoTime || isoTime === "Unknown") return "Unknown";
+  // If already formatted (e.g., "hh:mm AM/PM"), return directly
+  if (/\d{1,2}:\d{2}\s[AP]M/i.test(isoTime)) return isoTime;
+
   try {
     const date = new Date(isoTime);
-    return date.toLocaleTimeString([], {
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    // Check if the date object is valid
+    return isNaN(date.getTime())
+      ? isoTime // Return original if invalid
+      : date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
   } catch {
-    return isoTime;
+    return isoTime; // Return original on any unexpected error
   }
 };
 
@@ -140,8 +143,9 @@ const TransitInfo = ({ stops }) => {
         </Typography>
         {route.status && <Chip size="small" label={route.status} color={getStatusColor(route.status)} />}
       </Stack>
-      <Typography variant="body2">
-        Arrival: {formatTime(route.arrival_time)}
+      <Typography variant="body2" color="text.secondary" mt={0.5}>
+        Arrival: <b>{formatTime(route.arrival_time)}</b>
+        {route.stops_away && ` • ${route.stops_away} stops away`}
       </Typography>
     </Box>
   ), []);
