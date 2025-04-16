@@ -3,4 +3,3 @@ venv/
 venv_backup/
 __pycache__/
 *.pyc
-.venv/
