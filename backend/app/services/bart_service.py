@@ -17,7 +17,7 @@ class BartService:
         enriched = []
 
         for stop in nearby:
-            arrivals = await self.realtime.fetch_if_bart_stop_nearby(stop["stop_id"], lat, lon, radius)
+            arrivals = await self.realtime.fetch_if_bart_stop_nearby(stop["stop_code"], lat, lon, radius)
             stop["arrivals"] = arrivals
             stop["agency"] = self.agency
             enriched.append(stop)
@@ -29,11 +29,11 @@ class BartService:
         stops = load_stops(agency)
         return find_nearby_stops(lat, lon, stops, radius)
 
-    async def get_real_time_arrivals(self, stop_id: str, lat: float = None, lon: float = None, radius: float = 0.15) -> Dict[str, Any]:
-        log_debug(f"[BART] Getting real-time arrivals for stop_id: {stop_id}")
+    async def get_real_time_arrivals(self, stop_code: str, lat: float = None, lon: float = None, radius: float = 0.15) -> Dict[str, Any]:
+        log_debug(f"[BART] Getting real-time arrivals for stop_code: {stop_code}")
         if lat is not None and lon is not None:
-            return await self.realtime.fetch_if_bart_stop_nearby(stop_id, lat, lon, radius)
-        return await self.realtime.fetch_if_bart_stop_nearby(stop_id, 0, 0, 0)
+            return await self.realtime.fetch_if_bart_stop_nearby(stop_code, lat, lon, radius)
+        return await self.realtime.fetch_if_bart_stop_nearby(stop_code, 0, 0, 0)
 
     async def get_bart_511_raw_data(self, stop_code: str) -> Dict[str, Any]:
         log_debug(f"[BART] Requesting raw 511 data for stop_code={stop_code}")
@@ -52,19 +52,19 @@ class BartService:
             ]["trip_id"].unique()
 
             filtered_stop_times = stop_times_df[stop_times_df["trip_id"].isin(trip_ids)]
-            ordered_stop_ids = (
-                filtered_stop_times.sort_values("stop_sequence")["stop_id"]
+            ordered_stop_codes = (
+                filtered_stop_times.sort_values("stop_sequence")["stop_code"]
                 .drop_duplicates()
                 .tolist()
             )
 
-            stop_lookup = stops_df.set_index("stop_id").to_dict("index")
+            stop_lookup = stops_df.set_index("stop_code").to_dict("index")
             route_stops = []
-            for stop_id in ordered_stop_ids:
-                stop = stop_lookup.get(stop_id)
+            for stop_code in ordered_stop_codes:
+                stop = stop_lookup.get(stop_code)
                 if stop:
                     route_stops.append({
-                        "stop_id": stop_id,
+                        "stop_code": stop_code,
                         "stop_name": stop.get("stop_name"),
                         "stop_lat": stop.get("stop_lat"),
                         "stop_lon": stop.get("stop_lon"),
