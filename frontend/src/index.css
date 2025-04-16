@@ -51,6 +51,18 @@ button {
   color-scheme: light dark;
 }
 
+:root[data-theme="light"] ::placeholder {
+  color: rgba(0, 0, 0, 0.5); 
+}
+
+:root[data-theme="dark"] ::placeholder {
+  color: rgba(255, 255, 255, 0.7); 
+}
+
+:root[data-theme="system"] ::placeholder {
+  color: rgba(128, 128, 128, 0.7);
+}
+
 @media (prefers-color-scheme: dark) {
   :root[data-theme="system"] {
     background-color: var(--bg-dark);
