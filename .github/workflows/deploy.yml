@@ -7,11 +7,11 @@ on:
 
 jobs:
   deploy:
-    name: SSH Deploy
+    name: SSH Deploy to DO
     runs-on: ubuntu-latest
 
     steps:
-      - name: Connect to DigitalOcean via SSH
+      - name: Connect to DigitalOcean and deploy
         uses: appleboy/ssh-action@v1.0.0
         with:
           host: ${{ secrets.DO_HOST }}
@@ -20,4 +20,6 @@ jobs:
           script: |
             cd /root/MuniBuddy
             git pull origin main
+            docker-compose down
             docker-compose up -d --build
+          insecure: true
