@@ -4,17 +4,17 @@
   "description": "Find nearby bus and train stops in San Francisco with real-time arrivals",
   "icons": [
     {
-      "src": "/public/images/munibuddy_icon_192.webp",
+      "src": "/images/munibuddy_icon_192.webp",
       "sizes": "192x192",
       "type": "image/webp"
     },
     {
-      "src": "/public/images/munibuddy_icon_512.webp",
+      "src": "/images/munibuddy_icon_512.webp",
       "sizes": "512x512",
       "type": "image/webp"
     },
     {
-      "src": "/public/images/munibuddy_icon_512.webp",
+      "src": "/images/munibuddy_icon_512.webp",
       "sizes": "512x512",
       "type": "image/webp",
       "purpose": "maskable"
