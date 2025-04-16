@@ -28,7 +28,7 @@ jobs:
         debug: true
         script: |
           echo "[ACTION STARTED]"
-          cd /root/MuniBuddy
+          cd MuniBuddy
           git pull origin main
           docker-compose down
           docker-compose up -d --build
