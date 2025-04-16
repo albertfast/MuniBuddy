@@ -11,15 +11,15 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Connect to DigitalOcean and deploy
-        uses: appleboy/ssh-action@v1.0.0
-        with:
-          host: ${{ secrets.DO_HOST }}
-          username: ${{ secrets.DO_USERNAME }}
-          key: ${{ secrets.DO_SSH_KEY }}
-          fingerprint: "SHA256:w1xr+ywN+lHL8XdKDSV2OeVAigh3cW8g5O//76nDPvk"
-          script: |
-            cd /root/MuniBuddy
-            git pull origin main
-            docker-compose down
-            docker-compose up -d --build
+    - name: Connect to DigitalOcean and deploy
+      uses: appleboy/ssh-action@v1.0.0
+      with:
+        host: ${{ secrets.DO_HOST }}
+        username: ${{ secrets.DO_USERNAME }}
+        key: ${{ secrets.DO_SSH_KEY }}
+        fingerprint: "SHA256:w1xr+ywN+lHL8XdKDSV2OeVAigh3cW8g5O//76nDPvk"
+        script: |
+          cd /root/MuniBuddy
+          git pull origin main
+          docker-compose down
+          docker-compose up -d --build
