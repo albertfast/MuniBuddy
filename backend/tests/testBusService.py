@@ -1,30 +1,26 @@
 import os
 import sys
-# Add project root to Python path
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-# Change working directory to backend folder
-os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from app.config import settings
 
-# Add project root to Python path
+# Add the backend directory to sys.path
+sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '../..'))
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.getcwd())
 
-
-# Import essential modules first
 from datetime import datetime
 from colorama import init, Fore, Style
 
-# Import your own modules
+
 from app.db.database import SessionLocal
 from app.services.bus_service import BusService
 
 # Initialize DB connection and service
-db = SessionLocal()  # This db is now clearly used
+db = SessionLocal()
 bus_service = BusService(db=db)
 
-# Initialize colorama for colored output
-
 import asyncio
-from app.services.bus_service import BusService
 
 def print_header(text: str):
     print(f"\n{Fore.CYAN}=== {text} ==={Style.RESET_ALL}")
@@ -45,8 +41,7 @@ async def test_bus_service():
     bus_service = BusService(db=db)
     
     # Print GTFS paths
-    print(f"BART GTFS Path: {bus_service.bart_gtfs_path}")
-    print(f"Muni GTFS Path: {bus_service.muni_gtfs_path}")
+    print(f"Muni GTFS Path: {settings.GTFS_PATHS['muni']}")
     print()
     
     print("=== Testing Bus Service for location: 37.7257, 122.4511 ===\n")

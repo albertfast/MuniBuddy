@@ -7,6 +7,12 @@ import sys
 import math
 import json
 
+# Change working directory to backend folder
+os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# Add project root to Python path
+sys.path.insert(0, os.getcwd())
+
 # --- Mock os.getenv BEFORE importing the service ---
 # This ensures module-level getenv calls are mocked during import
 getenv_patch = patch('os.getenv', side_effect=lambda key, default=None: {

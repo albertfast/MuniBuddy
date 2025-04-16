@@ -1,359 +1,210 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Container,
-  Box,
-  Paper,
-  Typography,
-  Alert,
-  TextField,
-  InputAdornment,
-  Slider,
-  Grid,
-  Button,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  IconButton,
-  CircularProgress // Import CircularProgress
+  Container, Box, Typography, Alert, TextField, InputAdornment,
+  Slider, Grid, Button, Select, MenuItem, CircularProgress, Dialog,
+  DialogTitle, DialogContent, DialogActions
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import MyLocationIcon from '@mui/icons-material/MyLocation';
-import Map from './components/Map'; // Assuming Map component is in ./components/Map
-import TransitInfo from './components/TransitInfo'; // Assuming TransitInfo component is in ./components/TransitInfo
-// Import the geocodeAddress function
+import Map from './components/Map';
+import TransitInfo from './components/TransitInfo';
 import { geocodeAddress, parseCoordinates, formatCoordinates } from './utility/geocode';
 
-// Retrieve environment variables (will be replaced with actual values during build)
 const BASE_URL = import.meta.env.VITE_API_BASE;
-const GOOGLE_MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-
-// Log env vars during development/debugging (won't show in production build console unless specifically configured)
-console.log("API Base URL:", BASE_URL);
-console.log("Google Maps API Key Loaded:", !!GOOGLE_MAPS_KEY);
-
 const App = () => {
-  // State variables
-  const [userLocation, setUserLocation] = useState(null); // { lat: number, lng: number } | null
-  const [nearbyStops, setNearbyStops] = useState({}); // Stores the fetched stops data
-  const [error, setError] = useState(null); // Stores any error message string
-  const [markers, setMarkers] = useState([]); // Array of markers for the map
-  const [searchAddress, setSearchAddress] = useState(''); // Input field value
-  const [radius, setRadius] = useState(0.15); // Search radius in miles
-  const [showLocationDialog, setShowLocationDialog] = useState(true); // Controls the initial location prompt
-  const [isLoading, setIsLoading] = useState(false); // Loading state for fetching/geocoding
+  const [userLocation, setUserLocation] = useState(null);
+  const [nearbyStops, setNearbyStops] = useState({});
+  const [error, setError] = useState(null);
+  const [markers, setMarkers] = useState([]);
+  const [searchAddress, setSearchAddress] = useState('');
+  const [radius, setRadius] = useState(0.15);
+  const [isLoading, setIsLoading] = useState(false);
+  const [theme, setTheme] = useState('system');
+  const [showLocationDialog, setShowLocationDialog] = useState(true);
 
-  // Function to request the user's current geolocation
+useEffect(() => {
+  const el = document.documentElement;
+  if (theme === 'system') {
+    const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    el.setAttribute('data-theme', systemTheme);
+  } else {
+    el.setAttribute('data-theme', theme);
+  }
+  console.log("Theme changed to:", theme);
+}, [theme]);
+
+
   const requestLocation = () => {
-    setShowLocationDialog(false); // Close dialog regardless of outcome
+    setShowLocationDialog(false);
     if (navigator.geolocation) {
-      setIsLoading(true); // Start loading indicator
-      setError(null); // Clear previous errors
+      setIsLoading(true);
+      setError(null);
       navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const location = {
-            lat: position.coords.latitude,
-            lng: position.coords.longitude
-          };
-          console.log("Geolocation success:", location);
+        (pos) => {
+          const location = { lat: pos.coords.latitude, lng: pos.coords.longitude };
           setUserLocation(location);
-          fetchNearbyStops(location); // Fetch stops for the current location
-          // setIsLoading(false) will be handled by fetchNearbyStops' finally block
+          fetchNearbyStops(location);
         },
         (err) => {
-          console.error("Geolocation error:", err);
           setError('Could not get location. Please allow location access or enter manually.');
-          setIsLoading(false); // Stop loading on error
+          setIsLoading(false);
         }
       );
     } else {
-      setError('Geolocation is not supported by this browser.');
-      setIsLoading(false); // Geolocation not supported
+      setError('Geolocation is not supported.');
+      setIsLoading(false);
     }
   };
 
-  // Function to fetch nearby stops from the backend API
   const fetchNearbyStops = async (location) => {
     if (!location) return;
-    setIsLoading(true); // Start loading indicator
-    setError(null); // Clear previous errors
-
-    // Ensure BASE_URL is defined
-    if (!BASE_URL) {
-        console.error("API Base URL (VITE_API_BASE) is not defined!");
-        setError("Application configuration error. Cannot fetch stops.");
-        setIsLoading(false);
-        return;
-    }
-
-    const url = `${BASE_URL}/nearby-stops?lat=${location.lat}&lon=${location.lng}&radius_miles=${radius}`;
-    console.log("Fetching nearby stops:", url);
-
+    setIsLoading(true);
+    setError(null);
+    const url = `${BASE_URL}/nearby-stops?lat=${location.lat}&lon=${location.lng}&radius=${radius}`;
     try {
-      const response = await fetch(url);
-      if (!response.ok) {
-        // Handle non-JSON error responses (like HTML error pages)
-        const errorText = await response.text();
-        console.error("Fetch error response:", response.status, errorText);
-        throw new Error(`Failed to fetch stops: ${response.statusText} (Status: ${response.status})`);
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("Could not load stops");
+      const data = await res.json();
+      setNearbyStops(data);
+      const newMarkers = Object.entries(data).map(([id, stop]) => ({
+        position: { lat: parseFloat(stop.stop_lat), lng: parseFloat(stop.stop_lon) },
+        title: stop.stop_name,
+        stopId: id,
+        icon: { url: '/assets/bus-stop-icon32.svg', scaledSize: { width: 32, height: 32 } }
+      }));
+      if (userLocation) {
+        newMarkers.push({
+          position: userLocation,
+          title: 'You',
+          icon: { url: '/assets/user-location-icon.svg', scaledSize: { width: 32, height: 32 } }
+        });
       }
-
-      const data = await response.json();
-      console.log("Nearby stops data:", data);
-
-      if (data && typeof data === 'object') {
-        setNearbyStops(data);
-        // Create markers for the map
-        const newMarkers = Object.entries(data).map(([stopId, stop]) => ({
-          position: {
-            lat: parseFloat(stop.stop_lat),
-            lng: parseFloat(stop.stop_lon)
-          },
-          title: stop.stop_name,
-          stopId,
-          icon: { // Define icon for bus stops
-            url: '/images/bus-stop-icon.png', // Ensure this path is correct in your public folder
-            scaledSize: { width: 32, height: 32 }
-          }
-        }));
-
-        // Add marker for the user's current location
-        if (userLocation) { // Use the state variable 'userLocation' which triggered this fetch
-          newMarkers.push({
-            position: userLocation,
-            title: 'Your Location / Search Center',
-            icon: { // Define icon for user location
-              url: '/images/user-location-icon.png', // Ensure this path is correct
-              scaledSize: { width: 32, height: 32 }
-            }
-          });
-        }
-        setMarkers(newMarkers);
-      } else {
-        setNearbyStops({});
-        setMarkers(userLocation ? [{ // Only show user marker if stops are empty
-            position: userLocation,
-            title: 'Your Location / Search Center',
-            icon: { url: '/images/user-location-icon.png', scaledSize: { width: 32, height: 32 } }
-        }] : []);
-      }
+      setMarkers(newMarkers);
     } catch (err) {
-      console.error("Nearby stop fetch error:", err);
-      setError(`Could not load nearby stops. ${err.message}`);
-      setNearbyStops({}); // Clear stops on error
-      setMarkers(userLocation ? [{ // Only show user marker on error
-        position: userLocation,
-        title: 'Your Location / Search Center',
-        icon: { url: '/images/user-location-icon.png', scaledSize: { width: 32, height: 32 } }
-    }] : []);
+      setError("Failed to load nearby stops.");
+      setNearbyStops({});
     } finally {
-      setIsLoading(false); // Stop loading indicator regardless of outcome
+      setIsLoading(false);
     }
   };
 
-  // Handle clicks directly on the map to set a new location
-  const handleMapClick = (event) => {
-    const location = {
-      lat: event.latLng.lat(),
-      lng: event.latLng.lng()
-    };
-    console.log("Map clicked location:", location);
-    setUserLocation(location); // Update user location state
-    setSearchAddress(`${location.lat.toFixed(5)}, ${location.lng.toFixed(5)}`); // Update input field
-    fetchNearbyStops(location); // Fetch stops for the clicked location
-  };
-
-  // Handle changes in the search radius slider
-  const handleRadiusChange = (event, newValue) => {
-    setRadius(newValue);
-    // Refetch stops if a location is already set
-    if (userLocation) {
-      fetchNearbyStops(userLocation);
-    }
-  };
-
-  // Handle search button click or Enter key press in the text field
   const handleManualLocationSearch = async () => {
-    const input = searchAddress?.trim() || "";
-
+    const input = searchAddress.trim();
     if (!input) {
       setError("Please enter coordinates or an address.");
       return;
     }
-
-    setError(null);
     setIsLoading(true);
-
-    // Check if input matches coordinate format
-    const coordinates = parseCoordinates(input);
-
-    if (coordinates) {
-      // Valid coordinates
-      setUserLocation(coordinates);
-      fetchNearbyStops(coordinates);
+    setError(null);
+    const coords = parseCoordinates(input);
+    if (coords) {
+      setUserLocation(coords);
+      fetchNearbyStops(coords);
       setIsLoading(false);
       return;
     }
-
-    // Input is treated as an address
     try {
-      console.log("Input treated as address. Attempting geocoding:", input);
       const data = await geocodeAddress(input);
-
-      if (data && data.lat && data.lng) {
+      if (data?.lat && data?.lng) {
         const location = { lat: data.lat, lng: data.lng };
         setUserLocation(location);
         setSearchAddress(formatCoordinates(data.lat, data.lng));
         fetchNearbyStops(location);
       } else {
-        setError(`Could not find coordinates for "${input}". Please try a more specific address.`);
+        setError("Could not find coordinates. Try a more specific address.");
       }
     } catch (err) {
-      console.error("Geocoding failed:", err);
-      setError(`Failed to find location: ${err.message}`);
+      setError(`Geocoding failed: ${err.message}`);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Effect to ask for location permission only once on initial load
-  useEffect(() => {
-    // This effect runs only once after the component mounts
-    // The dialog state handles the prompt
-  }, []); // Empty dependency array means run only on mount
-
-
-  // --- JSX Rendering ---
   return (
     <Container maxWidth="lg">
-      <Box sx={{ my: 4 }}>
-        {/* App Title */}
-        <Typography variant="h1" component="h1" align="center" gutterBottom>
-          MuniBuddy
-        </Typography>
-
-        {/* Error Alert Display */}
-        {error && (
-          <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
-            {error}
-          </Alert>
-        )}
-
-        {/* Input Controls Grid */}
-        <Grid container spacing={2} sx={{ mb: 2, alignItems: 'center' }}>
-          {/* Location Search Input */}
-          <Grid item xs={12} md={6}>
-            <Box sx={{ display: 'flex', gap: 1 }}>
-              <TextField
-                fullWidth
-                placeholder="Enter address or coordinates (lat, lon)"
-                value={searchAddress}
-                onChange={(e) => setSearchAddress(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleManualLocationSearch()}
-                variant="outlined"
-                size="small"
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon />
-                    </InputAdornment>
-                  )
-                }}
-                disabled={isLoading} // Disable input while loading
-              />
-              <IconButton
-                color="primary"
-                onClick={requestLocation}
-                title="Use Current Location"
-                disabled={isLoading}
-              >
-                <MyLocationIcon />
-              </IconButton>
-              <Button
-                variant="contained"
-                onClick={handleManualLocationSearch}
-                disabled={isLoading} // Disable button while loading
-                startIcon={isLoading ? <CircularProgress size={20} color="inherit" /> : <SearchIcon />}
-              >
-                {isLoading ? 'Searching...' : 'Search'}
-              </Button>
-            </Box>
-          </Grid>
-
-          {/* Radius Slider */}
-          <Grid item xs={12} md={6}>
-            <Box sx={{ px: { xs: 0, md: 2} }}> {/* Add some padding on medium screens */}
-              <Typography id="radius-slider-label" gutterBottom>
-                Search Radius: {radius} miles
-              </Typography>
-              <Slider
-                aria-labelledby="radius-slider-label"
-                value={radius}
-                onChange={handleRadiusChange} // Use onChange for immediate feedback (optional: use onChangeCommitted)
-                min={0.1}  
-                max={1.0}
-                step={0.05}
-                marks={[
-                  { value: 0.1, label: '0.1' },
-                  { value: 0.5, label: '0.5' },
-                  { value: 1.0, label: '1.0' }
-                ]}
-                valueLabelDisplay="auto"
-                disabled={isLoading || !userLocation} // Disable if loading or no location set
-              />
-            </Box>
-          </Grid>
-        </Grid>
-
-        {/* Map Display */}
-        <Paper elevation={3} sx={{ height: '450px', position: 'relative', mb: 4, overflow: 'hidden' }}>
-          <Map
-            // Use userLocation if available, otherwise default SF center
-            center={userLocation || { lat: 37.7749, lng: -122.4194 }}
-            markers={markers} // Pass the generated markers
-            onMapClick={handleMapClick} // Allow setting location by clicking map
-            zoom={15} // Adjust initial/default zoom level as needed
-          />
-          {/* Optional: Loading overlay on map */}
-          {isLoading && (
-             <Box sx={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(255,255,255,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                <CircularProgress />
-             </Box>
-          )}
-        </Paper>
-
-        {/* Transit Information Display */}
-        {!isLoading && Object.keys(nearbyStops).length > 0 ? (
-          <TransitInfo stops={nearbyStops} />
-        ) : (
-          !isLoading && !error && // Only show 'No stops found' if not loading and no error occurred
-          <Typography align="center" color="textSecondary" sx={{ py: 3 }}>
-            {userLocation ? 'No stops found nearby. Try increasing the radius or searching a different location.' : 'Enter a location or use current location to find stops.'}
-          </Typography>
-        )}
-
-        {/* Initial Location Permission Dialog */}
-        <Dialog
-            open={showLocationDialog}
-            onClose={() => setShowLocationDialog(false)} // Allow closing without choosing
-            aria-labelledby="location-dialog-title"
+      <Box sx={{ my: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Typography variant="h4">MuniBuddy</Typography>
+        <Select
+          value={theme}
+          onChange={(e) => setTheme(e.target.value)}
+          size="small"
+          native
         >
-          <DialogTitle id="location-dialog-title">Use Your Location?</DialogTitle>
-          <DialogContent>
-            <Typography>
-              Allow MuniBuddy to use your current location to automatically find nearby transit stops?
-            </Typography>
-          </DialogContent>
-          <DialogActions>
-            {/* Allow user to simply close the dialog */}
-            <Button onClick={() => setShowLocationDialog(false)}>Maybe Later</Button>
-            {/* Button to trigger location request */}
-            <Button onClick={requestLocation} variant="contained" color="primary">
-              Use Location
-            </Button>
-          </DialogActions>
-        </Dialog>
+          <MenuItem value="system">System</MenuItem>
+          <MenuItem value="light">Light</MenuItem>
+          <MenuItem value="dark">Dark</MenuItem>
+        </Select>
       </Box>
+
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+
+      <Grid container spacing={2} alignItems="center" sx={{ mb: 2 }}>
+        <Grid item xs={12} sm={8}>
+          <TextField
+            fullWidth
+            placeholder="Enter address or coordinates"
+            value={searchAddress}
+            onChange={(e) => setSearchAddress(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleManualLocationSearch()}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon />
+                </InputAdornment>
+              )
+            }}
+          />
+        </Grid>
+        <Grid item xs={6} sm={2}>
+          <Button fullWidth variant="contained" onClick={handleManualLocationSearch}>Search</Button>
+        </Grid>
+        <Grid item xs={6} sm={2}>
+          <Button fullWidth variant="outlined" onClick={requestLocation} startIcon={<MyLocationIcon />}>Locate Me</Button>
+        </Grid>
+        <Grid item xs={12}>
+          <Typography gutterBottom>Radius: {radius.toFixed(2)} mi</Typography>
+          <Slider value={radius} min={0.1} max={1.0} step={0.05} onChange={(e, v) => setRadius(v)} valueLabelDisplay="auto" />
+        </Grid>
+      </Grid>
+
+      <Box sx={{ position: 'relative', height: '450px', mb: 3 }}>
+        <Map
+          center={userLocation || { lat: 37.7749, lng: -122.4194 }}
+          markers={markers}
+          onMapClick={(e) => {
+            const location = { lat: e.latLng.lat(), lng: e.latLng.lng() };
+            setUserLocation(location);
+            setSearchAddress(formatCoordinates(location.lat, location.lng));
+            fetchNearbyStops(location);
+          }}
+        />
+        {isLoading && (
+          <Box sx={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(255,255,255,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+            <CircularProgress />
+          </Box>
+        )}
+      </Box>
+
+      {!isLoading && Object.keys(nearbyStops).length > 0 ? (
+        <TransitInfo stops={nearbyStops} />
+      ) : (
+        !isLoading && (
+          <Typography align="center" color="text.secondary" sx={{ py: 3 }}>
+            {userLocation ? 'No nearby stops found.' : 'Enter or select a location to see stops.'}
+          </Typography>
+        )
+      )}
+
+      <Dialog open={showLocationDialog} onClose={() => setShowLocationDialog(false)}>
+        <DialogTitle>Use Your Location?</DialogTitle>
+        <DialogContent>
+          <Typography>Allow MuniBuddy to use your current location to find nearby transit stops?</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowLocationDialog(false)}>No Thanks</Button>
+          <Button onClick={requestLocation} variant="contained">Use Location</Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 };

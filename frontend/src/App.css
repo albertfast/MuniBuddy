@@ -1,44 +1,47 @@
-#root {
-  max-width: 1280px;
+
+:root {
+  max-width: 100%;
   margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
+  padding: 1rem;
+  text-align: left;
 }
 
+.card {
+  padding: 1.5rem;
+  border-radius: 12px;
+  background-color: white;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+}
+
+/* Logo animation cleanup */
 .logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
+  height: 4em;
+  padding: 1em;
   transition: filter 300ms;
 }
+
 .logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafbaa);
+  filter: drop-shadow(0 0 1.5em #646cffaa);
 }
 
-@keyframes logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+.logo.react:hover {
+  filter: drop-shadow(0 0 1.5em #61dafbaa);
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  a:nth-of-type(2) .logo {
+  .logo.animate {
     animation: logo-spin infinite 20s linear;
   }
 }
 
-.card {
-  padding: 2em;
+@keyframes logo-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 .read-the-docs {
-  color: #888;
+  color: #666;
+  font-size: 0.9rem;
 }
 
 /* Map marker styles */
@@ -53,44 +56,67 @@
 }
 
 .marker-icon {
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   background-color: var(--marker-color);
   border-radius: 50%;
   display: flex;
   justify-content: center;
   align-items: center;
-  box-shadow: 0 3px 6px rgba(0,0,0,0.16), 0 3px 6px rgba(0,0,0,0.23);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
   border: 2px solid white;
-  transition: all 0.3s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .marker-icon:hover {
   transform: scale(1.1);
-  box-shadow: 0 6px 12px rgba(0,0,0,0.22), 0 6px 12px rgba(0,0,0,0.30);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.2);
 }
 
 .marker-label {
-  background-color: rgba(0,0,0,0.5);
+  background-color: rgba(0,0,0,0.6);
   color: white;
   padding: 2px 6px;
   border-radius: 4px;
   font-size: 10px;
   margin-top: 4px;
-  font-weight: bold;
+  font-weight: 500;
+  white-space: nowrap;
 }
 
-/* Map InfoWindow styles */
+/* InfoWindow enhancements */
 .gm-style .gm-style-iw-c {
   padding: 12px;
-  border-radius: 8px;
+  border-radius: 10px;
+  max-width: 250px;
 }
 
 .gm-style .gm-style-iw-d {
   overflow: hidden !important;
   max-height: none !important;
+  font-size: 0.95rem;
 }
 
 .gm-style .gm-style-iw-t::after {
-  background: linear-gradient(45deg, rgba(255,255,255,1) 50%, rgba(255,255,255,0) 51%, rgba(255,255,255,0) 100%);
+  background: linear-gradient(45deg, rgba(255,255,255,1) 50%, rgba(255,255,255,0) 51%);
+}
+
+/* Responsive spacing */
+@media screen and (max-width: 768px) {
+  :root {
+    padding: 1rem 0.75rem;
+  }
+
+  .marker-icon {
+    width: 28px;
+    height: 28px;
+  }
+
+  .marker-label {
+    font-size: 9px;
+  }
+
+  .card {
+    padding: 1rem;
+  }
 }
