@@ -1,10 +1,10 @@
 /* ==== Theme Variables ==== */
 :root {
-  --bg-light: #ffffff;
-  --fg-light: #c9b2b2;
-  --bg-dark: #5a5555;
-  --fg-dark: #d138b8e1;
-  --accent: #1976d2;
+  --bg-light: rgba(185, 184, 162, 0.918);
+  --fg-light: #6813a1b0;
+  --bg-dark: #140d0d65;
+  --fg-dark: #2196f7e1;
+  --accent: #c361cc;
   --font-main: 'Roboto', system-ui, sans-serif;
   max-width: 100%;
   margin: 0 auto;
