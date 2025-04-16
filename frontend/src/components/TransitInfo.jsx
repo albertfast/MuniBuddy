@@ -22,9 +22,9 @@ const formatTime = (isoTime) => {
   if (!isoTime || isoTime === 'Unknown') return 'Unknown';
   try {
     const date = new Date(isoTime);
-    return date.toLocaleTimeString('en-US', {
-      hour: '2-digit', minute: '2-digit', hour12: true,
-      timeZone: 'America/Los_Angeles'
+    return date.toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit',
     });
   } catch {
     return isoTime;
@@ -140,15 +140,9 @@ const TransitInfo = ({ stops }) => {
         </Typography>
         {route.status && <Chip size="small" label={route.status} color={getStatusColor(route.status)} />}
       </Stack>
-        <Typography variant="body2">
-          Arrival:{" "}
-          {route.arrival_time && !isNaN(new Date(route.arrival_time))
-            ? new Date(route.arrival_time).toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-              })
-            : "Invalid Date"}
-        </Typography>
+      <Typography variant="body2">
+        Arrival: {formatTime(route.arrival_time)}
+      </Typography>
     </Box>
   ), []);
 
