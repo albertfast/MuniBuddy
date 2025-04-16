@@ -51,7 +51,7 @@ const Map = ({ center = DEFAULT_CENTER, markers = [], onMapClick, zoom = DEFAULT
       markerElement.style.cursor = 'pointer';
 
       const markerImage = document.createElement('img');
-      markerImage.src = markerData.icon?.url || '/images/bus-marker.png';
+      markerImage.src = markerData.icon?.url || '/images/bus-marker-32.svg';
       markerImage.onerror = () => markerImage.style.display = 'none';
       markerImage.style.width = `${markerData.icon?.scaledSize?.width || 32}px`;
       markerImage.style.height = `${markerData.icon?.scaledSize?.height || 32}px`;
