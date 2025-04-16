@@ -21,19 +21,17 @@ const App = () => {
   const [searchAddress, setSearchAddress] = useState('');
   const [radius, setRadius] = useState(0.15);
   const [isLoading, setIsLoading] = useState(false);
-  const [theme, setTheme] = useState('system');
+  const [theme, setTheme] = useState('light');
   const [showLocationDialog, setShowLocationDialog] = useState(true);
 
   useEffect(() => {
-    const el = document.documentElement;
-    if (theme === 'system') {
-      const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-      el.setAttribute('data-theme', systemTheme);
-    } else {
-      el.setAttribute('data-theme', theme);
-    }
-    console.log("Theme changed to:", theme);
+    const root = document.documentElement;
+    root.setAttribute('data-theme', theme);
   }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme((prevTheme) => (prevTheme === 'light' ? 'dark' : 'light'));
+  };
 
   const requestLocation = () => {
     setShowLocationDialog(false);
@@ -125,16 +123,12 @@ const App = () => {
     <Container maxWidth="lg">
       <Box sx={{ my: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Typography variant="h4">MuniBuddy</Typography>
-        <Select
-          value={theme}
-          onChange={(e) => setTheme(e.target.value)}
-          size="small"
-          native
-        >
-          <option value="system">System</option>
-          <option value="light">Light</option>
-          <option value="dark">Dark</option>
-        </Select>
+          <div>
+              <button onClick={toggleTheme}>
+                {theme === 'light' ? 'Switch to Dark Theme' : 'Switch to Light Theme'}
+              </button>
+            <p>Hello, this is a themed app!</p>
+        </div>
       </Box>
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
