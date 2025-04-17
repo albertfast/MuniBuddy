@@ -4,7 +4,6 @@ from dotenv import load_dotenv
 from typing import List, Optional, Dict
 from pydantic_settings import BaseSettings
 from pydantic import Field, model_validator, PrivateAttr, field_validator
-import pandas as pd
 from app.services.gtfs_service import GTFSService
 
 # --- Load .env from project root ---
@@ -56,27 +55,26 @@ class Settings(BaseSettings):
     TRANSIT_511_BASE_URL: str = "http://api.511.org/transit"
     DEFAULT_AGENCY: str = "SF"
 
-    # GTFS paths
+    # GTFS paths (still included in case needed later)
     GTFS_AGENCIES: List[str] = ["muni", "bart"]
     GTFS_PATHS: Dict[str, str] = {
         "muni": "/app/gtfs_data/muni_gtfs-current",
         "bart": "/app/gtfs_data/bart_gtfs-current"
     }
 
-    # Private GTFS cache
-    _gtfs_data: Dict[str, Dict[str, pd.DataFrame]] = PrivateAttr(default_factory=dict)
+    # In-memory GTFSService cache
+    _gtfs_data: Dict[str, GTFSService] = PrivateAttr(default_factory=dict)
 
     @model_validator(mode="after")
     def load_gtfs(self) -> "Settings":
-        for agency, path in self.GTFS_PATHS.items():
+        for agency in self.GTFS_AGENCIES:
             try:
-                os.makedirs(path, exist_ok=True)
-                self._gtfs_data[agency] = load_gtfs_data(path)
+                self._gtfs_data[agency] = GTFSService(agency=agency)
             except Exception as e:
-                print(f"[GTFS ERROR] Failed to load {agency} from {path}: {e}")
+                print(f"[GTFS ERROR] Failed to initialize GTFSService for {agency}: {e}")
         return self
 
-    def get_gtfs_data(self, agency: str) -> Optional[Dict[str, pd.DataFrame]]:
+    def get_gtfs_data(self, agency: str) -> Optional[GTFSService]:
         normalized = self.normalize_agency(agency)
         return self._gtfs_data.get(normalized)
 
@@ -96,5 +94,5 @@ class Settings(BaseSettings):
         case_sensitive = True
         extra = "allow"
 
-# Initialize singleton
+# Singleton settings
 settings = Settings()
