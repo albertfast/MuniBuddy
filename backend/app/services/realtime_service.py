@@ -1,56 +1,25 @@
-import httpx
 import json
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
-from typing import Optional, Dict, Any
+from typing import Dict, Any
 from app.config import settings
-from app.services.stop_helper import load_stops
+from app.integrations.siri_api import fetch_siri_data
 from app.services.debug_logger import log_debug
+from app.services.schedule_service import SchedulerService
 
+scheduler = SchedulerService()
 
-API_KEY = settings.API_KEY
-BASE_URL = settings.TRANSIT_511_BASE_URL
-
-
-async def fetch_real_time_stop_data(stop_id: str, agency: str = "muni") -> Dict[str, Any]:
+async def fetch_real_time_stop_data(stop_id: str, agency: str = "muni", lat: float = None, lon: float = None) -> Dict[str, Any]:
     """
-    Fetch real-time arrival data by finding stop_code via load_stops(),
-    then calling 511 API with it.
-    Returns parsed inbound/outbound data with route number, arrival time, etc.
+    Try fetching real-time data using SIRI API first. If no data found, fallback to GTFS schedule.
+    Returns structured inbound/outbound results with optional vehicle location.
     """
     try:
-        stops = load_stops(agency)
-        stop = next((s for s in stops if s["stop_id"] == stop_id or s.get("stop_code") == stop_id), None)
+        normalized_agency = settings.normalize_agency(agency, to_511=True)
+        log_debug(f"[REALTIME] Trying 511 API for stop_id={stop_id}, agency={normalized_agency}")
 
-        if not stop:
-            log_debug(f"[ERROR] Stop not found in GTFS for id/code: {stop_id}")
-            return {"inbound": [], "outbound": []}
-
-        stop_code = stop.get("stop_code")
-        if not stop_code:
-            log_debug(f"[ERROR] No stop_code found for stop_id={stop_id}")
-            return {"inbound": [], "outbound": []}
-
-        url = f"{BASE_URL}/StopMonitoring"
-        params = {
-            "api_key": API_KEY,
-            "agency": "SF",
-            "stopCode": stop_code,
-            "format": "json"
-        }
-
-        log_debug(f"[511 API] Requesting real-time data for stop_code={stop_code} ({stop.get('stop_name')})")
-
-        response = httpx.get(url, params=params)
-        response.raise_for_status()
-
-        content = response.content.decode('utf-8-sig')
-        data = json.loads(content)
-
-        monitoring = data.get("ServiceDelivery", {}).get("StopMonitoringDelivery", [])
-        if isinstance(monitoring, list):
-            monitoring = monitoring[0] if monitoring else {}
-
+        siri_data = await fetch_siri_data(stop_code=stop_id, agency=normalized_agency)
+        monitoring = siri_data.get("ServiceDelivery", {}).get("StopMonitoringDelivery", {})
         visits = monitoring.get("MonitoredStopVisit", [])
 
         inbound = []
@@ -60,53 +29,49 @@ async def fetch_real_time_stop_data(stop_id: str, agency: str = "muni") -> Dict[
         for visit in visits:
             try:
                 journey = visit.get("MonitoredVehicleJourney", {})
-                line_ref = journey.get("LineRef", "")
-                published = journey.get("PublishedLineName", "Unknown")
-                route_number = f"{line_ref} {published}".strip()
+                call = journey.get("MonitoredCall", {})
+                route_number = f"{journey.get('LineRef', '')} {journey.get('PublishedLineName', '')}".strip()
                 destination = journey.get("DestinationName", "Unknown")
                 direction = journey.get("DirectionRef", "").lower()
-                call = journey.get("MonitoredCall", {})
-                expected = call.get("ExpectedArrivalTime")
-                aimed = call.get("AimedArrivalTime")
 
-                time_str = expected or aimed
+                time_str = call.get("ExpectedArrivalTime") or call.get("AimedArrivalTime")
                 if not time_str or "T" not in time_str:
-                    log_debug(f"[WARN] Skipping visit due to invalid time_str: {time_str}")
+                    log_debug(f"[WARN] Skipping visit with invalid time: {time_str}")
                     continue
 
-                raw_time = time_str.replace("Z", "")[:19]
-                arrival_time = datetime.strptime(raw_time, "%Y-%m-%dT%H:%M:%S").replace(tzinfo=timezone.utc).astimezone(ZoneInfo("America/Los_Angeles"))
-
-                if not arrival_time or (arrival_time - now).total_seconds() > 7200:
-                    continue
-
+                arrival_time = datetime.fromisoformat(time_str.replace("Z", "+00:00")).astimezone(ZoneInfo("America/Los_Angeles"))
                 minutes_until = int((arrival_time - now).total_seconds() / 60)
-                status = "Due" if minutes_until <= 0 else f"{minutes_until} min"
+                if minutes_until > 120:
+                    continue
 
                 bus_info = {
                     "route_number": route_number,
                     "destination": destination,
                     "arrival_time": arrival_time.strftime("%I:%M %p").lstrip("0"),
-                    "status": status,
+                    "status": "Due" if minutes_until <= 0 else f"{minutes_until} min",
                     "minutes_until": minutes_until,
                     "is_realtime": True,
                     "vehicle": {
-                        "lat": journey.get("VehicleLocation", {}).get("Latitude"),
-                        "lon": journey.get("VehicleLocation", {}).get("Longitude")
+                        "lat": journey.get("VehicleLocation", {}).get("Latitude", ""),
+                        "lon": journey.get("VehicleLocation", {}).get("Longitude", "")
                     }
                 }
 
-                if direction == "1":
+                if direction == "1" or direction == "ib":
                     inbound.append(bus_info)
                 else:
                     outbound.append(bus_info)
 
-            except Exception as inner_err:
-                log_debug(f"[WARN] Skipping malformed vehicle entry: {inner_err}")
+            except Exception as parse_err:
+                log_debug(f"[REALTIME] ⚠️ Parse error for vehicle data: {parse_err}")
                 continue
+
+        if not inbound and not outbound:
+            log_debug(f"[REALTIME] No data from 511 API, falling back to schedule for stop_id={stop_id}")
+            return scheduler.get_schedule(stop_id, agency=settings.normalize_agency(agency))
 
         return {"inbound": inbound, "outbound": outbound}
 
     except Exception as e:
-        log_debug(f"[ERROR] fetch_real_time_stop_data failed: {e}")
-        raise
+        log_debug(f"[REALTIME] ❌ Realtime fetch failed: {e}. Falling back to schedule.")
+        return scheduler.get_schedule(stop_id, agency=settings.normalize_agency(agency))
