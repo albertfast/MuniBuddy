@@ -1,5 +1,3 @@
-# backend/app/routers/bus_router.py
-
 from fastapi import APIRouter, HTTPException
 from app.core.singleton import bus_service
 from fastapi import Query
@@ -21,6 +19,7 @@ def get_nearby_bus_stops(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch nearby bus stops: {e}")
 
+
 @router.get("/bus/stop-arrivals/{stop_id}")
 async def get_bus_stop_arrivals(
     stop_id: str,
@@ -29,11 +28,8 @@ async def get_bus_stop_arrivals(
     radius: float = Query(0.15),
     agency: str = Query("muni")
 ):
-    """
-    Returns real-time arrivals or fallback schedule for a MUNI stop.
-    """
     try:
-        return await bus_service.get_stop_predictions(stop_id, lat, lon, agency)
+        return await bus_service.get_stop_predictions(stop_id, lat, lon, radius, agency)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch bus arrivals: {e}")
 
@@ -48,14 +44,3 @@ def get_nearby_bus_stops(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch nearby bus stops: {e}")
 
-@router.get("/bus/stop-arrivals/{stop_id}")
-async def get_bus_stop_arrivals(
-    stop_id: str,
-    lat: float = Query(None),
-    lon: float = Query(None),
-    radius: float = Query(0.15)
-):
-    try:
-        return await bus_service.get_stop_predictions(stop_id, lat, lon)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to fetch bus arrivals: {e}")
