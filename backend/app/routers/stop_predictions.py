@@ -33,8 +33,7 @@ async def get_stop_predictions(
 ):
     try:
         # Step 1: Detect agency dynamically from database
-        raw_agency = detect_agency_by_stop(stop_id, stop_code)
-        agency = settings.normalize_agency(raw_agency)
+        agency = settings.normalize_agency(agency) if agency else settings.normalize_agency(detect_agency_by_stop(stop_id, stop_code))
 
         # Step 2: BART handling
         if agency == "bart":
