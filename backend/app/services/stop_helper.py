@@ -5,8 +5,7 @@ import math
 
 from app.services.debug_logger import log_debug
 from app.services.gtfs_service import GTFSService
-from app.config import settings  # ✅ eksik olan buydu
-
+from app.config import settings  
 
 def calculate_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     """Calculate distance between two points using Haversine formula (miles)."""

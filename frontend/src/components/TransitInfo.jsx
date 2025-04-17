@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useMemo } from 'react';
 import {
   Card, CardContent, Typography, List, ListItem, ListItemText, ListItemButton,
@@ -9,6 +10,7 @@ import LocationOnIcon from '@mui/icons-material/LocationOn';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import RefreshIcon from '@mui/icons-material/Refresh';
+import TrainIcon from '@mui/icons-material/Train';
 import axios from 'axios';
 
 const SCHEDULE_CACHE = {};
@@ -45,6 +47,13 @@ const getStatusColor = (status = '') => {
   if (lowerStatus.includes('late')) return 'error';
   if (lowerStatus.includes('early')) return 'warning';
   return 'success';
+};
+
+const renderIcon = (routeNumber) => {
+  if (routeNumber?.toLowerCase().includes('to')) {
+    return <TrainIcon color="primary" fontSize="small" />;
+  }
+  return <DirectionsBusIcon color="secondary" fontSize="small" />;
 };
 
 const TransitInfo = ({ stops }) => {
@@ -150,7 +159,7 @@ const TransitInfo = ({ stops }) => {
     <Box sx={{ borderLeft: '3px solid', borderColor: 'primary.light', pl: 1.5, py: 0.5, mb: 1 }}>
       <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
         <Typography variant="body2" fontWeight="medium" color="primary.main">
-          {route.route_number || 'Route ?'} → <Box component="span">{route.destination || 'Unknown Destination'}</Box>
+          {renderIcon(route.route_number)} {route.route_number || 'Route ?'} → <Box component="span">{route.destination || 'Unknown Destination'}</Box>
         </Typography>
         {route.status && (
             <Chip size="small" label={route.status} color={getStatusColor(route.status)} />
@@ -159,6 +168,11 @@ const TransitInfo = ({ stops }) => {
       <Typography variant="body2" color="text.secondary" mt={0.5}>
         Arrival: <b>{formatTime(route.arrival_time)}</b>
       </Typography>
+      {route.vehicle?.lat && route.vehicle?.lon && (
+        <Typography variant="caption" color="text.secondary">
+          Vehicle Location: ({route.vehicle.lat}, {route.vehicle.lon})
+        </Typography>
+      )}
     </Box>
   ), []);
 
