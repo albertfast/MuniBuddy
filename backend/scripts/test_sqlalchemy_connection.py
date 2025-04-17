@@ -43,7 +43,7 @@ else:
                 if result:
                     log("   📊 Sample Rows:")
                     for row in result:
-                        log(f"     {dict(row)}")
+                        log(f"     {dict(row._mapping)}")  # <== düzeltildi!
                 else:
                     log("   📭 No rows found.")
             except Exception as e:
