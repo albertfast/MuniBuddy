@@ -42,7 +42,11 @@ class RealtimeBartService:
                     "arrival_time": arrival_time,
                     "status": status,
                     "minutes_until": minutes_until,
-                    "is_realtime": True
+                    "is_realtime": True,
+                    "vehicle": {
+                        "lat": journey.get("VehicleLocation", {}).get("Latitude"),
+                        "lon": journey.get("VehicleLocation", {}).get("Longitude")
+                    }
                 }
 
                 if direction == "IB":
