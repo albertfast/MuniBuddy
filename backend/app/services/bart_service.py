@@ -4,6 +4,8 @@ from app.services.stop_helper import load_stops, find_nearby_stops
 from app.services.realtime_bart_service import RealtimeBartService
 from app.services.debug_logger import log_debug
 from app.services.realtime_service import fetch_real_time_stop_data
+from app.integrations.siri_api import fetch_siri_data
+import asyncio
 
 class BartService:
     def __init__(self):
@@ -38,6 +40,17 @@ class BartService:
     async def get_bart_511_raw_data(self, stop_code: str) -> Dict[str, Any]:
         log_debug(f"[BART] Requesting raw 511 data for stop_code={stop_code}")
         return await self.realtime.get_bart_511_raw_data(stop_code)
+    
+    def get_siri_raw_data(self, stop_code: str, agency: str = "bart"):
+        """
+        Fetch raw data from the Siri API for a given stop code.
+        """
+        try:
+            raw_data = fetch_siri_data(stop_code, agency=agency)
+            return raw_data
+        except Exception as e:
+            log_debug(f"[BART] Error fetching Siri data for stop_code={stop_code}: {e}")
+            return {"error": str(e)}
 
     async def get_bart_stop_details(self, stop_id: str) -> Dict[str, Any]:
         return await self.realtime.get_bart_stop_details(stop_id)
