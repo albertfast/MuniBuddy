@@ -2,7 +2,7 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import {
   Card, CardContent, Typography, ListItemButton, Box, Collapse, CircularProgress,
-  Stack, Chip, Button, Alert, Fade
+  Stack, Chip, Button, Alert, Fade, useTheme
 } from '@mui/material';
 import DirectionsBusIcon from '@mui/icons-material/DirectionsBus';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
@@ -40,6 +40,7 @@ const getStatusColor = (status = '') => {
 };
 
 const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
+  const theme = useTheme();
   const [selectedStopId, setSelectedStopId] = useState(null);
   const [stopSchedule, setStopSchedule] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -69,7 +70,8 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
           arrival_time: arrival.expected || arrival.aimed,
           status: arrival.expected ? 'Live' : 'Scheduled',
           lat: arrival.lat,
-          lon: arrival.lon
+          lon: arrival.lon,
+          minutes_until: arrival.minutes_until
         }));
         return { inbound: [], outbound };
       } else {
@@ -147,7 +149,7 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
       setIntervalId(id);
     } else {
       const schedule = getCachedSchedule(stopId);
-      if (schedule?.outbound?.some(r => r.minutes_until <= 5)) {
+      if (schedule?.outbound?.some(r => r.vehicle && r.minutes_until <= 5)) {
         const busMarkers = schedule.outbound
           .filter(r => r.vehicle && r.minutes_until <= 5)
           .map(r => ({
@@ -167,7 +169,7 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
     const arrival = route.arrival_time || route.expected || route.aimed;
     const status = route.status || (route.minutes_until !== undefined ? `${route.minutes_until} min` : '');
     return (
-      <Box sx={{ borderLeft: '3px solid', borderColor: 'primary.light', pl: 1.5, py: 0.5, mb: 1 }}>
+      <Box sx={{ borderLeft: '3px solid', borderColor: theme.palette.mode === 'dark' ? 'primary.dark' : 'primary.light', pl: 1.5, py: 0.5, mb: 1 }}>
         <Stack direction="row" justifyContent="space-between">
           <Typography variant="body2" fontWeight={500} color="primary.main">
             {routeName} → {route.destination || 'Unknown'}
