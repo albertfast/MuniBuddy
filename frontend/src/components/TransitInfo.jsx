@@ -86,7 +86,7 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
     }
   }, []);
 
-  const updateLiveVehicleMarkers = async (stopId, routes = []) => {
+  const updateLiveVehicleMarkers = async (stopId) => {
     try {
       const res = await axios.get(`${API_BASE_URL}/bart-positions/by-stop?stopCode=${stopId}`);
       const vehicles = res.data.arrivals.filter(v => v.lat && v.lon);
@@ -109,9 +109,16 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
   const handleStopClick = useCallback(async (stop) => {
     const stopId = normalizeId(stop);
     const agency = getAgency(stop);
-    if (!stopId) return;
+
+    if (!stopId) {
+      console.warn("⛔️ No valid stopId found for clicked stop:", stop);
+      return;
+    }
+
+    console.log(`📍 Stop clicked → ID: ${stopId}, Agency: ${agency}`);
 
     if (stopId === selectedStopId) {
+      console.log("🔁 Deselecting stop:", stopId);
       setSelectedStopId(null);
       setStopSchedule(null);
       setLiveVehicleMarkers([]);
@@ -126,14 +133,18 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
 
     const cached = getCachedSchedule(stopId);
     if (cached) {
+      console.log("✅ Using cached schedule:", cached);
       setStopSchedule(cached);
       setLoading(false);
     } else {
       try {
+        console.log(`🌐 Fetching new data for stop ${stopId}, agency ${agency}`);
         const schedule = await fetchSchedule(stopId, agency);
+        console.log("📦 Received schedule:", schedule);
         setCachedSchedule(stopId, schedule);
         setStopSchedule(schedule);
       } catch (err) {
+        console.error("❌ Fetch error:", err);
         setError(err.message);
         setStopSchedule({ inbound: [], outbound: [] });
       } finally {
@@ -144,21 +155,24 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
     clearInterval(intervalId);
 
     if (agency === "bart") {
+      console.log("🚆 BART stop selected. Live markers enabled.");
       await updateLiveVehicleMarkers(stopId);
       const id = setInterval(() => updateLiveVehicleMarkers(stopId), 30000);
       setIntervalId(id);
     } else {
       const schedule = getCachedSchedule(stopId);
       if (schedule?.outbound?.some(r => r.vehicle && r.minutes_until <= 5)) {
-        const busMarkers = schedule.outbound
+        const markers = schedule.outbound
           .filter(r => r.vehicle && r.minutes_until <= 5)
           .map(r => ({
             position: { lat: r.vehicle.lat, lng: r.vehicle.lon },
             title: `${r.route_number} → ${r.destination}`,
             route: r.route_number
           }));
-        setLiveVehicleMarkers(busMarkers);
+        console.log("🚌 MUNI vehicle markers set:", markers);
+        setLiveVehicleMarkers(markers);
       } else {
+        console.log("🕓 No MUNI vehicles with position arriving soon.");
         setLiveVehicleMarkers([]);
       }
     }
