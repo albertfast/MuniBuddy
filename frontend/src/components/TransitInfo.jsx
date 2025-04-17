@@ -1,3 +1,4 @@
+// TransitInfo.jsx (updated with working refresh + BART vehicle icons + error states)
 import React, { useState, useCallback, useMemo } from 'react';
 import {
   Card, CardContent, Typography, List, ListItem, ListItemText, ListItemButton,
@@ -180,7 +181,6 @@ const TransitInfo = ({ stops }) => {
           {stopsArray.map((stop, index) => {
             const currentStopId = normalizeId(stop);
             if (!currentStopId) return null;
-
             const isSelected = selectedStopId === currentStopId;
 
             return (
