@@ -1,22 +1,21 @@
-
 from typing import List, Dict, Any
 from datetime import datetime
 import pandas as pd
 import math
+
 from app.services.debug_logger import log_debug
 from app.services.gtfs_service import GTFSService
-from app.config import settings
+from app.config import settings  # ✅ eksik olan buydu
 
 
 def calculate_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    """
-    Calculate distance between two points using Haversine formula.
-    Returns distance in miles.
-    """
+    """Calculate distance between two points using Haversine formula (miles)."""
+    if None in [lat1, lon1, lat2, lon2]:
+        log_debug(f"Invalid coordinates: ({lat1}, {lon1}) -> ({lat2}, {lon2})")
+        return float('inf')
     try:
-        lat1, lon1, lat2, lon2 = float(lat1), float(lon1), float(lat2), float(lon2)
-        R = 3959  # Earth's radius in miles
-        lat1_rad, lon1_rad, lat2_rad, lon2_rad = map(math.radians, [lat1, lon1, lat2, lon2])
+        R = 3959  # miles
+        lat1_rad, lon1_rad, lat2_rad, lon2_rad = map(math.radians, [float(lat1), float(lon1), float(lat2), float(lon2)])
         dlat = lat2_rad - lat1_rad
         dlon = lon2_rad - lon1_rad
         a = math.sin(dlat / 2)**2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon / 2)**2
@@ -34,9 +33,6 @@ def find_nearby_stops(
     radius_miles: float = 0.15,
     limit: int = 5
 ) -> List[Dict[str, Any]]:
-    """
-    Find nearby transit stops based on geographic distance only.
-    """
     nearby_stops = []
     for stop in stops:
         distance = calculate_distance(lat, lon, stop["stop_lat"], stop["stop_lon"])
@@ -49,6 +45,7 @@ def find_nearby_stops(
     log_debug(f"✓ Found {len(nearby_stops)} nearby stops within {radius_miles} miles (no stop_times filtering)")
     return nearby_stops[:limit]
 
+
 def find_nearby_stops_minimal(
     lat: float,
     lon: float,
@@ -56,9 +53,6 @@ def find_nearby_stops_minimal(
     radius_miles: float = 0.15,
     limit: int = 10
 ) -> List[Dict[str, Any]]:
-    """
-    Faster lookup returning only minimal fields of nearby stops.
-    """
     nearby_stops = []
     for stop in stops:
         distance = calculate_distance(lat, lon, stop["stop_lat"], stop["stop_lon"])
@@ -76,10 +70,8 @@ def find_nearby_stops_minimal(
     nearby_stops.sort(key=lambda x: x["distance_miles"])
     return nearby_stops[:limit]
 
+
 def get_nearby_stops(lat: float, lon: float, radius: float = 0.15, limit: int = 10) -> List[Dict[str, Any]]:
-    """
-    Unified nearby stops search using normalized agency list.
-    """
     log_debug(f"[Unified] Searching for nearby stops from all agencies at ({lat}, {lon})")
 
     all_nearby = []
@@ -94,34 +86,28 @@ def get_nearby_stops(lat: float, lon: float, radius: float = 0.15, limit: int = 
     all_nearby.sort(key=lambda x: x["distance_miles"])
     return all_nearby[:limit]
 
+
 def load_stops(agency: str) -> List[Dict[str, Any]]:
-    service = GTFSService(agency)
     try:
+        service = GTFSService(agency)
+        stops_df = service.get_stops()
+        if stops_df.empty:
+            log_debug(f"✗ GTFS stops table is empty for agency: {agency}")
+            return []
+
         stops = []
-        normalized = settings.normalize_agency(agency)
-        gtfs_data = settings.get_gtfs_data(normalized)
-        if not gtfs_data:
-            log_debug(f"⚠️ GTFS data not loaded for agency: {normalized}")
-            return []
-
-        stops_df = gtfs_data.get("stops", pd.DataFrame())
-        if not isinstance(stops_df, pd.DataFrame) or stops_df.empty:
-            log_debug(f"✗ GTFS stops dataframe empty for agency: {normalized}")
-            return []
-
         for _, row in stops_df.iterrows():
             stop = {
-                'stop_id': row['stop_id'],
-                'stop_name': row['stop_name'],
-                'stop_lat': float(row['stop_lat']),
-                'stop_lon': float(row['stop_lon']),
-                'agency': normalized
+                "stop_id": row["stop_id"],
+                "stop_name": row["stop_name"],
+                "stop_lat": float(row["stop_lat"]),
+                "stop_lon": float(row["stop_lon"]),
+                "agency": agency,
+                "stop_code": str(row["stop_code"]) if "stop_code" in row and row["stop_code"] else None
             }
-            if 'stop_code' in row and pd.notna(row['stop_code']):
-                stop['stop_code'] = str(row['stop_code'])
             stops.append(stop)
 
-        log_debug(f"✓ Loaded {len(stops)} stops for agency: {normalized}")
+        log_debug(f"✓ Loaded {len(stops)} stops for agency: {agency}")
         return stops
 
     except Exception as e:
