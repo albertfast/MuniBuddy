@@ -1,4 +1,4 @@
-// src/components/TransitInfo.jsx - hybrid optimized with agency support
+// src/components/TransitInfo.jsx
 import React, { useState, useCallback, useMemo } from 'react';
 import {
   Card, CardContent, Typography, ListItemButton, Box, Collapse, CircularProgress,
@@ -22,7 +22,6 @@ const getAgency = (stop) => (stop?.agency || "muni").toLowerCase();
 const formatTime = (isoTime) => {
   if (!isoTime || isoTime === "Unknown") return "Unknown";
   if (/\d{1,2}:\d{2}\s[AP]M/i.test(isoTime)) return isoTime;
-
   try {
     const date = new Date(isoTime);
     return isNaN(date.getTime())
@@ -138,20 +137,26 @@ const TransitInfo = ({ stops }) => {
     </>
   ), []);
 
-  const renderRoute = useCallback((route) => (
-    <Box className="transit-info-panel" sx={{ borderLeft: '3px solid', borderColor: 'primary.light', pl: 1.5, py: 0.5, mb: 1 }}>
-      <Stack direction="row" justifyContent="space-between">
-        <Typography variant="body2" fontWeight={500} color="primary.main">
-          {route.route_number || 'Route ?'} → {route.destination || 'Unknown'}
+  const renderRoute = useCallback((route) => {
+    const routeName = route.route_number || route.route || "Route ?";
+    const arrival = route.arrival_time || route.expected || route.aimed;
+    const displayStatus = route.status || (route.minutes_until !== undefined ? `${route.minutes_until} min` : null);
+
+    return (
+      <Box className="transit-info-panel" sx={{ borderLeft: '3px solid', borderColor: 'primary.light', pl: 1.5, py: 0.5, mb: 1 }}>
+        <Stack direction="row" justifyContent="space-between">
+          <Typography variant="body2" fontWeight={500} color="primary.main">
+            {routeName} → {route.destination || 'Unknown'}
+          </Typography>
+          {displayStatus && <Chip size="small" label={displayStatus} color={getStatusColor(route.status)} />}
+        </Stack>
+        <Typography variant="body2" color="text.secondary" mt={0.5}>
+          Arrival: <b>{formatTime(arrival)}</b>
+          {route.stops_away && ` • ${route.stops_away} stops away`}
         </Typography>
-        {route.status && <Chip size="small" label={route.status} color={getStatusColor(route.status)} />}
-      </Stack>
-      <Typography variant="body2" color="text.secondary" mt={0.5}>
-        Arrival: <b>{formatTime(route.arrival_time)}</b>
-        {route.stops_away && ` • ${route.stops_away} stops away`}
-      </Typography>
-    </Box>
-  ), []);
+      </Box>
+    );
+  }, []);
 
   return (
     <Card elevation={2} sx={{ mt: 2 }}>
@@ -194,7 +199,7 @@ const TransitInfo = ({ stops }) => {
                         )}
                         {stopSchedule?.inbound?.length === 0 && stopSchedule?.outbound?.length === 0 && (
                           <Typography variant="body2" color="text.secondary">
-                            No upcoming buses.
+                            No upcoming buses or trains.
                           </Typography>
                         )}
                         <Box display="flex" justifyContent="center" mt={2}>
