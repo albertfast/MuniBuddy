@@ -11,13 +11,9 @@ from app.routers.stop_predictions import router as stop_predictions_router
 from app.routers.bart_monitor_stop import router as bart_monitor_router
 from app.routers.nearby_bus_positions import router as nearby_bus_router
 from app.routers.stop_schedule import router as stop_schedule_router
-from app.routers.deploy import router as deploy_router
 
 from dotenv import load_dotenv
 load_dotenv()
-
-import os
-print(os.getenv("GITHUB_SECRET"))
 
 app = FastAPI(
     title="MuniBuddy API",
@@ -38,7 +34,6 @@ app.include_router(stop_predictions_router, prefix="/api/v1", tags=["Stop Predic
 app.include_router(nearby_bus_router, prefix="/api/v1", tags=["Nearby Bus Positions"])
 app.include_router(bart_monitor_router, prefix="/api/v1")
 app.include_router(stop_schedule_router, prefix="/api/v1", tags=["Stop Schedule"])
-app.include_router(deploy_router, prefix="/api/v1/deploy", tags=["Deploy"])
 
 # Root route
 @app.get("/")
