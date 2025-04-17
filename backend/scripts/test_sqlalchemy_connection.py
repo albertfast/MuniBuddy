@@ -5,7 +5,7 @@ import sys
 os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.getcwd())
 
-from sqlalchemy import create_engine, inspect
+from sqlalchemy import create_engine, inspect, text
 from app.config import settings
 from datetime import datetime
 
@@ -39,7 +39,7 @@ else:
         # Sample rows
         with engine.connect() as conn:
             try:
-                result = conn.execute(f"SELECT * FROM {table} LIMIT 3").fetchall()
+                result = conn.execute(text(f"SELECT * FROM {table} LIMIT 3")).fetchall()
                 if result:
                     log("   📊 Sample Rows:")
                     for row in result:
