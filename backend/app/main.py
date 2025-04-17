@@ -12,6 +12,7 @@ from app.routers.bart_positions import router as bart_positions_router
 from app.routers.bart_routes import router as bart_router
 from app.routers.stop_predictions import router as stop_predictions_router
 from app.routers.bart_monitor_stop import router as bart_monitor_router
+from app.routers.nearby_stops import router as nearby_stops_router
 from app.routers.nearby_bus_positions import router as nearby_bus_router
 from app.routers.stop_schedule import router as stop_schedule_router
 
