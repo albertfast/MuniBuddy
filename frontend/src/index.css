@@ -1,6 +1,6 @@
 /* ==== Theme Variables ==== */
 :root {
-  --bg-light: rgba(255, 255, 255);
+  --bg-light: #ffffff;
   --fg-light: #000000b0;
   --bg-dark: #121212;
   --fg-dark: #ffffff;
@@ -34,153 +34,17 @@ h1, h2, h3, h4, h5, h6 {
 
 button {
   font-family: inherit;
-}
-
-/* ==== Theme Modes ==== */
-:root[data-theme="dark"] {
-  background-color: var(--bg-dark);
-  color: var(--fg-dark);
-}
-
-:root[data-theme="light"] {
-  background-color: var(--bg-light);
-  color: var(--fg-light);
-}
-
-:root[data-theme="system"] {
-  color-scheme: light dark;
-}
-
-:root[data-theme="light"] ::placeholder {
-  color: rgba(0, 0, 0, 0.5); 
-}
-
-:root[data-theme="dark"] ::placeholder {
-  color: rgba(255, 255, 255, 0.7); 
-}
-
-:root[data-theme="system"] ::placeholder {
-  color: rgba(128, 128, 128, 0.7);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root[data-theme="system"] {
-    background-color: var(--bg-dark);
-    color: var(--fg-dark);
-  }
-}
-
-@media (prefers-color-scheme: light) {
-  :root[data-theme="system"] {
-    background-color: var(--bg-light);
-    color: var(--fg-light);
-  }
-}
-
-/* ==== Transit Info Panel (for Desktop only) ==== */
-@media screen and (min-width: 768px) {
-  .transit-info-panel {
-    overflow-y: auto;
-    max-height: calc(100vh - 260px);
-    padding-left: 0.5rem;
-  }
-}
-
-/* ==== Card Styles ==== */
-.card {
-  padding: 1.5rem;
-  border-radius: 12px;
-  background-color: white;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-}
-
-html[data-theme="light"] .card {
-  background-color: #ffffff;
-  color: #000000;
-}
-
-html[data-theme="dark"] .card {
-  background-color: #2237af;
-  color: #73a6bb;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
-}
-
-/* ==== Map Marker Styling ==== */
-.advanced-marker {
-  --marker-color: #1976d2;
-}
-
-.marker-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.marker-icon {
-  width: 32px;
-  height: 32px;
-  background-color: var(--marker-color);
-  border-radius: 50%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
-  border: 2px solid white;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.marker-icon:hover {
-  transform: scale(1.1);
-  box-shadow: 0 4px 10px rgba(0,0,0,0.2);
-}
-
-.marker-label {
-  background-color: rgba(0,0,0,0.6);
-  color: white;
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-size: 10px;
-  margin-top: 4px;
-  font-weight: 500;
-  white-space: nowrap;
-}
-/* ==== Theme Variables ==== */
-:root {
-  --bg-light: #ffffff;
-  --fg-light: #000000b0;
-  --bg-dark: #121212;
-  --fg-dark: #ffffff;
-  --accent: #c361cc;
-  --font-main: 'Roboto', system-ui, sans-serif;
-  max-width: 100%;
-  margin: 0 auto;
-  padding: 1rem;
-  text-align: left;
-  transition: background-color 0.5s ease, color 0.5s ease;
-}
-
-/* ==== Base Elements ==== */
-html, body {
-  margin: 0;
-  padding: 0;
-  font-family: var(--font-main);
-  background-color: var(--bg-light);
-  color: var(--fg-light);
-  line-height: 1.5;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  min-height: 100vh;
-  transition: background-color 0.3s ease, color 0.3s ease;
-}
-
-h1, h2, h3, h4, h5, h6 {
-  margin: 0;
-  font-weight: 500;
-}
-
-button {
-  font-family: inherit;
   cursor: pointer;
+  background-color: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
+  transition: background-color 0.3s ease;
+}
+
+button:hover {
+  background-color: #a14fab;
 }
 
 /* ==== Theme Modes ==== */
@@ -206,6 +70,19 @@ button {
     --bg-light: #ffffff;
     --fg-light: #000000b0;
   }
+}
+
+/* ==== Placeholder Colors ==== */
+:root[data-theme="light"] ::placeholder {
+  color: rgba(0, 0, 0, 0.5);
+}
+
+:root[data-theme="dark"] ::placeholder {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+:root[data-theme="system"] ::placeholder {
+  color: rgba(128, 128, 128, 0.7);
 }
 
 /* ==== Transit Info Panel (for Desktop only) ==== */
@@ -312,6 +189,7 @@ html[data-theme="dark"] .card {
 .logo.animate {
   animation: logo-spin infinite 20s linear;
 }
+
 /* ==== Google Maps InfoWindow ==== */
 .gm-style .gm-style-iw-c {
   padding: 12px;
@@ -327,52 +205,6 @@ html[data-theme="dark"] .card {
 
 .gm-style .gm-style-iw-t::after {
   background: linear-gradient(45deg, rgba(255,255,255,1) 50%, rgba(255,255,255,0) 51%);
-}
-
-/* ==== Responsive === */
-@media screen and (max-width: 768px) {
-  :root {
-    padding: 1rem 0.75rem;
-  }
-
-  .marker-icon {
-    width: 28px;
-    height: 28px;
-  }
-
-  .marker-label {
-    font-size: 9px;
-  }
-
-  .card {
-    padding: 1rem;
-  }
-}
-
-/* ==== Logo Styling (Optional) ==== */
-.logo {
-  height: 4em;
-  padding: 1em;
-  transition: filter 300ms;
-}
-
-.logo:hover {
-  filter: drop-shadow(0 0 1.5em #646cffaa);
-}
-
-.logo.react:hover {
-  filter: drop-shadow(0 0 1.5em #61dafbaa);
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .logo.animate {
-    animation: logo-spin infinite 20s linear;
-  }
-}
-
-@keyframes logo-spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
 }
 
 .read-the-docs {
