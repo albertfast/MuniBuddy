@@ -82,31 +82,36 @@ const TransitInfo = ({ stops }) => {
   const handleStopClick = useCallback(async (stopToSelect) => {
     const stopIdToSelect = normalizeId(stopToSelect);
     if (!stopIdToSelect) return;
-
+  
+    console.debug("[DEBUG] Clicked stop:", stopToSelect);
+    console.debug("[DEBUG] Normalized stopId:", stopIdToSelect);
+  
     if (selectedStopId === stopIdToSelect) {
       setSelectedStopId(null);
       setStopSchedule(null);
       setError(null);
       return;
     }
-
+  
     setSelectedStopId(stopIdToSelect);
     setLoading(true);
     setError(null);
     setStopSchedule(null);
-
+  
     const cachedData = getCachedSchedule(stopIdToSelect);
     if (cachedData) {
+      console.debug("[DEBUG] Found cached data:", cachedData);
       setStopSchedule(cachedData);
       setLoading(false);
       return;
     }
-
+  
     try {
       const response = await axios.get(`${API_BASE_URL}/stop-predictions/${stopIdToSelect}`, {
         timeout: API_TIMEOUT
       });
-
+      console.debug("[DEBUG] API Response:", response.data);
+  
       const data = normalizeResponse(response.data);
       setCachedSchedule(stopIdToSelect, data);
       setStopSchedule(data);

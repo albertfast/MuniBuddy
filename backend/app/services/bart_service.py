@@ -1,16 +1,15 @@
+
 from typing import List, Dict, Any
 from app.config import settings
 from app.services.stop_helper import load_stops, find_nearby_stops
 from app.services.schedule_service import SchedulerService
 from app.services.realtime_bart_service import RealtimeBartService
 from app.services.debug_logger import log_debug
-from app.services.realtime_service import fetch_real_time_stop_data
 from app.integrations.siri_api import fetch_siri_data
-import asyncio
 
 class BartService:
     def __init__(self):
-        self.agency = "bart"
+        self.agency = settings.normalize_agency("bart")
         self.realtime = RealtimeBartService()
 
     async def get_nearby_stops_with_arrivals(self, lat: float, lon: float, radius: float = 0.15) -> List[Dict[str, Any]]:
@@ -27,24 +26,22 @@ class BartService:
 
         return enriched
 
-    def get_nearby_stops(self, lat: float, lon: float, radius: float = 0.15, agency: str = "bart"):
-        log_debug(f"Finding nearby stops for coordinates: ({lat}, {lon}), radius: {radius}, agency: {agency}")
-        stops = load_stops(agency)
+    def get_nearby_stops(self, lat: float, lon: float, radius: float = 0.15) -> List[Dict[str, Any]]:
+        log_debug(f"Finding nearby stops for coordinates: ({lat}, {lon}), radius: {radius}, agency: {self.agency}")
+        stops = load_stops(self.agency)
         return find_nearby_stops(lat, lon, stops, radius)
 
     async def get_real_time_arrivals(self, stop_code: str, lat: float = None, lon: float = None, radius: float = 0.15) -> Dict[str, Any]:
         log_debug(f"[BART] Getting real-time arrivals for stop_code: {stop_code}")
-
         try:
             if lat is not None and lon is not None:
                 realtime = await self.realtime.fetch_if_bart_stop_nearby(stop_code, lat, lon, radius)
             else:
                 realtime = await self.realtime.fetch_if_bart_stop_nearby(stop_code, 0, 0, 0)
 
-            # Fallback to static schedule if no realtime
             if not realtime.get("inbound") and not realtime.get("outbound"):
                 log_debug(f"[BART] No realtime data for {stop_code}, using GTFS fallback")
-                return schedule_service.get_schedule(stop_code, agency="bart")
+                return SchedulerService().get_schedule(stop_code, agency=self.agency)
 
             return realtime
 
@@ -55,14 +52,10 @@ class BartService:
     async def get_bart_511_raw_data(self, stop_code: str) -> Dict[str, Any]:
         log_debug(f"[BART] Requesting raw 511 data for stop_code={stop_code}")
         return await self.realtime.get_bart_511_raw_data(stop_code)
-    
-    def get_siri_raw_data(self, stop_code: str, agency: str = "bart"):
-        """
-        Fetch raw data from the Siri API for a given stop code.
-        """
+
+    def get_siri_raw_data(self, stop_code: str) -> Dict[str, Any]:
         try:
-            raw_data = fetch_siri_data(stop_code, agency=agency)
-            return raw_data
+            return fetch_siri_data(stop_code, agency=self.agency)
         except Exception as e:
             log_debug(f"[BART] Error fetching Siri data for stop_code={stop_code}: {e}")
             return {"error": str(e)}
