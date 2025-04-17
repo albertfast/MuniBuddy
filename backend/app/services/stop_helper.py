@@ -1,9 +1,11 @@
+
 from typing import List, Dict, Any
 from datetime import datetime
 import pandas as pd
 import math
 from app.services.debug_logger import log_debug
 from app.services.gtfs_service import GTFSService
+from app.config import settings
 
 
 def calculate_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -11,10 +13,8 @@ def calculate_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> fl
     Calculate distance between two points using Haversine formula.
     Returns distance in miles.
     """
-    if None in [lat1, lon1, lat2, lon2]:
-        log_debug(f"Invalid coordinates: ({lat1}, {lon1}) -> ({lat2}, {lon2})")
-        return float('inf')
     try:
+        lat1, lon1, lat2, lon2 = float(lat1), float(lon1), float(lat2), float(lon2)
         R = 3959  # Earth's radius in miles
         lat1_rad, lon1_rad, lat2_rad, lon2_rad = map(math.radians, [lat1, lon1, lat2, lon2])
         dlat = lat2_rad - lat1_rad
@@ -95,26 +95,33 @@ def get_nearby_stops(lat: float, lon: float, radius: float = 0.15, limit: int = 
     return all_nearby[:limit]
 
 def load_stops(agency: str) -> List[Dict[str, Any]]:
+    service = GTFSService(agency)
     try:
-        service = GTFSService(agency)
-        stops_df = service.get_stops()
-        if stops_df.empty:
-            log_debug(f"✗ GTFS stops table is empty for agency: {agency}")
+        stops = []
+        normalized = settings.normalize_agency(agency)
+        gtfs_data = settings.get_gtfs_data(normalized)
+        if not gtfs_data:
+            log_debug(f"⚠️ GTFS data not loaded for agency: {normalized}")
             return []
 
-        stops = []
+        stops_df = gtfs_data.get("stops", pd.DataFrame())
+        if not isinstance(stops_df, pd.DataFrame) or stops_df.empty:
+            log_debug(f"✗ GTFS stops dataframe empty for agency: {normalized}")
+            return []
+
         for _, row in stops_df.iterrows():
             stop = {
-                "stop_id": row["stop_id"],
-                "stop_name": row["stop_name"],
-                "stop_lat": float(row["stop_lat"]),
-                "stop_lon": float(row["stop_lon"]),
-                "agency": agency,
-                "stop_code": str(row["stop_code"]) if "stop_code" in row and row["stop_code"] else None
+                'stop_id': row['stop_id'],
+                'stop_name': row['stop_name'],
+                'stop_lat': float(row['stop_lat']),
+                'stop_lon': float(row['stop_lon']),
+                'agency': normalized
             }
+            if 'stop_code' in row and pd.notna(row['stop_code']):
+                stop['stop_code'] = str(row['stop_code'])
             stops.append(stop)
 
-        log_debug(f"✓ Loaded {len(stops)} stops for agency: {agency}")
+        log_debug(f"✓ Loaded {len(stops)} stops for agency: {normalized}")
         return stops
 
     except Exception as e:
