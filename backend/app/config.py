@@ -16,8 +16,8 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = "MuniBuddy"
     API_V1_STR: str = "/api/v1"
 
-    # Agencies (e.g. ["muni", "bart"]). "SFMTA" is 511 API code, "muni" is our internal GTFS folder.
-    AGENCY_ID: List[str] = ["muni"]
+    # Agencies (e.g. ["muni", "bart"])
+    AGENCY_ID: List[str] = ["muni", "bart"]
 
     @field_validator("AGENCY_ID", mode="before")
     @classmethod
@@ -85,6 +85,23 @@ class Settings(BaseSettings):
 
     def get_gtfs_data(self, agency: str) -> Optional[tuple]:
         return self._gtfs_data.get(agency)
+
+    def normalize_agency_name(self, agency: str, to_511: bool = False) -> str:
+        """
+        Normalize agency names across GTFS and 511 API usage.
+        to_511=True → returns 511-compatible agency code (e.g. SF, BA)
+        to_511=False → returns internal GTFS code (e.g. muni, bart)
+        """
+        agency = agency.strip().lower()
+        muni_aliases = {"sf", "sfmta", "muni"}
+        bart_aliases = {"ba", "bart"}
+
+        if agency in muni_aliases:
+            return "SF" if to_511 else "muni"
+        elif agency in bart_aliases:
+            return "BA" if to_511 else "bart"
+
+        return agency.upper() if to_511 else agency.lower()
 
     class Config:
         env_file = ".env"
