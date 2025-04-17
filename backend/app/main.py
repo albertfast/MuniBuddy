@@ -8,6 +8,7 @@ from app.db.database import init_db
 
 # Routers
 from app.routers.nearby_stops import router as nearby_stops_router
+from app.routers.bart_positions import router as bart_positions_router
 from app.routers.bart_routes import router as bart_router
 from app.routers.stop_predictions import router as stop_predictions_router
 from app.routers.bart_monitor_stop import router as bart_monitor_router
@@ -32,6 +33,7 @@ app.add_middleware(
 
 # Router Registration
 app.include_router(nearby_stops_router, prefix="/api/v1", tags=["Nearby Stops"])
+app.include_router(bart_positions_router, prefix="/api/v1", tags=["Bart Position Near By Stops"])
 app.include_router(stop_predictions_router, prefix="/api/v1", tags=["Stop Predictions"])
 app.include_router(nearby_bus_router, prefix="/api/v1", tags=["Nearby Bus Positions"])
 app.include_router(bart_router, prefix="/api/v1", tags=["BART"])
