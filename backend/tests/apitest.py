@@ -42,6 +42,7 @@ url1 = f"http://127.0.0.1:8000/get-route-details?route_short_name=Green-N"
     http://127.0.0.1:8000/update-routes
     http://127.0.0.1:8000/get-route-details?route_id=5R
     http://127.0.0.1:8000/bus-positions?bus_number=5
+    http://api.511.org/transit/StopMonitoring?api_key=d11301a5-2cb9-4c4a-ad47-b449ed6794c0&agency=SF&stop_id=14212&format=json"
     http://127.0.0.1:8000/get-route-details?bus_number=Green-N
     http://127.0.0.1:8000/get-route-details?route_short_name=Green-N
     http://127.0.0.1:8000/bus-positions?bus_number=5R&agency=SF
