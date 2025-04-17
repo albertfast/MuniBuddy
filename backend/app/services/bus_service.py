@@ -93,23 +93,23 @@ class BusService:
 
         return {"buses": results}
 
-        async def get_stop_predictions(self, stop_id: str, lat: float = None, lon: float = None) -> Dict[str, Any]:
-        """
-        Unified real-time + fallback prediction function for Muni stop.
-        """
-        try:
-            realtime = await fetch_real_time_stop_data(stop_id, agency="muni")
+    async def get_stop_predictions(self, stop_id: str, lat: float = None, lon: float = None) -> Dict[str, Any]:
+    """
+    Unified real-time + fallback prediction function for Muni stop.
+    """
+    try:
+        realtime = await fetch_real_time_stop_data(stop_id, agency="muni")
 
-            if not realtime.get("inbound") and not realtime.get("outbound"):
-                fallback = self.scheduler.get_schedule(stop_id, agency="muni")
-                return fallback
+        if not realtime.get("inbound") and not realtime.get("outbound"):
+            fallback = self.scheduler.get_schedule(stop_id, agency="muni")
+            return fallback
 
-            # Ensure vehicle field always exists
-            for entry in realtime.get("inbound", []) + realtime.get("outbound", []):
-                entry.setdefault("vehicle", {"lat": "", "lon": ""})
+        # Ensure vehicle field always exists
+        for entry in realtime.get("inbound", []) + realtime.get("outbound", []):
+            entry.setdefault("vehicle", {"lat": "", "lon": ""})
 
-            return realtime
+        return realtime
 
-        except Exception as e:
-            log_debug(f"[BUS PREDICTIONS] Error fetching predictions for {stop_id}: {e}")
-            return {"inbound": [], "outbound": []}
+    except Exception as e:
+        log_debug(f"[BUS PREDICTIONS] Error fetching predictions for {stop_id}: {e}")
+        return {"inbound": [], "outbound": []}
