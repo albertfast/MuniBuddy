@@ -22,15 +22,21 @@ class BusService:
                 return []
 
             stops = stops_df.to_dict(orient="records")
-            from app.services.stop_helper import find_nearby_stops
             nearby = find_nearby_stops(lat, lon, stops, radius)
 
+            # 🔐 Defensive Programming
             for stop in nearby:
                 stop["agency"] = agency
+                stop["stop_id"] = str(stop.get("stop_id", "unknown"))
+                stop["stop_name"] = stop.get("stop_name", "Unknown Stop")
+                stop["stop_lat"] = float(stop.get("stop_lat", 0))
+                stop["stop_lon"] = float(stop.get("stop_lon", 0))
+                stop["stop_code"] = str(stop.get("stop_code", ""))
 
             return nearby
+
         except Exception as e:
-            log_debug(f"[ERROR] Failed to load stops for {agency}: {e}")
+            log_debug(f"[ERROR] get_nearby_stops failed for {agency}: {e}")
             return []
 
     def get_nearby_buses(self, lat: float, lon: float, radius: float = 0.15, agency: str = "muni"):
