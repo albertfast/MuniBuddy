@@ -27,44 +27,50 @@ def calculate_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> fl
         return float('inf')
 
 
-def find_nearby_stops(
+def find_nearby_stops_minimal(
     lat: float,
     lon: float,
     stops: List[Dict[str, Any]],
     radius_miles: float = 0.15,
-    limit: int = 5
+    limit: int = 10
 ) -> List[Dict[str, Any]]:
     """
-    Find nearby transit stops based on geographic distance only.
+    Faster lookup returning only minimal fields of nearby stops.
     """
     nearby_stops = []
     for stop in stops:
         distance = calculate_distance(lat, lon, stop["stop_lat"], stop["stop_lon"])
         if distance <= radius_miles:
-            stop_info = stop.copy()
-            stop_info["distance_miles"] = round(distance, 2)
-            nearby_stops.append(stop_info)
+            nearby_stops.append({
+                "stop_id": stop["stop_id"],
+                "stop_code": stop.get("stop_code"),
+                "stop_name": stop["stop_name"],
+                "stop_lat": stop["stop_lat"],
+                "stop_lon": stop["stop_lon"],
+                "agency": stop["agency"],
+                "distance_miles": round(distance, 2)
+            })
 
     nearby_stops.sort(key=lambda x: x["distance_miles"])
-    log_debug(f"✓ Found {len(nearby_stops)} nearby stops within {radius_miles} miles (no stop_times filtering)")
     return nearby_stops[:limit]
 
-
-def get_nearby_stops(lat: float, lon: float, radius: float = 0.15, limit: int = 5) -> List[Dict[str, Any]]:
+def get_nearby_stops(lat: float, lon: float, radius: float = 0.15, limit: int = 10) -> List[Dict[str, Any]]:
     """
-    Fetch stops from all known agencies and return nearby ones.
+    Unified nearby stops search using normalized agency list.
     """
     log_debug(f"[Unified] Searching for nearby stops from all agencies at ({lat}, {lon})")
-    all_stops = []
+
+    all_nearby = []
     for agency in settings.AGENCY_ID:
         normalized = settings.normalize_agency(agency)
-        agency_stops = load_stops(normalized)
-        all_stops.extend(agency_stops)
+        stops = load_stops(normalized)
+        if not stops:
+            continue
+        nearby = find_nearby_stops_minimal(lat, lon, stops, radius, limit)
+        all_nearby.extend(nearby)
 
-    if not all_stops:
-        return []
-
-    return find_nearby_stops(lat, lon, all_stops, radius, limit)
+    all_nearby.sort(key=lambda x: x["distance_miles"])
+    return all_nearby[:limit]
 
 def load_stops(agency: str) -> List[Dict[str, Any]]:
     try:
