@@ -90,11 +90,3 @@ class SchedulerService:
         except Exception as e:
             log_debug(f"Static schedule error for stop {stop_id}, agency {agency}: {e}")
             return {"inbound": [], "outbound": []}
-
-    def _normalize_agency(self, agency: str) -> str:
-        agency = agency.lower()
-        if agency in ["sf", "sfmta", "muni"]:
-            return "muni"
-        elif agency in ["ba", "bart"]:
-            return "bart"
-        return agency
