@@ -36,7 +36,7 @@ class BusService:
         for stop in nearby_stops:
             realtime_data = fetch_real_time_stop_data(stop, agency)
 
-            # Fallback to schedule if no real-time data available
+            # Fallback per stop if real-time is empty
             if not realtime_data.get("inbound") and not realtime_data.get("outbound"):
                 log_debug(f"No real-time data found for stop {stop['stop_code']}, trying static schedule...")
                 realtime_data = self.scheduler.get_schedule(stop["stop_id"], agency)
@@ -53,9 +53,30 @@ class BusService:
                         "destination": bus.get("destination"),
                         "arrival_time": bus.get("arrival_time"),
                         "status": bus.get("status"),
-                        "minutes_until": bus.get("minutes_until"),
-                        "is_realtime": bus.get("is_realtime", True)
+                        "minutes_until": bus.get("minutes_until", None),
+                        "is_realtime": bus.get("is_realtime", False)
                     })
+
+        if not results:
+            log_debug(f"[FALLBACK] No real-time buses found at all. Switching to GTFS schedule for all stops.")
+
+            for stop in nearby_stops:
+                schedule = self.scheduler.get_schedule(stop["stop_id"], agency)
+                for direction in ["inbound", "outbound"]:
+                    for bus in schedule.get(direction, []):
+                        results.append({
+                            "stop_id": stop["stop_id"],
+                            "stop_code": stop.get("stop_code"),
+                            "stop_name": stop["stop_name"],
+                            "distance_miles": stop["distance_miles"],
+                            "direction": direction,
+                            "route_number": bus.get("route_number"),
+                            "destination": bus.get("destination"),
+                            "arrival_time": bus.get("arrival_time"),
+                            "status": bus.get("status"),
+                            "minutes_until": None,
+                            "is_realtime": False
+                        })
 
         return {"buses": results}
 
