@@ -1,30 +1,52 @@
 from app.services.realtime_service import fetch_real_time_stop_data
 from app.services.schedule_service import SchedulerService
-from app.services.stop_helper import load_stops, find_nearby_stops
+from app.services.gtfs_service import GTFSService
 from app.services.debug_logger import log_debug
-from app.config import settings
+from math import radians, cos, sin, asin, sqrt
+import pandas as pd
 
 class BusService:
     def __init__(self, scheduler: SchedulerService):
         log_debug("Initializing BusService...")
         self.scheduler = scheduler
 
+    def _normalize_agency(self, agency: str) -> str:
+        agency = agency.lower()
+        if agency in ["sf", "sfmta", "muni"]:
+            return "muni"
+        elif agency in ["ba", "bart"]:
+            return "bart"
+        return agency
+
+    def _haversine(self, lat1, lon1, lat2, lon2):
+        R = 3956
+        dlat = radians(lat2 - lat1)
+        dlon = radians(lon2 - lon1)
+        a = sin(dlat / 2)**2 + cos(radians(lat1)) * cos(radians(lat2)) * sin(dlon / 2)**2
+        return R * 2 * asin(sqrt(a))
+
     def get_nearby_stops(self, lat: float, lon: float, radius: float = 0.15, agency: str = "muni"):
         agency = self._normalize_agency(agency)
         log_debug(f"Finding nearby stops for coordinates: ({lat}, {lon}), radius: {radius}, agency: {agency}")
 
-        gtfs_data = settings.get_gtfs_data(agency)
-        if not gtfs_data:
-            log_debug(f"✗ No GTFS data found for agency: {agency}")
+        gtfs = GTFSService(agency)
+        stops_df = gtfs.get_stops()
+
+        if stops_df.empty:
+            log_debug(f"✗ No GTFS stops found for agency: {agency}")
             return []
 
-        stops = load_stops(agency)
-        nearby = find_nearby_stops(lat, lon, stops, radius)
+        stops_df["stop_lat"] = pd.to_numeric(stops_df["stop_lat"], errors="coerce")
+        stops_df["stop_lon"] = pd.to_numeric(stops_df["stop_lon"], errors="coerce")
+        stops_df["distance_miles"] = stops_df.apply(
+            lambda row: self._haversine(lat, lon, row["stop_lat"], row["stop_lon"]), axis=1
+        )
 
-        for stop in nearby:
+        nearby = stops_df[stops_df["distance_miles"] <= radius].copy()
+        records = nearby.sort_values("distance_miles").to_dict(orient="records")
+        for stop in records:
             stop["agency"] = agency
-
-        return nearby
+        return records
 
     def get_nearby_buses(self, lat: float, lon: float, radius: float = 0.15, agency: str = "muni"):
         agency = self._normalize_agency(agency)
@@ -36,9 +58,8 @@ class BusService:
         for stop in nearby_stops:
             realtime_data = fetch_real_time_stop_data(stop, agency)
 
-            # Fallback per stop if real-time is empty
             if not realtime_data.get("inbound") and not realtime_data.get("outbound"):
-                log_debug(f"No real-time data found for stop {stop['stop_code']}, trying static schedule...")
+                log_debug(f"No real-time data for stop {stop['stop_code']}, using static schedule...")
                 realtime_data = self.scheduler.get_schedule(stop["stop_id"], agency)
 
             for direction in ["inbound", "outbound"]:
@@ -58,8 +79,7 @@ class BusService:
                     })
 
         if not results:
-            log_debug(f"[FALLBACK] No real-time buses found at all. Switching to GTFS schedule for all stops.")
-
+            log_debug(f"[FALLBACK] No buses found. Using GTFS schedule as fallback.")
             for stop in nearby_stops:
                 schedule = self.scheduler.get_schedule(stop["stop_id"], agency)
                 for direction in ["inbound", "outbound"]:
@@ -79,11 +99,3 @@ class BusService:
                         })
 
         return {"buses": results}
-
-    def _normalize_agency(self, agency: str) -> str:
-        agency = agency.lower()
-        if agency in ["sf", "sfmta", "muni"]:
-            return "muni"
-        elif agency in ["ba", "bart"]:
-            return "bart"
-        return agency
