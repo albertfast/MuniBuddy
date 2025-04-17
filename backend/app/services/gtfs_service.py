@@ -2,35 +2,41 @@ import os
 import pandas as pd
 from typing import Dict
 
+GTFS_FILE_LIST = [
+    "agency", "attributions", "calendar", "calendar_attributes", "calendar_dates",
+    "directions", "fare_attributes", "fare_rider_categories", "fare_rules", "farezone_attributes",
+    "feed_info", "levels", "pathways", "route_attributes", "routes", "rider_categories",
+    "shapes", "stop_times", "stops", "timepoints", "transfers", "translations", "trips"
+]
+
 def load_gtfs_data(gtfs_path: str) -> Dict[str, pd.DataFrame]:
     """
-    Load all standard GTFS files from the specified directory into a dictionary of pandas DataFrames.
-    Supports routes, trips, stops, stop_times, calendar, calendar_dates, fare_attributes, fare_rules,
-    shapes, frequencies, transfers, pathways, levels, translations, feed_info.
-    
-    Returns:
-        dict: A dictionary where each key is a GTFS file name (without .txt) and the value is a DataFrame.
-    """
-    gtfs_files = [
-        "agency", "calendar", "calendar_dates", "fare_attributes", "fare_rules",
-        "feed_info", "frequencies", "levels", "pathways", "routes",
-        "shapes", "stop_times", "stops", "transfers", "translations", "trips"
-    ]
+    Load all known GTFS files into a dictionary of DataFrames.
+    If a file is missing, an empty DataFrame is used instead.
 
+    Args:
+        gtfs_path (str): Path to the GTFS directory
+
+    Returns:
+        Dict[str, pd.DataFrame]: Mapping of file keys to DataFrames
+    """
     gtfs_data: Dict[str, pd.DataFrame] = {}
 
-    for file in gtfs_files:
-        file_path = os.path.join(gtfs_path, f"{file}.txt")
-        if os.path.exists(file_path):
-            try:
-                gtfs_data[file] = pd.read_csv(file_path, dtype=str)
-                print(f"[✓] Loaded {file}.txt ({len(gtfs_data[file])} rows)")
-            except Exception as e:
-                print(f"[ERROR] Failed to load {file}.txt: {e}")
-                gtfs_data[file] = pd.DataFrame()
-        else:
-            print(f"[WARNING] Missing {file}.txt — continuing with empty DataFrame")
-            gtfs_data[file] = pd.DataFrame()
+    print(f"[GTFS LOADER] Loading files from: {gtfs_path}")
+    for file_name in GTFS_FILE_LIST:
+        file_path = os.path.join(gtfs_path, f"{file_name}.txt")
+        try:
+            if os.path.exists(file_path):
+                df = pd.read_csv(file_path, dtype=str)
+                gtfs_data[file_name] = df
+                print(f"[✓] Loaded {file_name}.txt → {len(df)} rows")
+            else:
+                print(f"[!] {file_name}.txt not found. Using empty DataFrame.")
+                gtfs_data[file_name] = pd.DataFrame()
+        except Exception as e:
+            print(f"[ERROR] Failed to read {file_name}.txt → {e}")
+            gtfs_data[file_name] = pd.DataFrame()
 
-    print(f"[DEBUG] GTFS summary from {gtfs_path} → {len(gtfs_data['stops'])} stops, {len(gtfs_data['stop_times'])} stop_times, {len(gtfs_data['trips'])} trips")
+    # Summary
+    print(f"[SUMMARY] {len(gtfs_data['stops'])} stops, {len(gtfs_data['stop_times'])} stop_times, {len(gtfs_data['trips'])} trips")
     return gtfs_data

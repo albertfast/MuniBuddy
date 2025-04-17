@@ -3,6 +3,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from typing import List, Optional, Dict
 from pydantic_settings import BaseSettings
+from app.services.gtfs_service import load_gtfs_data
 from pydantic import Field, model_validator, PrivateAttr, field_validator
 import pandas as pd
 
@@ -51,9 +52,6 @@ class Settings(BaseSettings):
     DEBUG: bool = False
     LOG_LEVEL: str = "INFO"
 
-    # GitHub Webhook
-    GITHUB_SECRET: str = Field(..., env="GITHUB_SECRET")
-
     # 511 Transit API
     API_KEY: Optional[str] = None
     TRANSIT_511_BASE_URL: str = "http://api.511.org/transit"
@@ -67,7 +65,8 @@ class Settings(BaseSettings):
     }
 
     # GTFS cache
-    _gtfs_data: Dict[str, tuple] = PrivateAttr(default_factory=dict)
+    self.gtfs_data[agency] = load_gtfs_data(path)
+    gtfs_data: Dict[str, tuple] = PrivateAttr(default_factory=dict)
 
     @model_validator(mode="after")
     def load_gtfs(self) -> "Settings":
@@ -75,18 +74,18 @@ class Settings(BaseSettings):
         for agency, path in self.GTFS_PATHS.items():
             try:
                 os.makedirs(path, exist_ok=True)
-                self._gtfs_data[agency] = load_gtfs_data(path)
-                print(f"[DEBUG] {path}: {len(self._gtfs_data[agency][2])} stops, "
-                      f"{len(self._gtfs_data[agency][3])} stop_times, "
-                      f"{len(self._gtfs_data[agency][1])} trips")
+                self.gtfs_data[agency] = load_gtfs_data(path)
+                print(f"[DEBUG] {path}: {len(self.gtfs_data[agency][2])} stops, "
+                      f"{len(self.gtfs_data[agency][3])} stop_times, "
+                      f"{len(self.gtfs_data[agency][1])} trips")
             except Exception as e:
                 print(f"[GTFS ERROR] {agency}: {str(e)}")
         return self
 
     def get_gtfs_data(self, agency: str) -> Optional[tuple]:
-        return self._gtfs_data.get(agency)
+        return self.gtfs_data.get(agency)
 
-    def normalize_agency_name(self, agency: str, to_511: bool = False) -> str:
+    def normalize_agency(self, agency: str, to_511: bool = False) -> str:
         """
         Normalize agency names across GTFS and 511 API usage.
         to_511=True → returns 511-compatible agency code (e.g. SF, BA)
