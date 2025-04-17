@@ -2,25 +2,25 @@ from typing import Dict, Any
 from datetime import datetime, timedelta
 import pandas as pd
 from colorama import Fore, Style
-from app.config import settings
+from app.services.gtfs_service import GTFSService
 from app.services.debug_logger import log_debug
 
 class SchedulerService:
     def get_schedule(self, stop_id: str, agency: str = "muni") -> Dict[str, Any]:
-        agency = settings.normalize_agency(agency)
+        agency = agency.lower()
         log_debug(f"[SchedulerService] Looking up static schedule for stop: {stop_id}, agency: {agency}")
 
-        gtfs_data = settings.get_gtfs_data(agency)
+        gtfs = GTFSService(agency)
 
         try:
             now = datetime.now()
             current_time = now.strftime("%H:%M:%S")
             weekday = now.strftime("%A").lower()
 
-            stop_times_df = gtfs_data.get("stop_times", pd.DataFrame())
-            trips_df = gtfs_data.get("trips", pd.DataFrame())
-            calendar_df = gtfs_data.get("calendar", pd.DataFrame())
-            routes_df = gtfs_data.get("routes", pd.DataFrame())
+            stop_times_df = gtfs._query("stop_times", f"stop_id = '{stop_id}'")
+            trips_df = gtfs._query("trips")
+            calendar_df = gtfs._query("calendar")
+            routes_df = gtfs._query("routes")
 
             if stop_times_df.empty or trips_df.empty or calendar_df.empty or routes_df.empty:
                 log_debug("One or more GTFS components are missing or empty.")
@@ -33,9 +33,8 @@ class SchedulerService:
             ]["service_id"].tolist()
 
             active_trips = trips_df[trips_df["service_id"].isin(service_ids)]
-            stop_times = stop_times_df[stop_times_df["stop_id"] == stop_id]
 
-            schedule_data = stop_times.merge(
+            schedule_data = stop_times_df.merge(
                 active_trips[["trip_id", "route_id", "direction_id", "trip_headsign"]], on="trip_id"
             ).merge(
                 routes_df[["route_id", "route_short_name", "route_long_name"]], on="route_id"
