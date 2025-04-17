@@ -56,18 +56,38 @@ const TransitInfo = ({ stops }) => {
   }, []);
 
   const fetchSchedule = useCallback(async (id, agency = "muni") => {
-    console.log("[TransitInfo] Fetching schedule:", { id, agency });
     try {
+      if (agency === "bart") {
+        const res = await axios.get(`${API_BASE_URL}/bart-positions/by-stop`, {
+          params: { stopCode: id, agency },
+          timeout: API_TIMEOUT
+        });
+  
+        if (!res.data || !res.data.arrivals) return { inbound: [], outbound: [] };
+  
+        const outbound = res.data.arrivals.map(arrival => ({
+          route_number: arrival.route,
+          destination: arrival.destination,
+          arrival_time: arrival.expected || arrival.aimed,
+          status: arrival.expected ? 'Live' : 'Scheduled',
+          is_realtime: true
+        }));
+  
+        return { inbound: [], outbound };
+      }
+  
+      // Default Muni fallback
       const res = await axios.get(`${API_BASE_URL}/stop-predictions/${id}?agency=${agency}`, {
         timeout: API_TIMEOUT
       });
-      console.log("[TransitInfo] API Response:", res.data);
+  
       return res.data || { inbound: [], outbound: [] };
-    } catch (e) {
-      console.error("[TransitInfo] Schedule fetch error:", e);
+    } catch (err) {
+      console.error(`[fetchSchedule] Error for stop=${id}, agency=${agency}:`, err);
       throw new Error('Failed to load stop schedule. Please try again.');
     }
   }, []);
+  
 
   const handleStopClick = useCallback(async (stop) => {
     const stopId = normalizeId(stop);
