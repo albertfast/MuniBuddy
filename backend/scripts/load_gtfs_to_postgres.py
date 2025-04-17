@@ -1,6 +1,14 @@
 import os
+import sys
 import pandas as pd
 from sqlalchemy.exc import SQLAlchemyError
+
+# --- Setup path to access `app` module ---
+# Change working directory to backend root
+os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.getcwd())
+
+# --- Now import settings and engine ---
 from app.config import settings
 from app.db.database import engine
 
