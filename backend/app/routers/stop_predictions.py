@@ -4,17 +4,31 @@ from app.services.realtime_service import fetch_real_time_stop_data
 
 router = APIRouter()
 
+def normalize_agency(agency_raw: str) -> str:
+    agency_raw = agency_raw.lower()
+    if agency_raw in ["sf", "sfmta", "muni"]:
+        return "muni"
+    elif agency_raw in ["ba", "bart"]:
+        return "bart"
+    return agency_raw
+
 @router.get("/stop-predictions/{stop_id}")
 async def get_stop_predictions(
     stop_id: str,
     lat: float = Query(None),
     lon: float = Query(None),
-    agency: str = Query("muni")
+    agency: str = Query("muni"),
+    detailed: bool = Query(False)
 ):
     try:
-        agency = agency.lower()
-        if agency in ["bart", "ba"]:
+        agency = normalize_agency(agency)
+
+        if agency == "bart":
+            if detailed:
+                return await bart_service.get_bart_stop_details(stop_id)
             return await bart_service.get_real_time_arrivals(stop_id, lat, lon)
+
+        # Muni
         return await fetch_real_time_stop_data(stop_id, agency=agency)
 
     except Exception as e:

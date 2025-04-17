@@ -39,6 +39,9 @@ class BartService:
         log_debug(f"[BART] Requesting raw 511 data for stop_code={stop_code}")
         return await self.realtime.get_bart_511_raw_data(stop_code)
 
+    async def get_bart_stop_details(self, stop_id: str) -> Dict[str, Any]:
+        return await self.realtime.get_bart_stop_details(stop_id)
+
     def get_route_stops(self, route_id: str, direction_id: int = 0) -> List[Dict[str, Any]]:
         try:
             gtfs_data = settings.get_gtfs_data(self.agency)
