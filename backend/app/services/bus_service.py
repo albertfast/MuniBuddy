@@ -1,5 +1,5 @@
 from app.services.realtime_service import fetch_real_time_stop_data
-from app.core.singleton import bus_service, schedule_service
+from app.services.schedule_service import SchedulerService
 from app.services.stop_helper import load_stops, find_nearby_stops
 from app.services.debug_logger import log_debug
 from app.config import settings

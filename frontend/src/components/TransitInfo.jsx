@@ -1,4 +1,4 @@
-// src/components/TransitInfo.jsx - hybrid optimized version
+// src/components/TransitInfo.jsx - hybrid optimized with agency support
 import React, { useState, useCallback, useMemo } from 'react';
 import {
   Card, CardContent, Typography, ListItemButton, Box, Collapse, CircularProgress,
@@ -17,20 +17,19 @@ const API_TIMEOUT = 50000;
 const API_BASE_URL = import.meta.env.VITE_API_BASE ?? 'https://munibuddy.live/api/v1';
 
 const normalizeId = (stop) => stop?.gtfs_stop_id || stop?.stop_code || stop?.stop_id;
+const getAgency = (stop) => (stop?.agency || "muni").toLowerCase();
 
 const formatTime = (isoTime) => {
   if (!isoTime || isoTime === "Unknown") return "Unknown";
-  // If already formatted (e.g., "hh:mm AM/PM"), return directly
   if (/\d{1,2}:\d{2}\s[AP]M/i.test(isoTime)) return isoTime;
 
   try {
     const date = new Date(isoTime);
-    // Check if the date object is valid
     return isNaN(date.getTime())
-      ? isoTime // Return original if invalid
+      ? isoTime
       : date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
   } catch {
-    return isoTime; // Return original on any unexpected error
+    return isoTime;
   }
 };
 
@@ -57,9 +56,11 @@ const TransitInfo = ({ stops }) => {
     SCHEDULE_CACHE[id] = { data, timestamp: Date.now() };
   }, []);
 
-  const fetchSchedule = useCallback(async (id) => {
+  const fetchSchedule = useCallback(async (id, agency = "muni") => {
     try {
-      const res = await axios.get(`${API_BASE_URL}/stop-predictions/${id}`, { timeout: API_TIMEOUT });
+      const res = await axios.get(`${API_BASE_URL}/stop-predictions/${id}?agency=${agency}`, {
+        timeout: API_TIMEOUT
+      });
       return res.data || { inbound: [], outbound: [] };
     } catch {
       throw new Error('Failed to load stop schedule. Please try again.');
@@ -68,6 +69,7 @@ const TransitInfo = ({ stops }) => {
 
   const handleStopClick = useCallback(async (stop) => {
     const stopId = normalizeId(stop);
+    const agency = getAgency(stop);
     if (!stopId) return;
 
     if (stopId === selectedStopId) {
@@ -89,7 +91,7 @@ const TransitInfo = ({ stops }) => {
     }
 
     try {
-      const schedule = await fetchSchedule(stopId);
+      const schedule = await fetchSchedule(stopId, agency);
       setCachedSchedule(stopId, schedule);
       setStopSchedule(schedule);
     } catch (err) {
@@ -102,10 +104,11 @@ const TransitInfo = ({ stops }) => {
 
   const handleRefresh = async () => {
     if (!selectedStopId) return;
+    const agency = getAgency(stopsArray.find(s => normalizeId(s) === selectedStopId));
     setLoading(true);
     setError(null);
     try {
-      const schedule = await fetchSchedule(selectedStopId);
+      const schedule = await fetchSchedule(selectedStopId, agency);
       setCachedSchedule(selectedStopId, schedule);
       setStopSchedule(schedule);
     } catch (err) {
