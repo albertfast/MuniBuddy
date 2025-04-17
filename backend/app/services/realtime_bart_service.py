@@ -3,14 +3,16 @@ from datetime import datetime, timezone
 from app.services.stop_helper import load_stops
 from app.services.debug_logger import log_debug
 from app.integrations.siri_api import fetch_siri_data
-
+from app.config import settings
+from app.services.schedule_service import SchedulerService
 
 class RealtimeBartService:
     def __init__(self):
-        self.agency = "bart"
+        self.agency = settings.normalize_agency("bart")
 
     async def fetch_real_time_stop_data(self, stop_code: str, raw: bool = False) -> Dict[str, Any]:
         try:
+            # First try fetching from SIRI API
             siri_data = await fetch_siri_data(stop_code, agency=self.agency)
             if raw:
                 return siri_data
@@ -57,14 +59,11 @@ class RealtimeBartService:
             return parsed
 
         except Exception as e:
-            log_debug(f"[BART:fetch_real_time_stop_data] Error: {e}")
+            log_debug(f"[BART:fetch_real_time_stop_data] Fallback triggered for stop_code={stop_code}: {e}")
             return {"inbound": [], "outbound": []}
 
     async def get_bart_stop_details(self, stop_id: str) -> Dict[str, Any]:
-        """
-        Gathers detailed BART stop information including real-time, platforms, directions, routes.
-        """
-        stops = load_stops(self.agency)
+        stops = load_stops("bart")
         stop = next(
             (s for s in stops if s["stop_id"] == stop_id or s.get("stop_code") == stop_id or s.get("stop_name") == stop_id),
             None
@@ -73,6 +72,7 @@ class RealtimeBartService:
         if not stop:
             return {"error": f"BART stop not found: {stop_id}"}
 
+        stop_code = stop.get("stop_code") or stop.get("stop_id")
         details = {
             "stop_id": stop["stop_id"],
             "stop_name": stop.get("stop_name"),
@@ -90,19 +90,23 @@ class RealtimeBartService:
         }
 
         try:
-            realtime = await self.fetch_real_time_stop_data(stop.get("stop_code") or stop["stop_id"])
-            details["realtime"] = realtime
+            realtime = await self.fetch_real_time_stop_data(stop_code)
+            if not realtime.get("inbound") and not realtime.get("outbound"):
+                log_debug(f"[BART DETAIL] Realtime empty for {stop_code}, falling back to schedule")
+                fallback = SchedulerService().get_schedule(stop_code, agency="bart")
+                details["realtime"] = fallback
+            else:
+                details["realtime"] = realtime
 
             all_routes = set()
             all_directions = set()
             all_lines = set()
 
             for direction_key in ["inbound", "outbound"]:
-                for entry in realtime.get(direction_key, []):
+                for entry in details["realtime"].get(direction_key, []):
                     route = entry.get("route_number", "Unknown")
                     destination = entry.get("destination", "Unknown")
                     line = route.replace(" Line", "").strip()
-
                     all_routes.add(route)
                     all_directions.add(destination)
                     if line:
@@ -113,7 +117,7 @@ class RealtimeBartService:
             details["lines"] = sorted(all_lines)
 
         except Exception as e:
-            log_debug(f"[BART DETAIL] Failed to enrich {stop_id} with real-time data: {e}")
+            log_debug(f"[BART DETAIL] Fallback error for {stop_id}: {e}")
             details["realtime"] = {"error": str(e)}
 
         return details

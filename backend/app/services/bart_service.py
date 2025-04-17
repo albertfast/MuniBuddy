@@ -19,7 +19,7 @@ class BartService:
         enriched = []
 
         for stop in nearby:
-            arrivals = await self.realtime.fetch_if_bart_stop_nearby(stop["stop_code"], lat, lon, radius)
+            arrivals = await self.realtime.fetch_real_time_stop_data(stop["stop_code"], lat, lon, radius)
             stop["arrivals"] = arrivals
             stop["agency"] = self.agency
             enriched.append(stop)
@@ -35,9 +35,9 @@ class BartService:
         log_debug(f"[BART] Getting real-time arrivals for stop_code: {stop_code}")
         try:
             if lat is not None and lon is not None:
-                realtime = await self.realtime.fetch_if_bart_stop_nearby(stop_code, lat, lon, radius)
+                realtime = await self.realtime.fetch_real_time_stop_data(stop_code, lat, lon, radius)
             else:
-                realtime = await self.realtime.fetch_if_bart_stop_nearby(stop_code, 0, 0, 0)
+                realtime = await self.realtime.fetch_real_time_stop_data(stop_code, 0, 0, 0)
 
             if not realtime.get("inbound") and not realtime.get("outbound"):
                 log_debug(f"[BART] No realtime data for {stop_code}, using GTFS fallback")
