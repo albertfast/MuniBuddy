@@ -1,12 +1,13 @@
 import os
 import sys
-from sqlalchemy import create_engine, inspect
-from app.config import settings
-from datetime import datetime
 
 # Setup backend path
 os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.getcwd())
+
+from sqlalchemy import create_engine, inspect
+from app.config import settings
+from datetime import datetime
 
 # Initialize
 engine = create_engine(settings.SQLALCHEMY_DATABASE_URI)
