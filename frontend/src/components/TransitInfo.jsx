@@ -139,25 +139,25 @@ const TransitInfo = ({ stops }) => {
 
   const renderRoute = useCallback((route) => {
     const routeName = route.route_number || route.route || "Route ?";
-    const arrival = route.arrival_time || route.expected || route.aimed;
-    const displayStatus = route.status || (route.minutes_until !== undefined ? `${route.minutes_until} min` : null);
-
+    const arrivalTime = route.arrival_time || route.expected || route.aimed;
+    const destination = route.destination || route.DestinationName || route.DestinationDisplay || 'Unknown';
+    const status = route.status || (route.minutes_until !== undefined ? `${route.minutes_until} min` : null);
+  
     return (
       <Box className="transit-info-panel" sx={{ borderLeft: '3px solid', borderColor: 'primary.light', pl: 1.5, py: 0.5, mb: 1 }}>
         <Stack direction="row" justifyContent="space-between">
           <Typography variant="body2" fontWeight={500} color="primary.main">
-            {routeName} → {route.destination || 'Unknown'}
+            {routeName} → {destination}
           </Typography>
-          {displayStatus && <Chip size="small" label={displayStatus} color={getStatusColor(route.status)} />}
+          {status && <Chip size="small" label={status} color={getStatusColor(status)} />}
         </Stack>
         <Typography variant="body2" color="text.secondary" mt={0.5}>
-          Arrival: <b>{formatTime(arrival)}</b>
+          Arrival: <b>{formatTime(arrivalTime)}</b>
           {route.stops_away && ` • ${route.stops_away} stops away`}
         </Typography>
       </Box>
     );
   }, []);
-
   return (
     <Card elevation={2} sx={{ mt: 2 }}>
       <CardContent>
