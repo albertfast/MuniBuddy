@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Query
 from app.core.singleton import bus_service, scheduler_service, bart_service
 from app.services.realtime_service import fetch_real_time_stop_data
 from app.services.debug_logger import log_debug
+from app.integrations.siri_api import fetch_siri_data
 
 router = APIRouter()
 
@@ -43,3 +44,43 @@ async def get_stop_predictions(
     except Exception as e:
         log_debug(f"[STOP PREDICTIONS] Error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Real-time prediction failed: {str(e)}")
+
+from fastapi.responses import JSONResponse
+from fastapi import APIRouter, HTTPException
+from app.core.singleton import bart_service
+from app.services.debug_logger import log_debug
+
+router = APIRouter()
+
+@router.get("/debug/bart-raw/{stop_code}")
+async def debug_bart_raw(stop_code: str):
+    """
+    Debug endpoint to fetch raw BART data from 511 SIRI API.
+    Useful for verifying agency communication and stop code resolution.
+    """
+    try:
+        raw = await bart_service.get_bart_511_raw_data(stop_code)
+
+        if not raw or "ServiceDelivery" not in raw:
+            log_debug(f"[DEBUG BART RAW] Empty or invalid response for stop: {stop_code}")
+            return JSONResponse(
+                status_code=204,
+                content={"message": f"No content received for stop code: {stop_code}"}
+            )
+
+        return JSONResponse(
+            status_code=200,
+            content={
+                "stop_code": stop_code,
+                "received_at": datetime.utcnow().isoformat(),
+                "summary": {
+                    "inbound_count": len(raw.get("ServiceDelivery", {}).get("StopMonitoringDelivery", {}).get("MonitoredStopVisit", [])),
+                },
+                "raw": raw
+            }
+        )
+
+    except Exception as e:
+        log_debug(f"[DEBUG BART RAW] ❌ Failed to fetch raw data: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch BART raw data: {str(e)}")
+

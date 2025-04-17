@@ -1,21 +1,17 @@
 from typing import Dict, Any
+from datetime import datetime, timezone
 from app.services.stop_helper import load_stops
 from app.services.debug_logger import log_debug
-from app.config import settings
-from datetime import datetime, timezone
 from app.integrations.siri_api import fetch_siri_data
 
-raw_data = await fetch_siri_data("POWL", agency="bart")
-print(raw_data)
 
 class RealtimeBartService:
     def __init__(self):
         self.agency = "bart"
 
-    @staticmethod
-    async def fetch_real_time_stop_data(stop_code: str, agency: str = "muni", raw: bool = False) -> Dict[str, Any]:
+    async def fetch_real_time_stop_data(self, stop_code: str, raw: bool = False) -> Dict[str, Any]:
         try:
-            siri_data = await fetch_siri_data(stop_code, agency=agency)
+            siri_data = await fetch_siri_data(stop_code, agency=self.agency)
             if raw:
                 return siri_data
 
@@ -57,17 +53,14 @@ class RealtimeBartService:
             return parsed
 
         except Exception as e:
-            log_debug(f"[511 API] Error parsing real-time stop data: {e}")
+            log_debug(f"[BART:fetch_real_time_stop_data] Error: {e}")
             return {"inbound": [], "outbound": []}
-
-    async def fetch_stop_details(self, stop_id: str) -> Dict[str, Any]:
-        return await self.get_bart_stop_details(stop_id)
 
     async def get_bart_stop_details(self, stop_id: str) -> Dict[str, Any]:
         """
-        Gathers detailed BART stop information including platforms, routes, directions, real-time arrivals, and station metadata.
+        Gathers detailed BART stop information including real-time, platforms, directions, routes.
         """
-        stops = load_stops("bart")
+        stops = load_stops(self.agency)
         stop = next(
             (s for s in stops if s["stop_id"] == stop_id or s.get("stop_code") == stop_id or s.get("stop_name") == stop_id),
             None
@@ -93,7 +86,7 @@ class RealtimeBartService:
         }
 
         try:
-            realtime = await self.fetch_real_time_stop_data(stop.get("stop_code") or stop["stop_id"], agency="bart")
+            realtime = await self.fetch_real_time_stop_data(stop.get("stop_code") or stop["stop_id"])
             details["realtime"] = realtime
 
             all_routes = set()
@@ -120,3 +113,6 @@ class RealtimeBartService:
             details["realtime"] = {"error": str(e)}
 
         return details
+
+    async def get_bart_511_raw_data(self, stop_code: str) -> Dict[str, Any]:
+        return await fetch_siri_data(stop_code, agency=self.agency)
