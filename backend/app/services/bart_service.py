@@ -1,7 +1,7 @@
 from typing import List, Dict, Any
 from app.config import settings
 from app.services.stop_helper import load_stops, find_nearby_stops
-from app.core.singleton import schedule_service
+from app.services.schedule_service import SchedulerService
 from app.services.realtime_bart_service import RealtimeBartService
 from app.services.debug_logger import log_debug
 from app.services.realtime_service import fetch_real_time_stop_data
