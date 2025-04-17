@@ -1,4 +1,4 @@
-// src/components/TransitInfo.jsx
+// src/components/TransitInfo.jsx - with debug, BART-safe
 import React, { useState, useCallback, useMemo } from 'react';
 import {
   Card, CardContent, Typography, ListItemButton, Box, Collapse, CircularProgress,
@@ -16,7 +16,7 @@ const CACHE_TTL = 5 * 60 * 1000;
 const API_TIMEOUT = 50000;
 const API_BASE_URL = import.meta.env.VITE_API_BASE ?? 'https://munibuddy.live/api/v1';
 
-const normalizeId = (stop) => stop?.gtfs_stop_id || stop?.stop_code || stop?.stop_id;
+const normalizeId = (stop) => stop?.gtfs_stop_id || stop?.stop_code || stop?.stop_id || stop?.stopId;
 const getAgency = (stop) => (stop?.agency || "muni").toLowerCase();
 
 const formatTime = (isoTime) => {
@@ -56,12 +56,15 @@ const TransitInfo = ({ stops }) => {
   }, []);
 
   const fetchSchedule = useCallback(async (id, agency = "muni") => {
+    console.log("[TransitInfo] Fetching schedule:", { id, agency });
     try {
       const res = await axios.get(`${API_BASE_URL}/stop-predictions/${id}?agency=${agency}`, {
         timeout: API_TIMEOUT
       });
+      console.log("[TransitInfo] API Response:", res.data);
       return res.data || { inbound: [], outbound: [] };
-    } catch {
+    } catch (e) {
+      console.error("[TransitInfo] Schedule fetch error:", e);
       throw new Error('Failed to load stop schedule. Please try again.');
     }
   }, []);
@@ -121,9 +124,7 @@ const TransitInfo = ({ stops }) => {
     <>
       <Stack direction="row" alignItems="center" spacing={1} mb={0.5}>
         <LocationOnIcon color="primary" fontSize="small" />
-        <Typography variant="body1" fontWeight={500} noWrap>
-          {stop.stop_name || 'Unknown'}
-        </Typography>
+        <Typography variant="body1" fontWeight={500} noWrap>{stop.stop_name || 'Unknown'}</Typography>
       </Stack>
       <Stack direction="row" justifyContent="space-between" alignItems="center">
         <Box display="flex" alignItems="center">
@@ -139,25 +140,27 @@ const TransitInfo = ({ stops }) => {
 
   const renderRoute = useCallback((route) => {
     const routeName = route.route_number || route.route || "Route ?";
-    const arrivalTime = route.arrival_time || route.expected || route.aimed;
-    const destination = route.destination || route.DestinationName || route.DestinationDisplay || 'Unknown';
-    const status = route.status || (route.minutes_until !== undefined ? `${route.minutes_until} min` : null);
-  
+    const arrival = route.arrival_time || route.expected || route.aimed;
+    const displayStatus = route.status || (route.minutes_until !== undefined ? `${route.minutes_until} min` : null);
+
+    console.log("[TransitInfo] Parsed route:", routeName, "→", route.destination, "at", arrival);
+
     return (
       <Box className="transit-info-panel" sx={{ borderLeft: '3px solid', borderColor: 'primary.light', pl: 1.5, py: 0.5, mb: 1 }}>
         <Stack direction="row" justifyContent="space-between">
           <Typography variant="body2" fontWeight={500} color="primary.main">
-            {routeName} → {destination}
+            {routeName} → {route.destination || 'Unknown'}
           </Typography>
-          {status && <Chip size="small" label={status} color={getStatusColor(status)} />}
+          {displayStatus && <Chip size="small" label={displayStatus} color={getStatusColor(displayStatus)} />}
         </Stack>
         <Typography variant="body2" color="text.secondary" mt={0.5}>
-          Arrival: <b>{formatTime(arrivalTime)}</b>
+          Arrival: <b>{formatTime(arrival)}</b>
           {route.stops_away && ` • ${route.stops_away} stops away`}
         </Typography>
       </Box>
     );
   }, []);
+
   return (
     <Card elevation={2} sx={{ mt: 2 }}>
       <CardContent>
