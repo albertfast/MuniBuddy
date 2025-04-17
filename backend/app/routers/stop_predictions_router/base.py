@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Query
 from app.config import settings
-from app.routers.stop_predictions import muni, bart
+from app.routers.stop_predictions_router import muni, bart
 from app.services.gtfs_service import GTFSService
 from app.services.debug_logger import log_debug
 
