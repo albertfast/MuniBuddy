@@ -29,6 +29,7 @@ async def get_stop_predictions(
     """
     Fetches real-time arrival predictions for the given stop.
     Automatically supports both MUNI and BART, with optional detailed output for BART.
+    Includes fallback to scheduled data if no real-time results are available.
     """
     try:
         agency = normalize_agency(agency)
@@ -36,68 +37,31 @@ async def get_stop_predictions(
         if agency == "bart":
             if detailed:
                 return await bart_service.get_bart_stop_details(stop_id)
-            return await bart_service.get_real_time_arrivals(stop_id, lat, lon)
+            realtime = await bart_service.get_real_time_arrivals(stop_id, lat, lon)
+            if not realtime.get("inbound") and not realtime.get("outbound"):
+                fallback = schedule_service.get_schedule(stop_id, agency="bart")
+                return {
+                    "inbound": fallback.get("inbound", []),
+                    "outbound": fallback.get("outbound", [])
+                }
+            return {
+                "inbound": realtime.get("inbound", []),
+                "outbound": realtime.get("outbound", [])
+            }
 
         # Default: MUNI
-        return await fetch_real_time_stop_data(stop_id, agency=agency)
+        realtime = await fetch_real_time_stop_data(stop_id, agency=agency)
+        if not realtime.get("inbound") and not realtime.get("outbound"):
+            fallback = schedule_service.get_schedule(stop_id, agency=agency)
+            return {
+                "inbound": fallback.get("inbound", []),
+                "outbound": fallback.get("outbound", [])
+            }
+        return {
+            "inbound": realtime.get("inbound", []),
+            "outbound": realtime.get("outbound", [])
+        }
 
     except Exception as e:
         log_debug(f"[STOP PREDICTIONS] Error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Real-time prediction failed: {str(e)}")
-
-from fastapi.responses import JSONResponse
-from fastapi import APIRouter, HTTPException
-from app.core.singleton import bart_service
-from app.services.debug_logger import log_debug
-
-router = APIRouter()
-
-@router.get("/debug/bart-raw/{stop_code}")
-async def debug_bart_raw(stop_code: str):
-    """
-    Debug endpoint to fetch raw BART data from 511 SIRI API.
-    Useful for verifying agency communication and stop code resolution.
-    """
-    try:
-        raw = await bart_service.get_bart_511_raw_data(stop_code)
-
-        if not raw or "ServiceDelivery" not in raw:
-            log_debug(f"[DEBUG BART RAW] Empty or invalid response for stop: {stop_code}")
-            return JSONResponse(
-                status_code=204,
-                content={"message": f"No content received for stop code: {stop_code}"}
-            )
-
-        return JSONResponse(
-            status_code=200,
-            content={
-                "stop_code": stop_code,
-                "received_at": datetime.utcnow().isoformat(),
-                "summary": {
-                    "inbound_count": len(raw.get("ServiceDelivery", {}).get("StopMonitoringDelivery", {}).get("MonitoredStopVisit", [])),
-                },
-                "raw": raw
-            }
-        )
-
-    except Exception as e:
-        log_debug(f"[DEBUG BART RAW] ❌ Failed to fetch raw data: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to fetch BART raw data: {str(e)}")
-
-try:
-    agency = normalize_agency(agency)
-
-    if agency == "bart":
-        if detailed:
-            return await bart_service.get_bart_stop_details(stop_id)
-        return await bart_service.get_real_time_arrivals(stop_id, lat, lon)
-
-    # Default: MUNI
-    realtime = await fetch_real_time_stop_data(stop_id, agency=agency)
-    
-    # Eğer hem inbound hem outbound boşsa → GTFS fallback
-    if not realtime.get("inbound") and not realtime.get("outbound"):
-        schedule = scheduler_service.get_schedule(stop_id)
-        return schedule
-
-    return realtime

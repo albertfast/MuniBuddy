@@ -1,6 +1,7 @@
 from typing import List, Dict, Any
 from app.config import settings
 from app.services.stop_helper import load_stops, find_nearby_stops
+from app.core.singleton import schedule_service
 from app.services.realtime_bart_service import RealtimeBartService
 from app.services.debug_logger import log_debug
 from app.services.realtime_service import fetch_real_time_stop_data
@@ -33,9 +34,23 @@ class BartService:
 
     async def get_real_time_arrivals(self, stop_code: str, lat: float = None, lon: float = None, radius: float = 0.15) -> Dict[str, Any]:
         log_debug(f"[BART] Getting real-time arrivals for stop_code: {stop_code}")
-        if lat is not None and lon is not None:
-            return await self.realtime.fetch_if_bart_stop_nearby(stop_code, lat, lon, radius)
-        return await self.realtime.fetch_if_bart_stop_nearby(stop_code, 0, 0, 0)
+
+        try:
+            if lat is not None and lon is not None:
+                realtime = await self.realtime.fetch_if_bart_stop_nearby(stop_code, lat, lon, radius)
+            else:
+                realtime = await self.realtime.fetch_if_bart_stop_nearby(stop_code, 0, 0, 0)
+
+            # Fallback to static schedule if no realtime
+            if not realtime.get("inbound") and not realtime.get("outbound"):
+                log_debug(f"[BART] No realtime data for {stop_code}, using GTFS fallback")
+                return schedule_service.get_schedule(stop_code, agency="bart")
+
+            return realtime
+
+        except Exception as e:
+            log_debug(f"[BART] Error fetching arrivals: {e}")
+            return {"inbound": [], "outbound": []}
 
     async def get_bart_511_raw_data(self, stop_code: str) -> Dict[str, Any]:
         log_debug(f"[BART] Requesting raw 511 data for stop_code={stop_code}")

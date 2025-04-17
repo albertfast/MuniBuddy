@@ -6,9 +6,11 @@ from app.config import settings
 from app.services.debug_logger import log_debug
 
 class SchedulerService:
-    def get_schedule(self, stop_id: str) -> Dict[str, Any]:
-        log_debug(f"Looking up static schedule for stop: {stop_id}")
-        gtfs_data = settings.get_gtfs_data("muni")
+    def get_schedule(self, stop_id: str, agency: str = "muni") -> Dict[str, Any]:
+        agency = self._normalize_agency(agency)
+        log_debug(f"[SchedulerService] Looking up static schedule for stop: {stop_id}, agency: {agency}")
+
+        gtfs_data = settings.get_gtfs_data(agency)
 
         try:
             now = datetime.now()
@@ -86,5 +88,13 @@ class SchedulerService:
             return {"inbound": inbound[:2], "outbound": outbound[:2]}
 
         except Exception as e:
-            log_debug(f"Static schedule error for stop {stop_id}: {e}")
+            log_debug(f"Static schedule error for stop {stop_id}, agency {agency}: {e}")
             return {"inbound": [], "outbound": []}
+
+    def _normalize_agency(self, agency: str) -> str:
+        agency = agency.lower()
+        if agency in ["sf", "sfmta", "muni"]:
+            return "muni"
+        elif agency in ["ba", "bart"]:
+            return "bart"
+        return agency

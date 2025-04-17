@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
 # Core singleton services
-from app.core.singleton import bus_service, scheduler_service, bart_service
+from app.core.singleton import bus_service, schedule_service, bart_service
 from app.db.database import init_db
 
 # Routers
@@ -60,6 +60,6 @@ async def startup_event():
 
     # Ensure singletons are triggered
     _ = bus_service
-    _ = scheduler_service
+    _ = schedule_service
     _ = bart_service
     print("✅ Services initialized: Bus, Scheduler, BART")
