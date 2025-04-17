@@ -2,12 +2,10 @@ from typing import Optional, List
 import pandas as pd
 from sqlalchemy import text
 from app.db.database import engine
-from app.config import settings
-
 
 class GTFSService:
     def __init__(self, agency: str = "muni"):
-        self.agency = settings.normalize_agency(agency)
+        self.agency = agency.strip().lower()
         self.prefix = f"{self.agency}_"
 
     def _query(self, table: str, where: Optional[str] = None, params: Optional[dict] = None) -> pd.DataFrame:
