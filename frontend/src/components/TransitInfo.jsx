@@ -1,16 +1,15 @@
-
 import React, { useState, useCallback, useMemo } from 'react';
 import {
-  Card, CardContent, Typography, List, ListItem, ListItemText, ListItemButton,
+  Card, CardContent, Typography, List, ListItem, ListItemText,
   Divider, Box, Collapse, CircularProgress, Stack, Chip, IconButton,
   Button, Alert
 } from '@mui/material';
 import DirectionsBusIcon from '@mui/icons-material/DirectionsBus';
+import TrainIcon from '@mui/icons-material/Train';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import RefreshIcon from '@mui/icons-material/Refresh';
-import TrainIcon from '@mui/icons-material/Train';
 import axios from 'axios';
 
 const SCHEDULE_CACHE = {};
@@ -22,11 +21,6 @@ const normalizeId = (stop) => stop?.gtfs_stop_id || stop?.stop_code || stop?.sto
 
 const formatTime = (isoTime) => {
   if (!isoTime || isoTime === "Unknown") return "Unknown";
-  if (/\d{1,2}:\d{2}\s[AP]M/i.test(isoTime)) {
-    const [time, period] = isoTime.split(' ');
-    const [hours, minutes] = time.split(':');
-    return `${hours.padStart(2, '0')}:${minutes} ${period}`;
-  }
   try {
     const date = new Date(isoTime);
     return isNaN(date.getTime())
@@ -133,7 +127,28 @@ const TransitInfo = ({ stops }) => {
     }
   }, [selectedStopId, setCachedSchedule]);
 
-  const renderStopInfo = useCallback((stop) => (
+  const renderRouteInfo = (route) => (
+    <Box sx={{ borderLeft: '3px solid', borderColor: 'primary.light', pl: 1.5, py: 0.5, mb: 1 }}>
+      <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
+        <Typography variant="body2" fontWeight="medium" color="primary.main">
+          {renderIcon(route.route_number)} {route.route_number || 'Route ?'} → {route.destination || 'Unknown'}
+        </Typography>
+        {route.status && (
+          <Chip size="small" label={route.status} color={getStatusColor(route.status)} />
+        )}
+      </Stack>
+      <Typography variant="body2" color="text.secondary">
+        Arrival: <b>{formatTime(route.arrival_time)}</b>
+      </Typography>
+      {route.vehicle?.lat && route.vehicle?.lon && (
+        <Typography variant="caption" color="text.secondary">
+          Vehicle Location: ({route.vehicle.lat}, {route.vehicle.lon})
+        </Typography>
+      )}
+    </Box>
+  );
+
+  const renderStopInfo = (stop) => (
     <>
       <Stack direction="row" alignItems="center" spacing={1} mb={0.5}>
         <LocationOnIcon color="primary" fontSize="small" />
@@ -153,28 +168,7 @@ const TransitInfo = ({ stops }) => {
         )}
       </Stack>
     </>
-  ), []);
-
-  const renderRouteInfo = useCallback((route) => (
-    <Box sx={{ borderLeft: '3px solid', borderColor: 'primary.light', pl: 1.5, py: 0.5, mb: 1 }}>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
-        <Typography variant="body2" fontWeight="medium" color="primary.main">
-          {renderIcon(route.route_number)} {route.route_number || 'Route ?'} → <Box component="span">{route.destination || 'Unknown Destination'}</Box>
-        </Typography>
-        {route.status && (
-            <Chip size="small" label={route.status} color={getStatusColor(route.status)} />
-        )}
-      </Stack>
-      <Typography variant="body2" color="text.secondary" mt={0.5}>
-        Arrival: <b>{formatTime(route.arrival_time)}</b>
-      </Typography>
-      {route.vehicle?.lat && route.vehicle?.lon && (
-        <Typography variant="caption" color="text.secondary">
-          Vehicle Location: ({route.vehicle.lat}, {route.vehicle.lon})
-        </Typography>
-      )}
-    </Box>
-  ), []);
+  );
 
   return (
     <Card elevation={2}>
@@ -191,16 +185,23 @@ const TransitInfo = ({ stops }) => {
 
             return (
               <React.Fragment key={`${stop.stop_id}-${index}`}>
-                <ListItemButton
-                  onClick={() => handleStopClick(stop)}
-                  selected={isSelected}
-                >
+                <ListItemButton onClick={() => handleStopClick(stop)} selected={isSelected}>
                   <Box sx={{ flex: 1 }}>{renderStopInfo(stop)}</Box>
                   {isSelected ? <ExpandLessIcon /> : <ExpandMoreIcon />}
                 </ListItemButton>
 
                 <Collapse in={isSelected} timeout="auto" unmountOnExit>
                   <Box px={2} pb={2} pt={1}>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      startIcon={<RefreshIcon />}
+                      onClick={handleRefreshSchedule}
+                      sx={{ mb: 1 }}
+                    >
+                      Refresh
+                    </Button>
+
                     {loading ? (
                       <Box display="flex" justifyContent="center" py={3}>
                         <CircularProgress size={32} />
@@ -234,7 +235,7 @@ const TransitInfo = ({ stops }) => {
                         )}
                         {stopSchedule.inbound?.length === 0 && stopSchedule.outbound?.length === 0 && (
                           <Typography variant="body2" color="text.secondary">
-                            No upcoming buses found.
+                            No upcoming transit found.
                           </Typography>
                         )}
                       </>
