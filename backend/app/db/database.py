@@ -1,43 +1,48 @@
-# Add parent directory to path
 import os
-import sys
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-
+from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
-from app.config import settings
 
-# Create database engine
+# Load environment variables
+load_dotenv()
+
+# -- Require DATABASE_URL from .env --
+DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    raise RuntimeError("DATABASE_URL is not set in the .env file")
+
+# -- Optional DEBUG flag --
+DEBUG = os.getenv("DEBUG", "false").lower() == "true"
+
+# Create SQLAlchemy engine
 engine = create_engine(
-    settings.SQLALCHEMY_DATABASE_URI,
-    pool_pre_ping=True,  # Connection health check
-    echo=settings.DEBUG  # SQL logging based on debug mode
+    DATABASE_URL,
+    pool_pre_ping=True,
+    echo=DEBUG  # Enable SQL debug logging if DEBUG=true
 )
 
-# Create session factory
+# Session factory
 SessionLocal = sessionmaker(
-    autocommit=False, 
-    autoflush=False, 
+    autocommit=False,
+    autoflush=False,
     bind=engine
 )
 
-# Create declarative base for models
+# Base class for declarative models
 Base = declarative_base()
 
+# Dependency for FastAPI
 def get_db():
-    """Database session dependency."""
     db = SessionLocal()
     try:
         yield db
     finally:
         db.close()
 
-# Initialize database
+# Utility to initialize DB tables from models
 def init_db():
-    """Initialize database and create all tables."""
     Base.metadata.create_all(bind=engine)
 
-# Cleanup database
+# Cleanup engine
 def cleanup_db():
-    """Cleanup database connections."""
-    engine.dispose() 
+    engine.dispose()
