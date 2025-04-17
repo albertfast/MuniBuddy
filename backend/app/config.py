@@ -3,19 +3,16 @@ from pathlib import Path
 from dotenv import load_dotenv
 from typing import List, Optional, Dict
 from pydantic_settings import BaseSettings
-from pydantic import Field, model_validator, PrivateAttr, field_validator
-from app.services.gtfs_service import GTFSService
+from pydantic import Field, model_validator, field_validator
 
 # --- Load .env from project root ---
 ENV_PATH = Path(__file__).resolve().parent.parent / ".env"
 load_dotenv(dotenv_path=ENV_PATH)
 
 class Settings(BaseSettings):
-    # General
     PROJECT_NAME: str = "MuniBuddy"
     API_V1_STR: str = "/api/v1"
 
-    # Agencies
     AGENCY_ID: List[str] = ["muni", "bart"]
 
     @field_validator("AGENCY_ID", mode="before")
@@ -29,7 +26,6 @@ class Settings(BaseSettings):
                 return v.split(",")
         return v
 
-    # Database
     DATABASE_URL: str = Field(..., env="DATABASE_URL")
     SQLALCHEMY_DATABASE_URI: Optional[str] = None
 
@@ -40,43 +36,23 @@ class Settings(BaseSettings):
             data["SQLALCHEMY_DATABASE_URI"] = data["DATABASE_URL"]
         return data
 
-    # Redis
     REDIS_HOST: str = "localhost"
     REDIS_PORT: int = 6379
     REDIS_DB: int = 0
     REDIS_PASSWORD: Optional[str] = None
 
-    # Logging
     DEBUG: bool = False
     LOG_LEVEL: str = "INFO"
 
-    # 511 Transit API
     API_KEY: Optional[str] = None
     TRANSIT_511_BASE_URL: str = "http://api.511.org/transit"
     DEFAULT_AGENCY: str = "SF"
 
-    # GTFS paths (still included in case needed later)
     GTFS_AGENCIES: List[str] = ["muni", "bart"]
     GTFS_PATHS: Dict[str, str] = {
         "muni": "/app/gtfs_data/muni_gtfs-current",
         "bart": "/app/gtfs_data/bart_gtfs-current"
     }
-
-    # In-memory GTFSService cache
-    _gtfs_data: Dict[str, GTFSService] = PrivateAttr(default_factory=dict)
-
-    @model_validator(mode="after")
-    def load_gtfs(self) -> "Settings":
-        for agency in self.GTFS_AGENCIES:
-            try:
-                self._gtfs_data[agency] = GTFSService(agency=agency)
-            except Exception as e:
-                print(f"[GTFS ERROR] Failed to initialize GTFSService for {agency}: {e}")
-        return self
-
-    def get_gtfs_data(self, agency: str) -> Optional[GTFSService]:
-        normalized = self.normalize_agency(agency)
-        return self._gtfs_data.get(normalized)
 
     def normalize_agency(self, agency: str, to_511: bool = False) -> str:
         agency = agency.strip().lower()
@@ -94,5 +70,4 @@ class Settings(BaseSettings):
         case_sensitive = True
         extra = "allow"
 
-# Singleton settings
 settings = Settings()
