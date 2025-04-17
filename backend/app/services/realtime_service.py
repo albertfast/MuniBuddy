@@ -88,7 +88,11 @@ async def fetch_real_time_stop_data(stop_id: str, agency: str = "muni") -> Dict[
                     "arrival_time": arrival_time.strftime("%I:%M %p").lstrip("0"),
                     "status": status,
                     "minutes_until": minutes_until,
-                    "is_realtime": True
+                    "is_realtime": True,
+                    "vehicle": {
+                        "lat": journey.get("VehicleLocation", {}).get("Latitude"),
+                        "lon": journey.get("VehicleLocation", {}).get("Longitude")
+                    }
                 }
 
                 if direction == "1":
