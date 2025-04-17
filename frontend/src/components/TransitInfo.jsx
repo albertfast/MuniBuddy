@@ -84,18 +84,22 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
     }
   }, []);
 
-  const updateLiveVehicleMarkers = async (stopId) => {
+  const updateLiveVehicleMarkers = async (stopId, routes = []) => {
     try {
       const res = await axios.get(`${API_BASE_URL}/bart-positions/by-stop?stopCode=${stopId}`);
       const vehicles = res.data.arrivals.filter(v => v.lat && v.lon);
-      const markers = vehicles.map(v => ({
+      const soonVehicles = vehicles.filter(v => {
+        if (v.minutes_until !== undefined) return v.minutes_until <= 5;
+        return true;
+      });
+      const markers = soonVehicles.map(v => ({
         position: { lat: parseFloat(v.lat), lng: parseFloat(v.lon) },
         title: v.destination || v.route,
         route: v.route
       }));
       setLiveVehicleMarkers(markers);
     } catch (err) {
-      console.warn("Failed to fetch BART live markers", err);
+      console.warn("Failed to fetch live vehicle markers", err);
       setLiveVehicleMarkers([]);
     }
   };
@@ -136,10 +140,25 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
     }
 
     clearInterval(intervalId);
+
     if (agency === "bart") {
       await updateLiveVehicleMarkers(stopId);
       const id = setInterval(() => updateLiveVehicleMarkers(stopId), 30000);
       setIntervalId(id);
+    } else {
+      const schedule = getCachedSchedule(stopId);
+      if (schedule?.outbound?.some(r => r.minutes_until <= 5)) {
+        const busMarkers = schedule.outbound
+          .filter(r => r.vehicle && r.minutes_until <= 5)
+          .map(r => ({
+            position: { lat: r.vehicle.lat, lng: r.vehicle.lon },
+            title: `${r.route_number} → ${r.destination}`,
+            route: r.route_number
+          }));
+        setLiveVehicleMarkers(busMarkers);
+      } else {
+        setLiveVehicleMarkers([]);
+      }
     }
   }, [selectedStopId]);
 
