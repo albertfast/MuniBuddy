@@ -5,6 +5,8 @@ from app.config import settings
 from datetime import datetime, timezone
 from app.integrations.siri_api import fetch_siri_data
 
+raw_data = await fetch_siri_data("POWL", agency="bart")
+print(raw_data)
 
 class RealtimeBartService:
     def __init__(self):
