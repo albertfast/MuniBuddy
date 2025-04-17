@@ -1,4 +1,3 @@
-
 from typing import List, Dict, Any
 from app.config import settings
 from app.services.stop_helper import load_stops, find_nearby_stops
@@ -11,36 +10,34 @@ class BartService:
     def __init__(self):
         self.agency = settings.normalize_agency("bart")
         self.realtime = RealtimeBartService()
+        self.scheduler = SchedulerService()
+
+    def get_nearby_stops(self, lat: float, lon: float, radius: float = 0.15) -> List[Dict[str, Any]]:
+        log_debug(f"[BART] Finding nearby stops for coordinates: ({lat}, {lon}), radius: {radius}")
+        stops = load_stops(self.agency)
+        return find_nearby_stops(lat, lon, stops, radius)
 
     async def get_nearby_stops_with_arrivals(self, lat: float, lon: float, radius: float = 0.15) -> List[Dict[str, Any]]:
         log_debug(f"[BART] Getting nearby stops with real-time arrivals around ({lat}, {lon}) within {radius} miles.")
-        stops = load_stops(self.agency)
-        nearby = find_nearby_stops(lat, lon, stops, radius)
+        stops = self.get_nearby_stops(lat, lon, radius)
         enriched = []
 
-        for stop in nearby:
+        for stop in stops:
             arrivals = await self.realtime.fetch_real_time_stop_data(stop["stop_code"], lat, lon, radius)
             stop["arrivals"] = arrivals
             stop["agency"] = self.agency
             enriched.append(stop)
 
         return enriched
-        def get_nearby_stops(self, lat: float, lon: float, radius: float = 0.15) -> List[Dict[str, Any]]:
-            log_debug(f"[BART] Finding nearby stops for coordinates: ({lat}, {lon}), radius: {radius}")
-            stops = load_stops(self.agency)
-            return find_nearby_stops(lat, lon, stops, radius)
 
     async def get_real_time_arrivals(self, stop_code: str, lat: float = None, lon: float = None, radius: float = 0.15) -> Dict[str, Any]:
         log_debug(f"[BART] Getting real-time arrivals for stop_code: {stop_code}")
         try:
-            if lat is not None and lon is not None:
-                realtime = await self.realtime.fetch_real_time_stop_data(stop_code, lat, lon, radius)
-            else:
-                realtime = await self.realtime.fetch_real_time_stop_data(stop_code, 0, 0, 0)
+            realtime = await self.realtime.fetch_real_time_stop_data(stop_code, lat, lon, radius)
 
             if not realtime.get("inbound") and not realtime.get("outbound"):
                 log_debug(f"[BART] No realtime data for {stop_code}, using GTFS fallback")
-                return SchedulerService().get_schedule(stop_code, agency=self.agency)
+                return self.scheduler.get_schedule(stop_code, agency=self.agency)
 
             return realtime
 
