@@ -1,4 +1,4 @@
-// src/components/Map.jsx
+// src/components/Map.jsx - now supports live vehicle markers
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { GoogleMap, useJsApiLoader, InfoWindow } from '@react-google-maps/api';
 import { Box, CircularProgress, Typography } from '@mui/material';
@@ -7,7 +7,7 @@ const libraries = ['marker'];
 const DEFAULT_CENTER = { lat: 37.7749, lng: -122.4194 };
 const DEFAULT_ZOOM = 15;
 
-const Map = ({ center = DEFAULT_CENTER, markers = [], onMapClick, zoom = DEFAULT_ZOOM }) => {
+const Map = ({ center = DEFAULT_CENTER, markers = [], liveVehicleMarkers = [], onMapClick, zoom = DEFAULT_ZOOM }) => {
   const [selectedMarker, setSelectedMarker] = useState(null);
   const [map, setMap] = useState(null);
   const markersRef = useRef([]);
@@ -38,20 +38,15 @@ const Map = ({ center = DEFAULT_CENTER, markers = [], onMapClick, zoom = DEFAULT
     setMap(null);
   }, []);
 
-  useEffect(() => {
-    if (!map || !window.google?.maps?.marker) return;
-
-    markersRef.current.forEach(m => m.map = null);
-    markersRef.current = [];
-
-    markers.forEach(markerData => {
+  const renderMarkers = (markerList = [], defaultIcon = '/images/bus-marker-32.svg') => {
+    markerList.forEach(markerData => {
       if (!markerData?.position?.lat || !markerData?.position?.lng) return;
       const markerElement = document.createElement('div');
       markerElement.className = 'custom-map-marker';
       markerElement.style.cursor = 'pointer';
 
       const markerImage = document.createElement('img');
-      markerImage.src = markerData.icon?.url || '/images/bus-marker-32.svg';
+      markerImage.src = markerData.icon?.url || defaultIcon;
       markerImage.onerror = () => markerImage.style.display = 'none';
       markerImage.style.width = `${markerData.icon?.scaledSize?.width || 32}px`;
       markerImage.style.height = `${markerData.icon?.scaledSize?.height || 32}px`;
@@ -61,21 +56,34 @@ const Map = ({ center = DEFAULT_CENTER, markers = [], onMapClick, zoom = DEFAULT
         position: markerData.position,
         content: markerElement,
         map,
-        title: markerData.title
+        title: markerData.title || markerData.route || 'Transit'
       });
 
       advancedMarker.addListener('gmp-click', () => handleMarkerClick(markerData));
       markersRef.current.push(advancedMarker);
     });
+  };
+
+  useEffect(() => {
+    if (!map || !window.google?.maps?.marker) return;
+    markersRef.current.forEach(m => m.map = null);
+    markersRef.current = [];
+
+    renderMarkers(markers, '/images/bus-stop-icon32.svg');
+    renderMarkers(liveVehicleMarkers, '/images/bus-marker-32.svg');
 
     return () => {
       markersRef.current.forEach(m => m.map = null);
       markersRef.current = [];
     };
-  }, [map, markers, handleMarkerClick]);
+  }, [map, markers, liveVehicleMarkers, handleMarkerClick]);
 
   if (loadError) return <Box sx={{ p: 3 }}><Typography color="error">Error loading map</Typography></Box>;
-  if (!isLoaded) return <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 300 }}><CircularProgress /><Typography sx={{ ml: 2 }}>Loading Map...</Typography></Box>;
+  if (!isLoaded) return (
+    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 300 }}>
+      <CircularProgress /><Typography sx={{ ml: 2 }}>Loading Map...</Typography>
+    </Box>
+  );
 
   return (
     <Box sx={{ height: '100%', width: '100%' }}>
