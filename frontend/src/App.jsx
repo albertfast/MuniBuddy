@@ -1,4 +1,4 @@
-// Updated App.jsx with live vehicle markers and improved dark theme readability
+// src/App.jsx
 import React, { useState, useEffect } from 'react';
 import {
   Container, Box, Typography, Alert, TextField, InputAdornment,
@@ -82,7 +82,7 @@ const App = () => {
         });
       }
 
-      setMarkers([...stopMarkers, ...liveVehicleMarkers]);
+      setMarkers([...stopMarkers]);
     } catch (err) {
       setError("Failed to load nearby stops.");
       setNearbyStops({});
