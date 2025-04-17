@@ -49,7 +49,7 @@ const renderIcon = (routeNumber) => {
   return <DirectionsBusIcon color="secondary" fontSize="small" />;
 };
 
-const TransitInfo = ({ stops }) => {
+const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
   const [selectedStopId, setSelectedStopId] = useState(null);
   const [stopSchedule, setStopSchedule] = useState(null);
   const [loading, setLoading] = useState(false);
