@@ -7,7 +7,7 @@ from app.services.debug_logger import log_debug
 
 class SchedulerService:
     def get_schedule(self, stop_id: str, agency: str = "muni") -> Dict[str, Any]:
-        agency = self._normalize_agency(agency)
+        agency = settings.normalize_agency(agency)
         log_debug(f"[SchedulerService] Looking up static schedule for stop: {stop_id}, agency: {agency}")
 
         gtfs_data = settings.get_gtfs_data(agency)
