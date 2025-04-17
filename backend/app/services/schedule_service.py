@@ -52,7 +52,7 @@ class SchedulerService:
                 try:
                     h, m, s = map(int, row["arrival_time"].split(":"))
                     arrival = datetime(now.year, now.month, now.day, h % 24, m, s)
-                    if h >= 24:  # 25:30:00 gibi zamanlar için
+                    if h >= 24:
                         arrival += timedelta(days=1)
 
                     if arrival >= now and arrival - now < timedelta(hours=2):
