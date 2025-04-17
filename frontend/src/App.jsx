@@ -1,4 +1,4 @@
-// src/App.jsx
+// src/components/App.jsx
 import React, { useState, useEffect } from 'react';
 import {
   Container, Box, Typography, Alert, TextField, InputAdornment,
@@ -82,7 +82,7 @@ const App = () => {
         });
       }
 
-      setMarkers([...stopMarkers]);
+      setMarkers([...stopMarkers, ...liveVehicleMarkers]);
     } catch (err) {
       setError("Failed to load nearby stops.");
       setNearbyStops({});
@@ -131,7 +131,6 @@ const App = () => {
           <button onClick={toggleTheme}>
             {theme === 'light' ? 'Switch to Dark Theme' : 'Switch to Light Theme'}
           </button>
-          <p>Hello, this is a themed app!</p>
         </div>
       </Box>
 
@@ -172,7 +171,8 @@ const App = () => {
           <Box className="map-container" sx={{ position: 'relative', height: '450px', mb: { xs: 3, md: 0 } }}>
             <Map
               center={userLocation || { lat: 37.7749, lng: -122.4194 }}
-              markers={[...markers, ...liveVehicleMarkers]}
+              markers={markers}
+              liveVehicleMarkers={liveVehicleMarkers}
               onMapClick={(e) => {
                 const location = { lat: e.latLng.lat(), lng: e.latLng.lng() };
                 setUserLocation(location);
