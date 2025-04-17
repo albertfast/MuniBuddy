@@ -1,5 +1,5 @@
-// src/components/TransitInfo.jsx - with debug, BART-safe
-import React, { useState, useCallback, useMemo } from 'react';
+// src/components/TransitInfo.jsx
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import {
   Card, CardContent, Typography, ListItemButton, Box, Collapse, CircularProgress,
   Stack, Chip, Button, Alert, Fade
@@ -39,11 +39,12 @@ const getStatusColor = (status = '') => {
   return 'success';
 };
 
-const TransitInfo = ({ stops }) => {
+const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
   const [selectedStopId, setSelectedStopId] = useState(null);
   const [stopSchedule, setStopSchedule] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [intervalId, setIntervalId] = useState(null);
   const stopsArray = useMemo(() => Array.isArray(stops) ? stops : Object.values(stops), [stops]);
 
   const getCachedSchedule = useCallback((id) => {
@@ -62,32 +63,42 @@ const TransitInfo = ({ stops }) => {
           params: { stopCode: id, agency },
           timeout: API_TIMEOUT
         });
-  
-        if (!res.data || !res.data.arrivals) return { inbound: [], outbound: [] };
-  
         const outbound = res.data.arrivals.map(arrival => ({
           route_number: arrival.route,
           destination: arrival.destination,
           arrival_time: arrival.expected || arrival.aimed,
           status: arrival.expected ? 'Live' : 'Scheduled',
-          is_realtime: true
+          lat: arrival.lat,
+          lon: arrival.lon
         }));
-  
         return { inbound: [], outbound };
+      } else {
+        const res = await axios.get(`${API_BASE_URL}/stop-predictions/${id}?agency=${agency}`, {
+          timeout: API_TIMEOUT
+        });
+        return res.data || { inbound: [], outbound: [] };
       }
-  
-      // Default Muni fallback
-      const res = await axios.get(`${API_BASE_URL}/stop-predictions/${id}?agency=${agency}`, {
-        timeout: API_TIMEOUT
-      });
-  
-      return res.data || { inbound: [], outbound: [] };
     } catch (err) {
       console.error(`[fetchSchedule] Error for stop=${id}, agency=${agency}:`, err);
       throw new Error('Failed to load stop schedule. Please try again.');
     }
   }, []);
-  
+
+  const updateLiveVehicleMarkers = async (stopId) => {
+    try {
+      const res = await axios.get(`${API_BASE_URL}/bart-positions/by-stop?stopCode=${stopId}`);
+      const vehicles = res.data.arrivals.filter(v => v.lat && v.lon);
+      const markers = vehicles.map(v => ({
+        position: { lat: parseFloat(v.lat), lng: parseFloat(v.lon) },
+        title: v.destination || v.route,
+        route: v.route
+      }));
+      setLiveVehicleMarkers(markers);
+    } catch (err) {
+      console.warn("Failed to fetch BART live markers", err);
+      setLiveVehicleMarkers([]);
+    }
+  };
 
   const handleStopClick = useCallback(async (stop) => {
     const stopId = normalizeId(stop);
@@ -97,6 +108,8 @@ const TransitInfo = ({ stops }) => {
     if (stopId === selectedStopId) {
       setSelectedStopId(null);
       setStopSchedule(null);
+      setLiveVehicleMarkers([]);
+      clearInterval(intervalId);
       return;
     }
 
@@ -109,77 +122,45 @@ const TransitInfo = ({ stops }) => {
     if (cached) {
       setStopSchedule(cached);
       setLoading(false);
-      return;
+    } else {
+      try {
+        const schedule = await fetchSchedule(stopId, agency);
+        setCachedSchedule(stopId, schedule);
+        setStopSchedule(schedule);
+      } catch (err) {
+        setError(err.message);
+        setStopSchedule({ inbound: [], outbound: [] });
+      } finally {
+        setLoading(false);
+      }
     }
 
-    try {
-      const schedule = await fetchSchedule(stopId, agency);
-      setCachedSchedule(stopId, schedule);
-      setStopSchedule(schedule);
-    } catch (err) {
-      setError(err.message);
-      setStopSchedule({ inbound: [], outbound: [] });
-    } finally {
-      setLoading(false);
+    clearInterval(intervalId);
+    if (agency === "bart") {
+      await updateLiveVehicleMarkers(stopId);
+      const id = setInterval(() => updateLiveVehicleMarkers(stopId), 30000);
+      setIntervalId(id);
     }
-  }, [selectedStopId, fetchSchedule, getCachedSchedule, setCachedSchedule]);
+  }, [selectedStopId]);
 
-  const handleRefresh = async () => {
-    if (!selectedStopId) return;
-    const agency = getAgency(stopsArray.find(s => normalizeId(s) === selectedStopId));
-    setLoading(true);
-    setError(null);
-    try {
-      const schedule = await fetchSchedule(selectedStopId, agency);
-      setCachedSchedule(selectedStopId, schedule);
-      setStopSchedule(schedule);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const renderStop = useCallback((stop) => (
-    <>
-      <Stack direction="row" alignItems="center" spacing={1} mb={0.5}>
-        <LocationOnIcon color="primary" fontSize="small" />
-        <Typography variant="body1" fontWeight={500} noWrap>{stop.stop_name || 'Unknown'}</Typography>
-      </Stack>
-      <Stack direction="row" justifyContent="space-between" alignItems="center">
-        <Box display="flex" alignItems="center">
-          <DirectionsBusIcon fontSize="small" sx={{ mr: 0.5 }} />
-          <Typography variant="caption">Stop ID: {normalizeId(stop)}</Typography>
-        </Box>
-        {stop.distance_miles !== undefined && (
-          <Chip size="small" label={`${stop.distance_miles} mi`} />
-        )}
-      </Stack>
-    </>
-  ), []);
-
-  const renderRoute = useCallback((route) => {
-    const routeName = route.route_number || route.route || "Route ?";
+  const renderRoute = (route) => {
+    const routeName = route.route_number || route.route || "?";
     const arrival = route.arrival_time || route.expected || route.aimed;
-    const displayStatus = route.status || (route.minutes_until !== undefined ? `${route.minutes_until} min` : null);
-
-    console.log("[TransitInfo] Parsed route:", routeName, "→", route.destination, "at", arrival);
-
+    const status = route.status || (route.minutes_until !== undefined ? `${route.minutes_until} min` : '');
     return (
-      <Box className="transit-info-panel" sx={{ borderLeft: '3px solid', borderColor: 'primary.light', pl: 1.5, py: 0.5, mb: 1 }}>
+      <Box sx={{ borderLeft: '3px solid', borderColor: 'primary.light', pl: 1.5, py: 0.5, mb: 1 }}>
         <Stack direction="row" justifyContent="space-between">
           <Typography variant="body2" fontWeight={500} color="primary.main">
             {routeName} → {route.destination || 'Unknown'}
           </Typography>
-          {displayStatus && <Chip size="small" label={displayStatus} color={getStatusColor(displayStatus)} />}
+          {status && <Chip size="small" label={status} color={getStatusColor(status)} />}
         </Stack>
         <Typography variant="body2" color="text.secondary" mt={0.5}>
           Arrival: <b>{formatTime(arrival)}</b>
-          {route.stops_away && ` • ${route.stops_away} stops away`}
         </Typography>
       </Box>
     );
-  }, []);
+  };
 
   return (
     <Card elevation={2} sx={{ mt: 2 }}>
@@ -193,47 +174,21 @@ const TransitInfo = ({ stops }) => {
           return (
             <Box key={`${stopId}-${i}`}>
               <ListItemButton onClick={() => handleStopClick(stop)} selected={selected}>
-                <Box sx={{ flex: 1 }}>{renderStop(stop)}</Box>
+                <Box sx={{ flex: 1 }}>{stop.stop_name}</Box>
                 {selected ? <ExpandLessIcon /> : <ExpandMoreIcon />}
               </ListItemButton>
               <Collapse in={selected} timeout="auto" unmountOnExit>
-                <Fade in={Boolean(stopSchedule)} timeout={300}>
-                  <Box px={2} py={2}>
-                    {loading ? (
-                      <Box display="flex" justifyContent="center" py={2}><CircularProgress size={32} /></Box>
-                    ) : (
-                      <>
-                        {error && <Alert severity="warning" sx={{ mb: 2 }}>{error}</Alert>}
-                        {stopSchedule?.inbound?.length > 0 && (
-                          <Box mb={2}>
-                            <Typography variant="subtitle1">Inbound</Typography>
-                            {stopSchedule.inbound.map((r, idx) => (
-                              <Fade in key={`in-${idx}`} timeout={300}><Box>{renderRoute(r)}</Box></Fade>
-                            ))}
-                          </Box>
-                        )}
-                        {stopSchedule?.outbound?.length > 0 && (
-                          <Box>
-                            <Typography variant="subtitle1">Outbound</Typography>
-                            {stopSchedule.outbound.map((r, idx) => (
-                              <Fade in key={`out-${idx}`} timeout={300}><Box>{renderRoute(r)}</Box></Fade>
-                            ))}
-                          </Box>
-                        )}
-                        {stopSchedule?.inbound?.length === 0 && stopSchedule?.outbound?.length === 0 && (
-                          <Typography variant="body2" color="text.secondary">
-                            No upcoming buses or trains.
-                          </Typography>
-                        )}
-                        <Box display="flex" justifyContent="center" mt={2}>
-                          <Button size="small" startIcon={<RefreshIcon />} onClick={handleRefresh} disabled={loading}>
-                            {loading ? 'Refreshing...' : 'Refresh'}
-                          </Button>
-                        </Box>
-                      </>
-                    )}
-                  </Box>
-                </Fade>
+                <Box px={2} py={2}>
+                  {loading ? (
+                    <Box display="flex" justifyContent="center" py={2}><CircularProgress size={32} /></Box>
+                  ) : error ? (
+                    <Alert severity="warning" sx={{ mb: 2 }}>{error}</Alert>
+                  ) : (
+                    stopSchedule?.outbound?.map((r, idx) => (
+                      <Fade in key={`out-${idx}`} timeout={300}><Box>{renderRoute(r)}</Box></Fade>
+                    ))
+                  )}
+                </Box>
               </Collapse>
             </Box>
           );
