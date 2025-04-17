@@ -1,42 +1,63 @@
-import os
+from typing import Optional, List
 import pandas as pd
-from typing import Dict
+from sqlalchemy import text
+from app.db.database import engine
+from app.config import settings
 
-GTFS_FILE_LIST = [
-    "agency", "attributions", "calendar", "calendar_attributes", "calendar_dates",
-    "directions", "fare_attributes", "fare_rider_categories", "fare_rules", "farezone_attributes",
-    "feed_info", "levels", "pathways", "route_attributes", "routes", "rider_categories",
-    "shapes", "stop_times", "stops", "timepoints", "transfers", "translations", "trips"
-]
 
-def load_gtfs_data(gtfs_path: str) -> Dict[str, pd.DataFrame]:
-    """
-    Load all known GTFS files into a dictionary of DataFrames.
-    If a file is missing, an empty DataFrame is used instead.
+class GTFSService:
+    def __init__(self, agency: str = "muni"):
+        self.agency = settings.normalize_agency(agency)
+        self.prefix = f"{self.agency}_"
 
-    Args:
-        gtfs_path (str): Path to the GTFS directory
+    def _query(self, table: str, where: Optional[str] = None, params: Optional[dict] = None) -> pd.DataFrame:
+        full_table = f"{self.prefix}{table}"
+        query = f"SELECT * FROM {full_table}"
+        if where:
+            query += f" WHERE {where}"
+        return pd.read_sql(text(query), con=engine, params=params)
 
-    Returns:
-        Dict[str, pd.DataFrame]: Mapping of file keys to DataFrames
-    """
-    gtfs_data: Dict[str, pd.DataFrame] = {}
+    def get_routes(self) -> pd.DataFrame:
+        return self._query("routes")
 
-    print(f"[GTFS LOADER] Loading files from: {gtfs_path}")
-    for file_name in GTFS_FILE_LIST:
-        file_path = os.path.join(gtfs_path, f"{file_name}.txt")
-        try:
-            if os.path.exists(file_path):
-                df = pd.read_csv(file_path, dtype=str)
-                gtfs_data[file_name] = df
-                print(f"[✓] Loaded {file_name}.txt → {len(df)} rows")
-            else:
-                print(f"[!] {file_name}.txt not found. Using empty DataFrame.")
-                gtfs_data[file_name] = pd.DataFrame()
-        except Exception as e:
-            print(f"[ERROR] Failed to read {file_name}.txt → {e}")
-            gtfs_data[file_name] = pd.DataFrame()
+    def get_route_by_id(self, route_id: str) -> pd.DataFrame:
+        return self._query("routes", "route_id = :route_id", {"route_id": route_id})
 
-    # Summary
-    print(f"[SUMMARY] {len(gtfs_data['stops'])} stops, {len(gtfs_data['stop_times'])} stop_times, {len(gtfs_data['trips'])} trips")
-    return gtfs_data
+    def get_trips_by_route(self, route_id: str) -> pd.DataFrame:
+        return self._query("trips", "route_id = :route_id", {"route_id": route_id})
+
+    def get_trip_stop_times(self, trip_id: str) -> pd.DataFrame:
+        return self._query("stop_times", "trip_id = :trip_id ORDER BY stop_sequence", {"trip_id": trip_id})
+
+    def get_stops(self) -> pd.DataFrame:
+        return self._query("stops")
+
+    def get_stop_by_id(self, stop_id: str) -> pd.DataFrame:
+        return self._query("stops", "stop_id = :stop_id", {"stop_id": stop_id})
+
+    def get_stops_for_trip(self, trip_id: str) -> pd.DataFrame:
+        query = f"""
+            SELECT s.stop_id, s.stop_name, st.arrival_time, st.departure_time, st.stop_sequence
+            FROM {self.prefix}stop_times st
+            JOIN {self.prefix}stops s ON st.stop_id = s.stop_id
+            WHERE st.trip_id = :trip_id
+            ORDER BY st.stop_sequence
+        """
+        return pd.read_sql(text(query), con=engine, params={"trip_id": trip_id})
+
+    def get_shapes_by_trip(self, shape_id: str) -> pd.DataFrame:
+        return self._query("shapes", "shape_id = :shape_id ORDER BY shape_pt_sequence", {"shape_id": shape_id})
+
+    def get_calendar(self) -> pd.DataFrame:
+        return self._query("calendar")
+
+    def get_calendar_dates(self) -> pd.DataFrame:
+        return self._query("calendar_dates")
+
+    def list_tables(self) -> List[str]:
+        like_prefix = f"{self.prefix}%"
+        query = """
+            SELECT table_name FROM information_schema.tables
+            WHERE table_schema = 'public' AND table_name LIKE :like_prefix
+        """
+        return pd.read_sql(text(query), con=engine, params={"like_prefix": like_prefix})["table_name"].tolist()
