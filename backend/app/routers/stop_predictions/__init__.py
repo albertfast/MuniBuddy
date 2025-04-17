@@ -1,5 +1,5 @@
 from .bus_router import router as bus_router
-from .bart_routes import router as bart_router
+from .bart_router import router as bart_router
 from .stop_predictions.base import router as stop_predictions_router
 from .nearby_stops import router as nearby_stops_router
 from .stop_schedule import router as stop_schedule_router
