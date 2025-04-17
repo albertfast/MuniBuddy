@@ -1,5 +1,5 @@
 from app.services.realtime_service import fetch_real_time_stop_data
-from app.services.schedule_service import SchedulerService
+from app.core.singleton import bus_service, schedule_service
 from app.services.stop_helper import load_stops, find_nearby_stops
 from app.services.debug_logger import log_debug
 from app.config import settings
@@ -8,11 +8,11 @@ class BusService:
     def __init__(self, scheduler: SchedulerService):
         log_debug("Initializing BusService...")
         self.scheduler = scheduler
-        self.gtfs_data = settings.get_gtfs_data("muni")
 
     def get_nearby_stops(self, lat: float, lon: float, radius: float = 0.15, agency: str = "muni"):
+        agency = self._normalize_agency(agency)
         log_debug(f"Finding nearby stops for coordinates: ({lat}, {lon}), radius: {radius}, agency: {agency}")
-        
+
         gtfs_data = settings.get_gtfs_data(agency)
         if not gtfs_data:
             log_debug(f"✗ No GTFS data found for agency: {agency}")
@@ -27,14 +27,19 @@ class BusService:
         return nearby
 
     def get_nearby_buses(self, lat: float, lon: float, radius: float = 0.15, agency: str = "muni"):
+        agency = self._normalize_agency(agency)
         log_debug(f"Looking for nearby real-time buses around: ({lat}, {lon}) within {radius} miles for agency: {agency}")
 
         nearby_stops = self.get_nearby_stops(lat, lon, radius, agency)
         results = []
 
         for stop in nearby_stops:
-
             realtime_data = fetch_real_time_stop_data(stop, agency)
+
+            # Fallback to schedule if no real-time data available
+            if not realtime_data.get("inbound") and not realtime_data.get("outbound"):
+                log_debug(f"No real-time data found for stop {stop['stop_code']}, trying static schedule...")
+                realtime_data = self.scheduler.get_schedule(stop["stop_id"], agency)
 
             for direction in ["inbound", "outbound"]:
                 for bus in realtime_data.get(direction, []):
@@ -49,7 +54,15 @@ class BusService:
                         "arrival_time": bus.get("arrival_time"),
                         "status": bus.get("status"),
                         "minutes_until": bus.get("minutes_until"),
-                        "is_realtime": bus.get("is_realtime")
+                        "is_realtime": bus.get("is_realtime", False)
                     })
 
         return {"buses": results}
+
+    def _normalize_agency(self, agency: str) -> str:
+        agency = agency.lower()
+        if agency in ["sf", "sfmta", "muni"]:
+            return "muni"
+        elif agency in ["ba", "bart"]:
+            return "bart"
+        return agency
