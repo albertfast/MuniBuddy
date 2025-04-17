@@ -1,7 +1,9 @@
+// TransitInfo.jsx (updated with working refresh + BART vehicle icons + error states)
 import React, { useState, useCallback, useMemo } from 'react';
 import {
   Card, CardContent, Typography, List, ListItem, ListItemText, ListItemButton,
-  Box, Collapse, CircularProgress, Stack, Chip, Button, Alert
+  Divider, Box, Collapse, CircularProgress, Stack, Chip, IconButton,
+  Button, Alert
 } from '@mui/material';
 import DirectionsBusIcon from '@mui/icons-material/DirectionsBus';
 import TrainIcon from '@mui/icons-material/Train';
@@ -67,26 +69,13 @@ const TransitInfo = ({ stops }) => {
     SCHEDULE_CACHE[stopId] = { data, timestamp: Date.now() };
   }, []);
 
-  const normalizeResponse = (raw) => {
-    return raw.realtime
-      ? {
-          inbound: raw.realtime.inbound ?? [],
-          outbound: raw.realtime.outbound ?? []
-        }
-      : {
-          inbound: raw.inbound ?? [],
-          outbound: raw.outbound ?? []
-        };
-  };
-
   const handleStopClick = useCallback(async (stopToSelect) => {
     const stopIdToSelect = normalizeId(stopToSelect);
+    console.log('[DEBUG] Clicked Stop:', stopToSelect, 'Normalized ID:', stopIdToSelect);
     if (!stopIdToSelect) return;
   
-    console.debug("[DEBUG] Clicked stop:", stopToSelect);
-    console.debug("[DEBUG] Normalized stopId:", stopIdToSelect);
-  
     if (selectedStopId === stopIdToSelect) {
+      console.log('[DEBUG] Deselecting stop:', stopIdToSelect);
       setSelectedStopId(null);
       setStopSchedule(null);
       setError(null);
@@ -100,49 +89,55 @@ const TransitInfo = ({ stops }) => {
   
     const cachedData = getCachedSchedule(stopIdToSelect);
     if (cachedData) {
-      console.debug("[DEBUG] Found cached data:", cachedData);
+      console.log('[DEBUG] Using cached schedule for:', stopIdToSelect);
       setStopSchedule(cachedData);
       setLoading(false);
       return;
     }
   
     try {
+      console.log('[DEBUG] Fetching schedule from API for:', stopIdToSelect);
       const response = await axios.get(`${API_BASE_URL}/stop-predictions/${stopIdToSelect}`, {
         timeout: API_TIMEOUT
       });
-      console.debug("[DEBUG] API Response:", response.data);
-  
-      const data = normalizeResponse(response.data);
-      setCachedSchedule(stopIdToSelect, data);
-      setStopSchedule(data);
+      console.log('[DEBUG] API Response:', response.data);
+      if (response.data) {
+        setCachedSchedule(stopIdToSelect, response.data);
+        setStopSchedule(response.data);
+      } else {
+        console.warn('[WARN] No data in response');
+        setStopSchedule({ inbound: [], outbound: [] });
+      }
     } catch (err) {
+      console.error('[ERROR] Failed to fetch stop schedule:', err);
       setError('Failed to load stop schedule. Please check network or try again.');
       setStopSchedule({ inbound: [], outbound: [] });
     } finally {
       setLoading(false);
     }
   }, [selectedStopId, getCachedSchedule, setCachedSchedule]);
-
+  
   const handleRefreshSchedule = useCallback(async () => {
     if (!selectedStopId) return;
     setLoading(true);
     setError(null);
     try {
+      console.log('[DEBUG] Refreshing schedule for:', selectedStopId);
       const response = await axios.get(`${API_BASE_URL}/stop-predictions/${selectedStopId}`, {
         timeout: API_TIMEOUT,
         params: { _t: Date.now() }
       });
-
-      const data = normalizeResponse(response.data);
-      setCachedSchedule(selectedStopId, data);
-      setStopSchedule(data);
+      console.log('[DEBUG] Refreshed Data:', response.data);
+      setCachedSchedule(selectedStopId, response.data);
+      setStopSchedule(response.data);
     } catch (err) {
+      console.error('[ERROR] Failed to refresh schedule:', err);
       setError('Failed to refresh schedule. Please check connection.');
     } finally {
       setLoading(false);
     }
   }, [selectedStopId, setCachedSchedule]);
-
+  
   const renderRouteInfo = (route) => (
     <Box sx={{ borderLeft: '3px solid', borderColor: 'primary.light', pl: 1.5, py: 0.5, mb: 1 }}>
       <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
