@@ -77,6 +77,8 @@ const TransitInfo = ({ stops }) => {
 
   const handleStopClick = useCallback(async (stopToSelect) => {
     const stopIdToSelect = normalizeId(stopToSelect);
+    const agency = stopToSelect.agency?.toLowerCase();
+  
     if (!stopIdToSelect) return;
     if (selectedStopId === stopIdToSelect) {
       setSelectedStopId(null);
@@ -84,33 +86,64 @@ const TransitInfo = ({ stops }) => {
       setError(null);
       return;
     }
+  
     setSelectedStopId(stopIdToSelect);
     setLoading(true);
     setError(null);
     setStopSchedule(null);
-
+  
     const cachedData = getCachedSchedule(stopIdToSelect);
     if (cachedData) {
       setStopSchedule(cachedData);
       setLoading(false);
       return;
     }
-
+  
     try {
-      const response = await axios.get(`${API_BASE_URL}/stop-predictions/${stopIdToSelect}`, {
+      const predictionRes = await axios.get(`${API_BASE_URL}/stop-predictions/${stopIdToSelect}`, {
         timeout: API_TIMEOUT
       });
-      const data = normalizeResponse(response.data);
+  
+      let data = normalizeResponse(predictionRes.data);
+  
+      // 🔄 If it's a Muni stop, enrich vehicle info from 511 StopMonitoring API
+      if (agency === "muni") {
+        const vehicleRes = await axios.get(`${API_BASE_URL}/bus-positions/by-stop`, {
+          params: { stopCode: stopIdToSelect, agency: "SF" }
+        });
+  
+        const visits = vehicleRes?.data?.ServiceDelivery?.StopMonitoringDelivery?.[0]?.MonitoredStopVisit ?? [];
+  
+        visits.forEach((visit) => {
+          const journey = visit.MonitoredVehicleJourney || {};
+          const vehicleLoc = journey.VehicleLocation || {};
+          const route = journey.PublishedLineName;
+          const direction = (journey.DirectionRef || "").toLowerCase();
+          const aimedTime = journey.MonitoredCall?.AimedArrivalTime || "";
+          const realtimeTarget = direction === "1" ? data.inbound : data.outbound;
+  
+          // Match the route + aimed time to inject vehicle location
+          const match = realtimeTarget.find((r) => r.route_number?.includes(route) && r.arrival_time?.includes(aimedTime));
+          if (match && vehicleLoc.Latitude && vehicleLoc.Longitude) {
+            match.vehicle = {
+              lat: vehicleLoc.Latitude,
+              lon: vehicleLoc.Longitude
+            };
+          }
+        });
+      }
+  
       setCachedSchedule(stopIdToSelect, data);
       setStopSchedule(data);
     } catch (err) {
+      console.error("Error fetching stop data:", err);
       setError('Failed to load stop schedule. Please check network or try again.');
       setStopSchedule({ inbound: [], outbound: [] });
     } finally {
       setLoading(false);
     }
   }, [selectedStopId, getCachedSchedule, setCachedSchedule]);
-
+  
   const handleRefreshSchedule = useCallback(async () => {
     if (!selectedStopId) return;
     setLoading(true);
