@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException
-from app.core.singleton import scheduler_service
+from app.core.singleton import schedule_service
 
 router = APIRouter()
 

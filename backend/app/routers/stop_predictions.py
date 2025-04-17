@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Query
-from app.core.singleton import bus_service, scheduler_service, bart_service
+from app.core.singleton import bus_service, schedule_service, bart_service
 from app.services.realtime_service import fetch_real_time_stop_data
 from app.services.debug_logger import log_debug
 from app.integrations.siri_api import fetch_siri_data
@@ -84,3 +84,20 @@ async def debug_bart_raw(stop_code: str):
         log_debug(f"[DEBUG BART RAW] ❌ Failed to fetch raw data: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to fetch BART raw data: {str(e)}")
 
+try:
+    agency = normalize_agency(agency)
+
+    if agency == "bart":
+        if detailed:
+            return await bart_service.get_bart_stop_details(stop_id)
+        return await bart_service.get_real_time_arrivals(stop_id, lat, lon)
+
+    # Default: MUNI
+    realtime = await fetch_real_time_stop_data(stop_id, agency=agency)
+    
+    # Eğer hem inbound hem outbound boşsa → GTFS fallback
+    if not realtime.get("inbound") and not realtime.get("outbound"):
+        schedule = scheduler_service.get_schedule(stop_id)
+        return schedule
+
+    return realtime
