@@ -9,6 +9,6 @@ def get_stop_schedule(stop_id: str):
     Returns static GTFS schedule from PostgreSQL.
     """
     try:
-        return scheduler_service.get_schedule(stop_id)
+        return schedule_service.get_schedule(stop_id)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Schedule fetch failed: {str(e)}")
