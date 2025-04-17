@@ -12,10 +12,21 @@ class BartService:
         self.realtime = RealtimeBartService()
         self.scheduler = SchedulerService()
 
-    def get_nearby_stops(self, lat: float, lon: float, radius: float = 0.15) -> List[Dict[str, Any]]:
-        log_debug(f"[BART] Finding nearby stops for coordinates: ({lat}, {lon}), radius: {radius}")
-        stops = load_stops(self.agency)
-        return find_nearby_stops(lat, lon, stops, radius)
+    def get_nearby_stops(self, lat: float, lon: float, radius: float = 0.15) -> List[Dict]:
+        log_debug(f"[BART:Realtime] Finding nearby stops for ({lat}, {lon}) radius={radius}")
+        try:
+            stops = load_stops(self.agency)
+            if not stops:
+                log_debug("[BART:Realtime] ✗ No BART stops loaded.")
+                return []
+            nearby = find_nearby_stops(lat, lon, stops, radius)
+            for stop in nearby:
+                stop["agency"] = self.agency
+            return nearby
+        except Exception as e:
+            log_debug(f"[BART:Realtime] Error in get_nearby_stops: {e}")
+            return []
+
 
     async def get_nearby_stops_with_arrivals(self, lat: float, lon: float, radius: float = 0.15) -> List[Dict[str, Any]]:
         log_debug(f"[BART] Getting nearby stops with real-time arrivals around ({lat}, {lon}) within {radius} miles.")
