@@ -25,11 +25,10 @@ class BartService:
             enriched.append(stop)
 
         return enriched
-
-    def get_nearby_stops(self, lat: float, lon: float, radius: float = 0.15) -> List[Dict[str, Any]]:
-        log_debug(f"Finding nearby stops for coordinates: ({lat}, {lon}), radius: {radius}, agency: {self.agency}")
-        stops = load_stops(self.agency)
-        return find_nearby_stops(lat, lon, stops, radius)
+        def get_nearby_stops(self, lat: float, lon: float, radius: float = 0.15) -> List[Dict[str, Any]]:
+            log_debug(f"[BART] Finding nearby stops for coordinates: ({lat}, {lon}), radius: {radius}")
+            stops = load_stops(self.agency)
+            return find_nearby_stops(lat, lon, stops, radius)
 
     async def get_real_time_arrivals(self, stop_code: str, lat: float = None, lon: float = None, radius: float = 0.15) -> Dict[str, Any]:
         log_debug(f"[BART] Getting real-time arrivals for stop_code: {stop_code}")
