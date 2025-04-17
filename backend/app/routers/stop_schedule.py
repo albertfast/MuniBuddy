@@ -1,19 +1,15 @@
 from fastapi import APIRouter, HTTPException, Query
-from app.services.schedule_service import SchedulerService
+from app.services.scheduler_service import SchedulerService
 
 router = APIRouter()
-
-scheduler_service = SchedulerService()
+schedule_service = SchedulerService()
 
 @router.get("/stop-schedule/{stop_id}")
-def get_stop_schedule(stop_id: str, agency: str = Query("muni", description="Transit agency, e.g., 'muni' or 'bart'")):
+def get_stop_schedule(stop_id: str, agency: str = Query("muni", enum=["muni", "bart"])):
     """
-    Returns upcoming scheduled trips (inbound/outbound) for the given stop_id and agency from GTFS static data in PostgreSQL.
+    Returns upcoming scheduled stops from GTFS data in DB.
     """
     try:
-        result = scheduler_service.get_schedule(stop_id=stop_id, agency=agency)
-        if not result["inbound"] and not result["outbound"]:
-            return {"message": f"No scheduled trips found for stop '{stop_id}' and agency '{agency}'", "data": result}
-        return {"stop_id": stop_id, "agency": agency, "data": result}
+        return schedule_service.get_schedule(stop_id, agency=agency)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Schedule fetch failed for stop '{stop_id}', agency '{agency}': {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Schedule fetch failed: {str(e)}")

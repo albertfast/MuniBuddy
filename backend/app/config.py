@@ -5,7 +5,7 @@ from typing import List, Optional, Dict
 from pydantic_settings import BaseSettings
 from pydantic import Field, model_validator, PrivateAttr, field_validator
 import pandas as pd
-from app.services.gtfs_service import load_gtfs_data
+from app.core.gtfs_loader import load_gtfs_data
 
 # --- Load .env from project root ---
 ENV_PATH = Path(__file__).resolve().parent.parent / ".env"
