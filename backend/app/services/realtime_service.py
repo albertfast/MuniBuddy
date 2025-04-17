@@ -4,8 +4,9 @@ from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 from typing import Optional, Dict, Any
 from app.config import settings
-from app.services.debug_logger import log_debug
 from app.services.stop_helper import load_stops
+from app.services.debug_logger import log_debug
+
 
 API_KEY = settings.API_KEY
 BASE_URL = settings.TRANSIT_511_BASE_URL
