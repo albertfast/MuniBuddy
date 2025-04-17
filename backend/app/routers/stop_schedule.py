@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Query
-from app.services.scheduler_service import SchedulerService
+from app.services.schedule_service import SchedulerService
 
 router = APIRouter()
 schedule_service = SchedulerService()
