@@ -56,8 +56,9 @@ def get_nearby_stops(lat: float, lon: float, radius: float = 0.15, limit: int = 
     """
     log_debug(f"[Unified] Searching for nearby stops from all agencies at ({lat}, {lon})")
     all_stops = []
-    for agency in ["muni", "bart"]:
-        agency_stops = load_stops(agency)
+    for agency in settings.AGENCY_ID:
+        normalized = settings.normalize_agency(agency)
+        agency_stops = load_stops(normalized)
         all_stops.extend(agency_stops)
 
     if not all_stops:
@@ -68,31 +69,30 @@ def get_nearby_stops(lat: float, lon: float, radius: float = 0.15, limit: int = 
 def load_stops(agency: str) -> List[Dict[str, Any]]:
     try:
         stops = []
-        gtfs_tuple = settings.get_gtfs_data(agency)
-        if not gtfs_tuple:
-            log_debug(f"⚠️ GTFS data not loaded for agency: {agency}")
+        normalized = settings.normalize_agency(agency)
+        gtfs_data = settings.get_gtfs_data(normalized)
+        if not gtfs_data:
+            log_debug(f"⚠️ GTFS data not loaded for agency: {normalized}")
             return []
 
-        _, _, stops_df, *_ = gtfs_tuple
-
-        if isinstance(stops_df, pd.DataFrame) and not stops_df.empty:
-            for _, row in stops_df.iterrows():
-                stop = {
-                    'stop_id': row['stop_id'],
-                    'stop_name': row['stop_name'],
-                    'stop_lat': float(row['stop_lat']),
-                    'stop_lon': float(row['stop_lon']),
-                    'agency': agency
-                }
-                if 'stop_code' in row and pd.notna(row['stop_code']):
-                    stop['stop_code'] = str(row['stop_code'])
-                stops.append(stop)
-
-        if not stops:
-            log_debug(f"✗ No stops loaded for agency: {agency}")
+        stops_df = gtfs_data.get("stops", pd.DataFrame())
+        if not isinstance(stops_df, pd.DataFrame) or stops_df.empty:
+            log_debug(f"✗ GTFS stops dataframe empty for agency: {normalized}")
             return []
 
-        log_debug(f"✓ Loaded {len(stops)} stops for agency: {agency}")
+        for _, row in stops_df.iterrows():
+            stop = {
+                'stop_id': row['stop_id'],
+                'stop_name': row['stop_name'],
+                'stop_lat': float(row['stop_lat']),
+                'stop_lon': float(row['stop_lon']),
+                'agency': normalized
+            }
+            if 'stop_code' in row and pd.notna(row['stop_code']):
+                stop['stop_code'] = str(row['stop_code'])
+            stops.append(stop)
+
+        log_debug(f"✓ Loaded {len(stops)} stops for agency: {normalized}")
         return stops
 
     except Exception as e:
