@@ -2,12 +2,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
-# Core singleton services
 from app.core.singleton import bus_service, schedule_service, bart_service
 from app.db.database import init_db
 
-# Routers
-from fastapi import FastAPI
 from app.routers import (
     bus_router,
     bart_router,
@@ -32,7 +29,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Router Registration
 app.include_router(bus_router, prefix="/api/v1")
 app.include_router(bart_router, prefix="/api/v1")
 app.include_router(stop_predictions_router, prefix="/api/v1")
@@ -56,8 +52,6 @@ def health_check():
 async def startup_event():
     print("🔄 Starting MuniBuddy API...")
     init_db()
-
-    # Ensure singletons are triggered
     _ = bus_service
     _ = schedule_service
     _ = bart_service
