@@ -56,6 +56,52 @@ const TransitInfo = ({ stops }) => {
   const [error, setError] = useState(null);
   const stopsArray = useMemo(() => Array.isArray(stops) ? stops : Object.values(stops), [stops]);
 
+  const fetchVehiclePositions = async (stop) => {
+    const stopCode = stop.stop_code || stop.stop_id;
+    const agency = stop.agency?.toLowerCase() || "sf";
+  
+    const agenciesToTry = agency === "bart" || agency === "ba"
+      ? ["BA", "bart"]
+      : ["SF", "SFMTA", "muni"];
+  
+    const allMarkers = [];
+  
+    for (const ag of agenciesToTry) {
+      try {
+        const res = await axios.get(`${API_BASE_URL}/bus-positions/by-stop`, {
+          params: { stopCode, agency: ag }
+        });
+  
+        const visits = res.data?.ServiceDelivery?.StopMonitoringDelivery?.MonitoredStopVisit ?? [];
+  
+        const markers = visits.map((visit, i) => {
+          const vehicle = visit.MonitoredVehicleJourney;
+          const location = vehicle?.VehicleLocation;
+          return {
+            position: {
+              lat: parseFloat(location?.Latitude),
+              lng: parseFloat(location?.Longitude)
+            },
+            title: `${vehicle?.PublishedLineName || vehicle?.LineRef || 'Bus'} → ${vehicle?.MonitoredCall?.DestinationDisplay}`,
+            stopId: `${stopCode}-${ag}-${i}`,
+            icon: {
+              url: '/images/live-bus-icon.svg',
+              scaledSize: { width: 28, height: 28 }
+            }
+          };
+        }).filter(m => m.position.lat && m.position.lng);
+  
+        allMarkers.push(...markers);
+  
+      } catch (err) {
+        console.warn(`Live fetch failed for agency ${ag}:`, err.message);
+      }
+    }
+  
+    console.log("All live vehicle markers:", allMarkers);
+    setLiveVehicleMarkers(allMarkers);
+  };
+  
   const getCachedSchedule = useCallback((stopId) => {
     const cacheItem = SCHEDULE_CACHE[stopId];
     return cacheItem && (Date.now() - cacheItem.timestamp < CACHE_TTL)
@@ -100,39 +146,68 @@ const TransitInfo = ({ stops }) => {
     }
   
     try {
+      // 🔍 Step 1: Prediction fetch (schedule or realtime fallback handled in backend)
       const predictionRes = await axios.get(`${API_BASE_URL}/stop-predictions/${stopIdToSelect}`, {
         timeout: API_TIMEOUT
       });
   
       let data = normalizeResponse(predictionRes.data);
+      await fetchVehiclePositions(stopToSelect);
   
-      // 🔄 If it's a Muni stop, enrich vehicle info from 511 StopMonitoring API
-      if (agency === "muni") {
-        const vehicleRes = await axios.get(`${API_BASE_URL}/bus-positions/by-stop`, {
-          params: { stopCode: stopIdToSelect, agency: "SF" }
-        });
+      // 🚍 Step 2: Enrich with live vehicle data (both BART and MUNI)
+      const agenciesToTry = agency === "bart" ? ["BA", "bart"] : ["SF", "SFMTA", "muni"];
+      let allVehicleMarkers = [];
   
-        const visits = vehicleRes?.data?.ServiceDelivery?.StopMonitoringDelivery?.[0]?.MonitoredStopVisit ?? [];
+      for (const ag of agenciesToTry) {
+        try {
+          const vehicleRes = await axios.get(`${API_BASE_URL}/bus-positions/by-stop`, {
+            params: { stopCode: stopIdToSelect, agency: ag }
+          });
   
-        visits.forEach((visit) => {
-          const journey = visit.MonitoredVehicleJourney || {};
-          const vehicleLoc = journey.VehicleLocation || {};
-          const route = journey.PublishedLineName;
-          const direction = (journey.DirectionRef || "").toLowerCase();
-          const aimedTime = journey.MonitoredCall?.AimedArrivalTime || "";
-          const realtimeTarget = direction === "1" ? data.inbound : data.outbound;
+          const visits = vehicleRes?.data?.ServiceDelivery?.StopMonitoringDelivery?.MonitoredStopVisit ?? [];
   
-          // Match the route + aimed time to inject vehicle location
-          const match = realtimeTarget.find((r) => r.route_number?.includes(route) && r.arrival_time?.includes(aimedTime));
-          if (match && vehicleLoc.Latitude && vehicleLoc.Longitude) {
-            match.vehicle = {
-              lat: vehicleLoc.Latitude,
-              lon: vehicleLoc.Longitude
-            };
-          }
-        });
+          visits.forEach((visit, index) => {
+            const journey = visit.MonitoredVehicleJourney || {};
+            const vehicleLoc = journey.VehicleLocation || {};
+            const route = journey.PublishedLineName || journey.LineRef;
+            const direction = (journey.DirectionRef || "").toLowerCase();
+            const aimedTime = journey.MonitoredCall?.AimedArrivalTime || "";
+            const realtimeTarget = direction.includes("i") || direction === "1" ? data.inbound : data.outbound;
+  
+            // Match prediction with 511 live data
+            const match = realtimeTarget.find((r) =>
+              r.route_number?.includes(route) && r.arrival_time?.includes(aimedTime)
+            );
+  
+            if (match && vehicleLoc.Latitude && vehicleLoc.Longitude) {
+              match.vehicle = {
+                lat: vehicleLoc.Latitude,
+                lon: vehicleLoc.Longitude
+              };
+            }
+  
+            // Collect marker if position available
+            if (vehicleLoc.Latitude && vehicleLoc.Longitude) {
+              allVehicleMarkers.push({
+                position: {
+                  lat: parseFloat(vehicleLoc.Latitude),
+                  lng: parseFloat(vehicleLoc.Longitude)
+                },
+                title: `${route} → ${journey.MonitoredCall?.DestinationDisplay || "?"}`,
+                stopId: `${stopIdToSelect}-${ag}-${index}`,
+                icon: {
+                  url: '/images/live-bus-icon.svg',
+                  scaledSize: { width: 28, height: 28 }
+                }
+              });
+            }
+          });
+        } catch (err) {
+          console.warn(`511 API error for ${ag}:`, err.message);
+        }
       }
   
+      setLiveVehicleMarkers(allVehicleMarkers); // 🔴 Update map with live buses/trains
       setCachedSchedule(stopIdToSelect, data);
       setStopSchedule(data);
     } catch (err) {
