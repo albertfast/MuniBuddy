@@ -54,7 +54,7 @@ class BusService:
                         "arrival_time": bus.get("arrival_time"),
                         "status": bus.get("status"),
                         "minutes_until": bus.get("minutes_until"),
-                        "is_realtime": bus.get("is_realtime", False)
+                        "is_realtime": bus.get("is_realtime", True)
                     })
 
         return {"buses": results}
