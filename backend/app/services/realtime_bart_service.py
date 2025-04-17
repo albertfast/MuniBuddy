@@ -1,5 +1,7 @@
+
 from typing import Dict, Any
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 from app.services.stop_helper import load_stops
 from app.services.debug_logger import log_debug
 from app.integrations.siri_api import fetch_siri_data
@@ -10,18 +12,21 @@ class RealtimeBartService:
     def __init__(self):
         self.agency = settings.normalize_agency("bart")
 
+    def _resolve_stop_code(self, identifier: str) -> str:
+        stops = load_stops(self.agency)
+        for s in stops:
+            if s["stop_id"] == identifier or s.get("stop_code") == identifier:
+                return s.get("stop_code") or s["stop_id"]
+        return identifier
+
     async def fetch_real_time_stop_data(self, stop_code: str, raw: bool = False) -> Dict[str, Any]:
         try:
-            # First try fetching from SIRI API
+            stop_code = self._resolve_stop_code(stop_code)
             siri_data = await fetch_siri_data(stop_code, agency=self.agency)
             if raw:
                 return siri_data
 
-            parsed = {
-                "inbound": [],
-                "outbound": []
-            }
-
+            parsed = {"inbound": [], "outbound": []}
             visits = siri_data.get("ServiceDelivery", {}).get("StopMonitoringDelivery", {}).get("MonitoredStopVisit", [])
             for visit in visits:
                 journey = visit.get("MonitoredVehicleJourney", {})
@@ -46,8 +51,8 @@ class RealtimeBartService:
                     "minutes_until": minutes_until,
                     "is_realtime": True,
                     "vehicle": {
-                        "lat": journey.get("VehicleLocation", {}).get("Latitude"),
-                        "lon": journey.get("VehicleLocation", {}).get("Longitude")
+                        "lat": journey.get("VehicleLocation", {}).get("Latitude", ""),
+                        "lon": journey.get("VehicleLocation", {}).get("Longitude", "")
                     }
                 }
 
@@ -64,10 +69,7 @@ class RealtimeBartService:
 
     async def get_bart_stop_details(self, stop_id: str) -> Dict[str, Any]:
         stops = load_stops("bart")
-        stop = next(
-            (s for s in stops if s["stop_id"] == stop_id or s.get("stop_code") == stop_id or s.get("stop_name") == stop_id),
-            None
-        )
+        stop = next((s for s in stops if s["stop_id"] == stop_id or s.get("stop_code") == stop_id or s.get("stop_name") == stop_id), None)
 
         if not stop:
             return {"error": f"BART stop not found: {stop_id}"}
