@@ -1,7 +1,38 @@
-from fastapi import APIRouter
+# backend/app/routers/bus_router.py
+
+from fastapi import APIRouter, HTTPException
+from app.core.singleton import bus_service
+from fastapi import Query
 
 router = APIRouter()
 
-@router.get("/bus-router")
-def list_routes():
-    return {"message": "Bus route model endpoint test"}
+@router.get("/bus/nearby-stops")
+def get_nearby_bus_stops(
+    lat: float = Query(...),
+    lon: float = Query(...),
+    radius: float = Query(0.15),
+    agency: str = Query("muni")
+):
+    """
+    Returns nearby MUNI stops given a latitude and longitude.
+    """
+    try:
+        return bus_service.get_nearby_stops(lat, lon, radius, agency=agency)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch nearby bus stops: {e}")
+
+@router.get("/bus/stop-arrivals/{stop_id}")
+async def get_bus_stop_arrivals(
+    stop_id: str,
+    lat: float = Query(None),
+    lon: float = Query(None),
+    radius: float = Query(0.15),
+    agency: str = Query("muni")
+):
+    """
+    Returns real-time arrivals or fallback schedule for a MUNI stop.
+    """
+    try:
+        return await bus_service.get_stop_predictions(stop_id, lat, lon, agency)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch bus arrivals: {e}")
