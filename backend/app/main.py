@@ -9,7 +9,6 @@ from app.routers.stop_predictions_router import (
     stop_predictions_router,
     bus_router,
     bart_router,
-    nearby_stops_router,
     stop_schedule_router,
     bus_positions_router,
 )
@@ -33,7 +32,6 @@ app.add_middleware(
 app.include_router(bus_router, prefix="/api/v1")
 app.include_router(bart_router, prefix="/api/v1")
 app.include_router(stop_predictions_router, prefix="/api/v1")
-app.include_router(nearby_stops_router, prefix="/api/v1")
 app.include_router(stop_schedule_router, prefix="/api/v1")
 app.include_router(bus_positions_router, prefix="/api/v1")
 

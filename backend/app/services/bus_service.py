@@ -2,9 +2,8 @@
 from typing import List, Dict, Any, Optional
 from app.services.realtime_service import fetch_real_time_stop_data
 from app.services.schedule_service import SchedulerService
-from app.services.stop_helper import load_stops
+from app.services.stop_helper import load_stops, find_nearby_stops
 from app.services.debug_logger import log_debug
-from app.services.gtfs_service import GTFSService
 from app.config import settings
 
 class BusService:
@@ -15,27 +14,12 @@ class BusService:
     def get_nearby_stops(self, lat: float, lon: float, radius: float = 0.15, agency: str = "muni"):
         agency = settings.normalize_agency(agency)
         log_debug(f"Finding nearby stops for coordinates: ({lat}, {lon}), radius: {radius}, agency: {agency}")
-
         try:
-            stops_df = GTFSService(agency).get_stops()
-            if stops_df.empty:
-                log_debug(f"✗ No stops found in GTFS DB for agency: {agency}")
+            stops = load_stops(agency)
+            if not stops:
+                log_debug(f"✗ No stops loaded for agency: {agency}")
                 return []
-
-            stops = stops_df.to_dict(orient="records")
-            nearby = find_nearby_stops(lat, lon, stops, radius)
-
-            # 🔐 Defensive Programming
-            for stop in nearby:
-                stop["agency"] = agency
-                stop["stop_id"] = str(stop.get("stop_id", "unknown"))
-                stop["stop_name"] = stop.get("stop_name", "Unknown Stop")
-                stop["stop_lat"] = float(stop.get("stop_lat", 0))
-                stop["stop_lon"] = float(stop.get("stop_lon", 0))
-                stop["stop_code"] = str(stop.get("stop_code", ""))
-
-            return nearby
-
+            return find_nearby_stops(lat, lon, stops, radius)
         except Exception as e:
             log_debug(f"[ERROR] get_nearby_stops failed for {agency}: {e}")
             return []
@@ -95,20 +79,13 @@ class BusService:
         return {"buses": results}
 
     async def get_stop_predictions(self, stop_id: str, lat: float = None, lon: float = None) -> Dict[str, Any]:
-        """
-        Unified real-time + fallback prediction function for Muni stop.
-        """
         try:
             realtime = await fetch_real_time_stop_data(stop_id, agency="muni")
-
             if not realtime.get("inbound") and not realtime.get("outbound"):
-                fallback = self.scheduler.get_schedule(stop_id, agency="muni")
-                return fallback
+                return self.scheduler.get_schedule(stop_id, agency="muni")
 
-            # Ensure vehicle field always exists
             for entry in realtime.get("inbound", []) + realtime.get("outbound", []):
                 entry.setdefault("vehicle", {"lat": "", "lon": ""})
-
             return realtime
 
         except Exception as e:
