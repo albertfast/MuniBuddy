@@ -14,6 +14,14 @@ class RealtimeBartService:
         self.scheduler = scheduler
         self.agency = settings.normalize_agency("bart")
 
+    def _resolve_stop_code(self, identifier: str) -> str:
+        """Stop ID, code veya name verildiğinde gerçek stop_code'u bulur."""
+        stops = load_stops(self.agency)
+        for stop in stops:
+            if stop.get("stop_id") == identifier or stop.get("stop_code") == identifier or stop.get("stop_name") == identifier:
+                return stop.get("stop_code") or stop.get("stop_id")
+        return identifier 
+
     async def fetch_real_time_stop_data(self, stop_code: str, raw: bool = False) -> Dict[str, Any]:
         try:
             stop_code = self._resolve_stop_code(stop_code)
