@@ -1,5 +1,5 @@
 // src/components/App.jsx
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Container, Box, Typography, Alert, TextField, InputAdornment,
   Slider, Grid, Button, Dialog, DialogTitle, DialogContent, DialogActions,
@@ -10,7 +10,6 @@ import MyLocationIcon from '@mui/icons-material/MyLocation';
 import Map from './components/Map';
 import TransitInfo from './components/TransitInfo';
 import { geocodeAddress, parseCoordinates, formatCoordinates } from './utility/geocode';
-import { debounce } from 'lodash';
 import './index.css';
 
 const BASE_URL = import.meta.env.VITE_API_BASE;
@@ -28,153 +27,145 @@ const App = () => {
   const [showLocationDialog, setShowLocationDialog] = useState(true);
 
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
+    const root = document.documentElement;
+    root.setAttribute('data-theme', theme);
   }, [theme]);
 
-  const toggleTheme = () => setTheme(prev => (prev === 'light' ? 'dark' : 'light'));
-
-  const fetchNearbyStops = useCallback(async (location) => {
-    if (!location) return;
-    setIsLoading(true);
-    setError(null);
-
-    const agencies = ['SF', 'SFMTA', 'muni', 'BA', 'bart'];
-    const visited = new Set();
-    const stopsFound = {};
-    const vehicleMarkers = [];
-
-    for (const agency of agencies) {
-      try {
-        const nearby = await fetch(`${BASE_URL}/bus/nearby-stops?lat=${location.lat}&lon=${location.lng}&radius=${radius}&agency=${agency}`);
-        if (!nearby.ok) continue;
-        const stops = await nearby.json();
-
-        for (const stop of stops) {
-          const stopCode = stop.stop_code || stop.stop_id;
-          const normAgency = agency.toUpperCase().startsWith("B") ? "BA" : "SF";
-          const stopKey = `${stopCode}-${normAgency}`;
-
-          if (visited.has(stopKey)) continue;
-          visited.add(stopKey);
-          stopsFound[stop.stop_id] = stop;
-
-          const res = await fetch(`${BASE_URL}/bus-positions/by-stop?stopCode=${stopCode}&agency=${normAgency}`);
-          if (!res.ok) continue;
-
-          const json = await res.json();
-          const visits = json?.ServiceDelivery?.StopMonitoringDelivery?.MonitoredStopVisit ?? [];
-
-          visits.forEach((visit, i) => {
-            const loc = visit?.MonitoredVehicleJourney?.VehicleLocation;
-            if (!loc?.Latitude || !loc?.Longitude) return;
-            vehicleMarkers.push({
-              position: { lat: parseFloat(loc.Latitude), lng: parseFloat(loc.Longitude) },
-              title: `${visit?.MonitoredVehicleJourney?.PublishedLineName || "Transit"} → ${visit?.MonitoredVehicleJourney?.MonitoredCall?.DestinationDisplay || "?"}`,
-              stopId: `${stopCode}-${agency}-${i}`,
-              icon: { url: '/images/live-bus-icon.svg', scaledSize: { width: 28, height: 28 } }
-            });
-          });
-        }
-      } catch (err) {
-        console.warn(`[511 FETCH ERROR] ${agency}: ${err.message}`);
-      }
-    }
-
-    setNearbyStops(stopsFound);
-
-    const stopMarkers = Object.values(stopsFound).map(stop => ({
-      position: { lat: parseFloat(stop.stop_lat), lng: parseFloat(stop.stop_lon) },
-      title: stop.stop_name,
-      stopId: stop.stop_id,
-      icon: { url: '/images/bus-stop-icon32.svg', scaledSize: { width: 32, height: 32 } }
-    }));
-
-    if (userLocation) {
-      stopMarkers.push({
-        position: userLocation,
-        title: 'You',
-        icon: { url: '/images/user-location-icon.svg', scaledSize: { width: 32, height: 32 } }
-      });
-    }
-
-    setMarkers([...stopMarkers, ...vehicleMarkers]);
-    setLiveVehicleMarkers(vehicleMarkers);
-    setIsLoading(false);
-  }, [radius, userLocation]);
-
-  const debouncedFetchNearbyStops = useCallback(debounce(fetchNearbyStops, 800), [fetchNearbyStops]);
+  const toggleTheme = () => {
+    setTheme(prev => prev === 'light' ? 'dark' : 'light');
+  };
 
   const requestLocation = () => {
     setShowLocationDialog(false);
-    if (!navigator.geolocation) {
+    if (navigator.geolocation) {
+      setIsLoading(true);
+      setError(null);
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const location = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+          setUserLocation(location);
+          fetchNearbyStops(location);
+        },
+        () => {
+          setError('Could not get location. Please allow location access or enter manually.');
+          setIsLoading(false);
+        }
+      );
+    } else {
       setError('Geolocation is not supported.');
-      return;
+      setIsLoading(false);
     }
-    setIsLoading(true);
-    navigator.geolocation.getCurrentPosition(
-      pos => {
-        const location = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-        setUserLocation(location);
-        debouncedFetchNearbyStops(location);
-      },
-      () => {
-        setError('Could not get location. Please allow location access or enter manually.');
-        setIsLoading(false);
-      }
-    );
   };
 
-  const handleManualLocationSearch = async () => {
-    const input = searchAddress.trim();
-    if (!input) {
-      setError("Please enter coordinates or an address.");
-      return;
-    }
+  const fetchNearbyStops = async (location) => {
+    if (!location) return;
+  
     setIsLoading(true);
-    const coords = parseCoordinates(input);
-    if (coords) {
-      setUserLocation(coords);
-      debouncedFetchNearbyStops(coords);
-      setIsLoading(false);
-      return;
-    }
+    setError(null);
+  
+    const stopsFound = {};
+    const vehicleMarkers = [];
+    const visited = new Set();
+  
+    const agencyEndpoints = {
+      muni: {
+        nearby: `${BASE_URL}/bus/nearby-stops`,
+        vehicles: `${BASE_URL}/bus-positions/by-stop`,
+        codes: ['SF', 'SFMTA', 'muni']
+      },
+      bart: {
+        nearby: `${BASE_URL}/bart-positions/nearby-stops`,
+        vehicles: `${BASE_URL}/bart-positions/by-stop`,
+        codes: ['BA', 'bart']
+      }
+    };
+  
+  const fetchByAgency = async (group) => {
     try {
-      const data = await geocodeAddress(input);
-      if (data?.lat && data?.lng) {
-        const location = { lat: data.lat, lng: data.lng };
-        setUserLocation(location);
-        setSearchAddress(formatCoordinates(data.lat, data.lng));
-        debouncedFetchNearbyStops(location);
-      } else {
-        setError("Could not find coordinates. Try a more specific address.");
+      const res = await fetch(`${group.nearby}?lat=${location.lat}&lon=${location.lng}&radius=${radius}`);
+      if (!res.ok) throw new Error("Failed to fetch nearby stops.");
+      const stops = await res.json();
+
+      for (const stop of stops) {
+        const stopCode = stop.stop_code || stop.stop_id;
+        const key = `${stopCode}-${group.codes[0]}`;
+        if (visited.has(key)) continue;
+
+        visited.add(key);
+        stopsFound[stop.stop_id] = stop;
+
+        const res = await fetch(`${group.vehicles}?stopCode=${stopCode}&agency=${group.codes[0]}`);
+        if (!res.ok) continue;
+
+        const data = await res.json();
+        const visits = data?.ServiceDelivery?.StopMonitoringDelivery?.MonitoredStopVisit ?? [];
+
+        visits.forEach((visit, i) => {
+          const vehicle = visit.MonitoredVehicleJourney;
+          const loc = vehicle?.VehicleLocation;
+          if (!loc?.Latitude || !loc?.Longitude) return;
+
+          vehicleMarkers.push({
+            position: { lat: parseFloat(loc.Latitude), lng: parseFloat(loc.Longitude) },
+            title: `${vehicle?.PublishedLineName || "Transit"} → ${vehicle?.MonitoredCall?.DestinationDisplay || "?"}`,
+            stopId: `${stopCode}-${group.codes[0]}-${i}`,
+            icon: {
+              url: '/images/live-bus-icon.svg',
+              scaledSize: { width: 28, height: 28 }
+            }
+          });
+        });
       }
     } catch (err) {
-      setError(`Geocoding failed: ${err.message}`);
-    } finally {
-      setIsLoading(false);
+      console.warn(`[FETCH ERROR] ${group.codes[0]}: ${err.message}`);
     }
   };
 
-  useEffect(() => {
-    if (Object.keys(nearbyStops).length === 0) return;
+  await Promise.all([
+    fetchByAgency(agencyEndpoints.muni),
+    fetchByAgency(agencyEndpoints.bart)
+  ]);
 
-    let cancel = false;
+
+  const stopMarkers = Object.values(stopsFound).map((stop) => ({
+    position: { lat: parseFloat(stop.stop_lat), lng: parseFloat(stop.stop_lon) },
+    title: stop.stop_name,
+    stopId: stop.stop_id,
+    icon: { url: '/images/bus-stop-icon3.svg', scaledSize: { width: 32, height: 32 } }
+  }));
+
+  if (userLocation) {
+    stopMarkers.push({
+      position: userLocation,
+      title: 'You',
+      icon: { url: '/images/user-location-icon.svg', scaledSize: { width: 32, height: 32 } }
+    });
+  }
+
+  setNearbyStops(stopsFound);
+  setMarkers([...stopMarkers, ...vehicleMarkers]);
+  setLiveVehicleMarkers(vehicleMarkers);
+  setIsLoading(false);
+};
+  
+  useEffect(() => {
     const fetchAllLiveMarkers = async () => {
       const agencies = ['SF', 'SFMTA', 'muni', 'BA', 'bart'];
       let allMarkers = [];
-
+  
       for (const stop of Object.values(nearbyStops)) {
         const stopCode = stop.stop_code || stop.stop_id;
         for (const agency of agencies) {
           try {
             const res = await fetch(`${BASE_URL}/bus-positions/by-stop?stopCode=${stopCode}&agency=${agency}`);
             const json = await res.json();
-
+  
             const visits = json?.ServiceDelivery?.StopMonitoringDelivery?.MonitoredStopVisit ?? [];
+  
             const markers = visits.map((visit, index) => {
               const loc = visit?.MonitoredVehicleJourney?.VehicleLocation;
               if (!loc?.Latitude || !loc?.Longitude) return null;
-
+  
               return {
                 position: {
                   lat: parseFloat(loc.Latitude),
@@ -188,22 +179,53 @@ const App = () => {
                 }
               };
             }).filter(Boolean);
-
+  
             allMarkers.push(...markers);
           } catch (err) {
-            console.warn(`Live marker error for stop ${stopCode} @ ${agency}:`, err.message);
+            console.warn(`Failed live vehicle fetch for stop ${stopCode} @ ${agency}: ${err.message}`);
           }
         }
       }
-
-      if (!cancel) {
-        setLiveVehicleMarkers(allMarkers);
-      }
+  
+      setLiveVehicleMarkers(allMarkers);
     };
-
-    fetchAllLiveMarkers();
-    return () => { cancel = true; };
+  
+    if (Object.keys(nearbyStops).length > 0) {
+      fetchAllLiveMarkers();
+    }
   }, [nearbyStops]);
+  
+  const handleManualLocationSearch = async () => {
+    const input = searchAddress.trim();
+    if (!input) {
+      setError("Please enter coordinates or an address.");
+      return;
+    }
+    setIsLoading(true);
+    setError(null);
+    const coords = parseCoordinates(input);
+    if (coords) {
+      setUserLocation(coords);
+      fetchNearbyStops(coords);
+      setIsLoading(false);
+      return;
+    }
+    try {
+      const data = await geocodeAddress(input);
+      if (data?.lat && data?.lng) {
+        const location = { lat: data.lat, lng: data.lng };
+        setUserLocation(location);
+        setSearchAddress(formatCoordinates(data.lat, data.lng));
+        fetchNearbyStops(location);
+      } else {
+        setError("Could not find coordinates. Try a more specific address.");
+      }
+    } catch (err) {
+      setError(`Geocoding failed: ${err.message}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <Container maxWidth="lg">
@@ -227,8 +249,12 @@ const App = () => {
             onChange={(e) => setSearchAddress(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleManualLocationSearch()}
             InputProps={{
-              startAdornment: <InputAdornment position="start"><SearchIcon /></InputAdornment>,
-              style: { color: theme === 'dark' ? '#fff' : '#000' }
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon />
+                </InputAdornment>
+              ),
+              style: { color: theme === 'dark' ? '#fff' : '#000' },
             }}
           />
         </Grid>
@@ -255,7 +281,7 @@ const App = () => {
                 const location = { lat: e.latLng.lat(), lng: e.latLng.lng() };
                 setUserLocation(location);
                 setSearchAddress(formatCoordinates(location.lat, location.lng));
-                debouncedFetchNearbyStops(location);
+                fetchNearbyStops(location);
               }}
             />
             {isLoading && (
@@ -265,7 +291,7 @@ const App = () => {
             )}
           </Box>
         </Grid>
-        <Grid item xs={12} md={4}>
+        <Grid item xs={12} md={4} className="transit-info-panel">
           {!isLoading && Object.keys(nearbyStops).length > 0 ? (
             <TransitInfo stops={nearbyStops} setLiveVehicleMarkers={setLiveVehicleMarkers} />
           ) : (
