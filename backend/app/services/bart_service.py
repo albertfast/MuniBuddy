@@ -25,10 +25,10 @@ class BartService:
             return []
 
         def get_nearby_trains(self, lat: float, lon: float, radius: float = 0.15, agency: str = "bart"):
-        agency = settings.normalize_agency(agency)
-        log_debug(f"[BART] Looking for nearby real-time trains at ({lat}, {lon}) within {radius} miles")
-        nearby_stops = self.get_nearby_barts(lat, lon, radius, agency)
-        results = []
+            agency = settings.normalize_agency(agency)
+            log_debug(f"[BART] Looking for nearby real-time trains at ({lat}, {lon}) within {radius} miles")
+            nearby_stops = self.get_nearby_barts(lat, lon, radius, agency)
+            results = []
 
         for stop in nearby_stops:
             realtime_data = fetch_real_time_stop_data(stop["stop_id"], agency)
