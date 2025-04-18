@@ -131,7 +131,7 @@ const App = () => {
     position: { lat: parseFloat(stop.stop_lat), lng: parseFloat(stop.stop_lon) },
     title: stop.stop_name,
     stopId: stop.stop_id,
-    icon: { url: '/images/bus-stop-icon3.svg', scaledSize: { width: 32, height: 32 } }
+    icon: { url: '/images/bus-stop-icon.svg', scaledSize: { width: 32, height: 32 } }
   }));
 
   if (userLocation) {
