@@ -62,18 +62,58 @@ const App = () => {
     setIsLoading(true);
     setError(null);
     try {
-      const muniRes = await fetch(`${BASE_URL}/nearby-stops?lat=${location.lat}&lon=${location.lng}&radius=${radius}&agency=muni`);
-      const bartRes = await fetch(`${BASE_URL}/nearby-stops?lat=${location.lat}&lon=${location.lng}&radius=${radius}&agency=bart`);
+      const agencies = ['SF', 'SFMTA', 'muni', 'BA', 'bart'];
+      const visited = new Set();
+      const stopsFound = {};
+      const vehicleMarkers = [];
   
-      const muniStops = muniRes.ok ? await muniRes.json() : [];
-      const bartStops = bartRes.ok ? await bartRes.json() : [];
+      for (const agency of agencies) {
+        try {
+          // Deneme amaçlı stopCodes array'imiz yok, bu yüzden radius içindeki potansiyel stopları kendimiz türetmiyoruz
+          // Öneri: Bu durumda yine nearby-stops ile stop listesini çekip, buradan stopCode ile gerçek zamanlı çağrı yapmalıyız
+          const nearby = await fetch(`${BASE_URL}/nearby-stops?lat=${location.lat}&lon=${location.lng}&radius=${radius}&agency=${agency}`);
+          if (!nearby.ok) continue;
+          const stops = await nearby.json();
   
-      const allStops = [...muniStops, ...bartStops];
-      const stopObj = Object.fromEntries(allStops.map((s) => [s.stop_id, s]));
+          for (const stop of stops) {
+            const stopCode = stop.stop_code || stop.stop_id;
+            const normAgency = agency.toUpperCase().startsWith("B") ? "BA" : "SF";
   
-      setNearbyStops(stopObj);
+            if (visited.has(`${stopCode}-${normAgency}`)) continue;
+            visited.add(`${stopCode}-${normAgency}`);
+            stopsFound[stop.stop_id] = stop;
   
-      const stopMarkers = allStops.map((stop) => ({
+            const res = await fetch(`${BASE_URL}/bus-positions/by-stop?stopCode=${stopCode}&agency=${normAgency}`);
+            if (!res.ok) continue;
+  
+            const json = await res.json();
+            const visits = json?.ServiceDelivery?.StopMonitoringDelivery?.MonitoredStopVisit ?? [];
+  
+            for (let i = 0; i < visits.length; i++) {
+              const visit = visits[i];
+              const vehicle = visit?.MonitoredVehicleJourney;
+              const loc = vehicle?.VehicleLocation;
+              if (!loc?.Latitude || !loc?.Longitude) continue;
+  
+              vehicleMarkers.push({
+                position: { lat: parseFloat(loc.Latitude), lng: parseFloat(loc.Longitude) },
+                title: `${vehicle?.PublishedLineName || "Transit"} → ${vehicle?.MonitoredCall?.DestinationDisplay || "?"}`,
+                stopId: `${stopCode}-${agency}-${i}`,
+                icon: {
+                  url: '/images/live-bus-icon.svg',
+                  scaledSize: { width: 28, height: 28 }
+                }
+              });
+            }
+          }
+        } catch (err) {
+          console.warn(`[511 FETCH ERROR] ${agency}: ${err.message}`);
+        }
+      }
+  
+      setNearbyStops(stopsFound);
+  
+      const stopMarkers = Object.values(stopsFound).map((stop) => ({
         position: { lat: parseFloat(stop.stop_lat), lng: parseFloat(stop.stop_lon) },
         title: stop.stop_name,
         stopId: stop.stop_id,
@@ -88,9 +128,12 @@ const App = () => {
         });
       }
   
-      setMarkers([...stopMarkers, ...liveVehicleMarkers]);
+      setMarkers([...stopMarkers, ...vehicleMarkers]);
+      setLiveVehicleMarkers(vehicleMarkers);
+  
     } catch (err) {
-      setError("Failed to load nearby stops.");
+      console.error("Master fetchNearbyStops error:", err);
+      setError("Failed to load live data from 511.");
       setNearbyStops({});
     } finally {
       setIsLoading(false);
