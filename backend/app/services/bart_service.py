@@ -10,7 +10,6 @@ class BartService:
     def __init__(self):
         self.agency = settings.normalize_agency("bart")
         self.realtime = RealtimeBartService()
-        self.scheduler = SchedulerService()
 
     def get_nearby_barts(self, lat: float, lon: float, radius: float = 0.15) -> List[Dict[str, Any]]:
         log_debug(f"[BART] Looking for nearby stops around ({lat}, {lon}) with radius {radius}")
