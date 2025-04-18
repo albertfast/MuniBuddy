@@ -69,9 +69,7 @@ const App = () => {
   
       for (const agency of agencies) {
         try {
-          // Deneme amaçlı stopCodes array'imiz yok, bu yüzden radius içindeki potansiyel stopları kendimiz türetmiyoruz
-          // Öneri: Bu durumda yine nearby-stops ile stop listesini çekip, buradan stopCode ile gerçek zamanlı çağrı yapmalıyız
-          const nearby = await fetch(`${BASE_URL}/nearby-stops?lat=${location.lat}&lon=${location.lng}&radius=${radius}&agency=${agency}`);
+          const nearby = await fetch(`${BASE_URL}/bus/nearby-stops?lat=${location.lat}&lon=${location.lng}&radius=${radius}&agency=${agency}`);
           if (!nearby.ok) continue;
           const stops = await nearby.json();
   
