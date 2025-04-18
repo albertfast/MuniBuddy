@@ -31,164 +31,98 @@ const App = () => {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
 
-  const toggleTheme = () => {
-    setTheme(prev => (prev === 'light' ? 'dark' : 'light'));
-  };
+  const toggleTheme = () => setTheme(prev => (prev === 'light' ? 'dark' : 'light'));
 
-  const fetchNearbyStops = async (location) => {
+  const fetchNearbyStops = useCallback(async (location) => {
     if (!location) return;
     setIsLoading(true);
     setError(null);
 
-    try {
-      const agencies = ['SF', 'SFMTA', 'muni', 'BA', 'bart'];
-      const visited = new Set();
-      const stopsFound = {};
-      const vehicleMarkers = [];
+    const agencies = ['SF', 'SFMTA', 'muni', 'BA', 'bart'];
+    const visited = new Set();
+    const stopsFound = {};
+    const vehicleMarkers = [];
 
-      for (const agency of agencies) {
-        const normAgency = agency.toUpperCase().startsWith("B") ? "BA" : "SF";
-        try {
-          const res = await fetch(`${BASE_URL}/bus/nearby-stops?lat=${location.lat}&lon=${location.lng}&radius=${radius}&agency=${agency}`);
+    for (const agency of agencies) {
+      try {
+        const nearby = await fetch(`${BASE_URL}/bus/nearby-stops?lat=${location.lat}&lon=${location.lng}&radius=${radius}&agency=${agency}`);
+        if (!nearby.ok) continue;
+        const stops = await nearby.json();
+
+        for (const stop of stops) {
+          const stopCode = stop.stop_code || stop.stop_id;
+          const normAgency = agency.toUpperCase().startsWith("B") ? "BA" : "SF";
+          const stopKey = `${stopCode}-${normAgency}`;
+
+          if (visited.has(stopKey)) continue;
+          visited.add(stopKey);
+          stopsFound[stop.stop_id] = stop;
+
+          const res = await fetch(`${BASE_URL}/bus-positions/by-stop?stopCode=${stopCode}&agency=${normAgency}`);
           if (!res.ok) continue;
 
-          const stops = await res.json();
+          const json = await res.json();
+          const visits = json?.ServiceDelivery?.StopMonitoringDelivery?.MonitoredStopVisit ?? [];
 
-          for (const stop of stops) {
-            const stopCode = stop.stop_code || stop.stop_id;
-            const stopKey = `${stopCode}-${normAgency}`;
-
-            if (visited.has(stopKey)) continue;
-            visited.add(stopKey);
-            stopsFound[stop.stop_id] = stop;
-
-            const vres = await fetch(`${BASE_URL}/bus-positions/by-stop?stopCode=${stopCode}&agency=${normAgency}`);
-            if (!vres.ok) continue;
-
-            const json = await vres.json();
-            const visits = json?.ServiceDelivery?.StopMonitoringDelivery?.MonitoredStopVisit ?? [];
-
-            for (let i = 0; i < visits.length; i++) {
-              const journey = visits[i]?.MonitoredVehicleJourney;
-              const loc = journey?.VehicleLocation;
-              if (!loc?.Latitude || !loc?.Longitude) continue;
-
-              vehicleMarkers.push({
-                position: { lat: parseFloat(loc.Latitude), lng: parseFloat(loc.Longitude) },
-                title: `${journey?.PublishedLineName || "Transit"} → ${journey?.MonitoredCall?.DestinationDisplay || "?"}`,
-                stopId: `${stopCode}-${agency}-${i}`,
-                icon: {
-                  url: '/images/live-bus-icon.svg',
-                  scaledSize: { width: 28, height: 28 }
-                }
-              });
-            }
-          }
-        } catch (err) {
-          console.warn(`[511 FETCH ERROR] ${agency}: ${err.message}`);
+          visits.forEach((visit, i) => {
+            const loc = visit?.MonitoredVehicleJourney?.VehicleLocation;
+            if (!loc?.Latitude || !loc?.Longitude) return;
+            vehicleMarkers.push({
+              position: { lat: parseFloat(loc.Latitude), lng: parseFloat(loc.Longitude) },
+              title: `${visit?.MonitoredVehicleJourney?.PublishedLineName || "Transit"} → ${visit?.MonitoredVehicleJourney?.MonitoredCall?.DestinationDisplay || "?"}`,
+              stopId: `${stopCode}-${agency}-${i}`,
+              icon: { url: '/images/live-bus-icon.svg', scaledSize: { width: 28, height: 28 } }
+            });
+          });
         }
+      } catch (err) {
+        console.warn(`[511 FETCH ERROR] ${agency}: ${err.message}`);
       }
-
-      setNearbyStops(stopsFound);
-
-      const stopMarkers = Object.values(stopsFound).map((stop) => ({
-        position: { lat: parseFloat(stop.stop_lat), lng: parseFloat(stop.stop_lon) },
-        title: stop.stop_name,
-        stopId: stop.stop_id,
-        icon: { url: '/images/bus-stop-icon32.svg', scaledSize: { width: 32, height: 32 } }
-      }));
-
-      if (userLocation) {
-        stopMarkers.push({
-          position: userLocation,
-          title: 'You',
-          icon: { url: '/images/user-location-icon.svg', scaledSize: { width: 32, height: 32 } }
-        });
-      }
-
-      setMarkers([...stopMarkers, ...vehicleMarkers]);
-      setLiveVehicleMarkers(vehicleMarkers);
-
-    } catch (err) {
-      console.error("Master fetchNearbyStops error:", err);
-      setError("Failed to load live data from 511.");
-      setNearbyStops({});
-    } finally {
-      setIsLoading(false);
     }
-  };
 
-  const debouncedFetchNearbyStops = useCallback(debounce(fetchNearbyStops, 800), [radius]);
+    setNearbyStops(stopsFound);
+
+    const stopMarkers = Object.values(stopsFound).map(stop => ({
+      position: { lat: parseFloat(stop.stop_lat), lng: parseFloat(stop.stop_lon) },
+      title: stop.stop_name,
+      stopId: stop.stop_id,
+      icon: { url: '/images/bus-stop-icon32.svg', scaledSize: { width: 32, height: 32 } }
+    }));
+
+    if (userLocation) {
+      stopMarkers.push({
+        position: userLocation,
+        title: 'You',
+        icon: { url: '/images/user-location-icon.svg', scaledSize: { width: 32, height: 32 } }
+      });
+    }
+
+    setMarkers([...stopMarkers, ...vehicleMarkers]);
+    setLiveVehicleMarkers(vehicleMarkers);
+    setIsLoading(false);
+  }, [radius, userLocation]);
+
+  const debouncedFetchNearbyStops = useCallback(debounce(fetchNearbyStops, 800), [fetchNearbyStops]);
 
   const requestLocation = () => {
     setShowLocationDialog(false);
-    if (navigator.geolocation) {
-      setIsLoading(true);
-      setError(null);
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          const location = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-          setUserLocation(location);
-          debouncedFetchNearbyStops(location);
-        },
-        () => {
-          setError('Could not get location. Please allow location access or enter manually.');
-          setIsLoading(false);
-        }
-      );
-    } else {
+    if (!navigator.geolocation) {
       setError('Geolocation is not supported.');
-      setIsLoading(false);
+      return;
     }
-  };
-
-  useEffect(() => {
-    if (Object.keys(nearbyStops).length === 0) return;
-
-    let cancel = false;
-
-    const fetchAllLiveMarkers = async () => {
-      const agencies = ['SF', 'SFMTA', 'muni', 'BA', 'bart'];
-      let allMarkers = [];
-
-      for (const stop of Object.values(nearbyStops)) {
-        const stopCode = stop.stop_code || stop.stop_id;
-
-        for (const agency of agencies) {
-          try {
-            const res = await fetch(`${BASE_URL}/bus-positions/by-stop?stopCode=${stopCode}&agency=${agency}`);
-            const json = await res.json();
-            const visits = json?.ServiceDelivery?.StopMonitoringDelivery?.MonitoredStopVisit ?? [];
-
-            const markers = visits.map((visit, i) => {
-              const loc = visit?.MonitoredVehicleJourney?.VehicleLocation;
-              if (!loc?.Latitude || !loc?.Longitude) return null;
-
-              return {
-                position: { lat: parseFloat(loc.Latitude), lng: parseFloat(loc.Longitude) },
-                title: `${visit?.MonitoredVehicleJourney?.PublishedLineName || "Transit"} → ${visit?.MonitoredVehicleJourney?.MonitoredCall?.DestinationDisplay || "?"}`,
-                stopId: `${stopCode}-${agency}-${i}`,
-                icon: {
-                  url: '/images/live-bus-icon.svg',
-                  scaledSize: { width: 28, height: 28 }
-                }
-              };
-            }).filter(Boolean);
-
-            allMarkers.push(...markers);
-          } catch (err) {
-            console.warn(`Live vehicle fetch failed for stop ${stopCode} @ ${agency}: ${err.message}`);
-          }
-        }
+    setIsLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        const location = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        setUserLocation(location);
+        debouncedFetchNearbyStops(location);
+      },
+      () => {
+        setError('Could not get location. Please allow location access or enter manually.');
+        setIsLoading(false);
       }
-
-      if (!cancel) setLiveVehicleMarkers(allMarkers);
-    };
-
-    fetchAllLiveMarkers();
-
-    return () => { cancel = true; };
-  }, [nearbyStops]);
+    );
+  };
 
   const handleManualLocationSearch = async () => {
     const input = searchAddress.trim();
@@ -197,7 +131,6 @@ const App = () => {
       return;
     }
     setIsLoading(true);
-    setError(null);
     const coords = parseCoordinates(input);
     if (coords) {
       setUserLocation(coords);
@@ -222,9 +155,139 @@ const App = () => {
     }
   };
 
+  useEffect(() => {
+    if (Object.keys(nearbyStops).length === 0) return;
+
+    let cancel = false;
+    const fetchAllLiveMarkers = async () => {
+      const agencies = ['SF', 'SFMTA', 'muni', 'BA', 'bart'];
+      let allMarkers = [];
+
+      for (const stop of Object.values(nearbyStops)) {
+        const stopCode = stop.stop_code || stop.stop_id;
+        for (const agency of agencies) {
+          try {
+            const res = await fetch(`${BASE_URL}/bus-positions/by-stop?stopCode=${stopCode}&agency=${agency}`);
+            const json = await res.json();
+
+            const visits = json?.ServiceDelivery?.StopMonitoringDelivery?.MonitoredStopVisit ?? [];
+            const markers = visits.map((visit, index) => {
+              const loc = visit?.MonitoredVehicleJourney?.VehicleLocation;
+              if (!loc?.Latitude || !loc?.Longitude) return null;
+
+              return {
+                position: {
+                  lat: parseFloat(loc.Latitude),
+                  lng: parseFloat(loc.Longitude)
+                },
+                title: `${visit.MonitoredVehicleJourney?.PublishedLineName || "Transit"} → ${visit.MonitoredVehicleJourney?.MonitoredCall?.DestinationDisplay || "?"}`,
+                stopId: `${stopCode}-${agency}-${index}`,
+                icon: {
+                  url: '/images/live-bus-icon.svg',
+                  scaledSize: { width: 28, height: 28 }
+                }
+              };
+            }).filter(Boolean);
+
+            allMarkers.push(...markers);
+          } catch (err) {
+            console.warn(`Live marker error for stop ${stopCode} @ ${agency}:`, err.message);
+          }
+        }
+      }
+
+      if (!cancel) {
+        setLiveVehicleMarkers(allMarkers);
+      }
+    };
+
+    fetchAllLiveMarkers();
+    return () => { cancel = true; };
+  }, [nearbyStops]);
+
   return (
     <Container maxWidth="lg">
-      {/* UI rendering code remains unchanged */}
+      <Box sx={{ my: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Typography variant="h4">MuniBuddy</Typography>
+        <div>
+          <button onClick={toggleTheme}>
+            {theme === 'light' ? 'Switch to Dark Theme' : 'Switch to Light Theme'}
+          </button>
+        </div>
+      </Box>
+
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+
+      <Grid container spacing={2} alignItems="center" sx={{ mb: 2 }}>
+        <Grid item xs={12} sm={8}>
+          <TextField
+            fullWidth
+            placeholder="Enter address or coordinates"
+            value={searchAddress}
+            onChange={(e) => setSearchAddress(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleManualLocationSearch()}
+            InputProps={{
+              startAdornment: <InputAdornment position="start"><SearchIcon /></InputAdornment>,
+              style: { color: theme === 'dark' ? '#fff' : '#000' }
+            }}
+          />
+        </Grid>
+        <Grid item xs={6} sm={2}>
+          <Button fullWidth variant="contained" onClick={handleManualLocationSearch}>Search</Button>
+        </Grid>
+        <Grid item xs={6} sm={2}>
+          <Button fullWidth variant="outlined" onClick={requestLocation} startIcon={<MyLocationIcon />}>Locate Me</Button>
+        </Grid>
+        <Grid item xs={12}>
+          <Typography gutterBottom>Radius: {radius.toFixed(2)} mi</Typography>
+          <Slider value={radius} min={0.1} max={1.0} step={0.05} onChange={(e, v) => setRadius(v)} valueLabelDisplay="auto" />
+        </Grid>
+      </Grid>
+
+      <Grid container spacing={2}>
+        <Grid item xs={12} md={8}>
+          <Box className="map-container" sx={{ position: 'relative', height: '450px', mb: { xs: 3, md: 0 } }}>
+            <Map
+              center={userLocation || { lat: 37.7749, lng: -122.4194 }}
+              markers={markers}
+              liveVehicleMarkers={liveVehicleMarkers}
+              onMapClick={(e) => {
+                const location = { lat: e.latLng.lat(), lng: e.latLng.lng() };
+                setUserLocation(location);
+                setSearchAddress(formatCoordinates(location.lat, location.lng));
+                debouncedFetchNearbyStops(location);
+              }}
+            />
+            {isLoading && (
+              <Box sx={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(255,255,255,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                <CircularProgress />
+              </Box>
+            )}
+          </Box>
+        </Grid>
+        <Grid item xs={12} md={4}>
+          {!isLoading && Object.keys(nearbyStops).length > 0 ? (
+            <TransitInfo stops={nearbyStops} setLiveVehicleMarkers={setLiveVehicleMarkers} />
+          ) : (
+            !isLoading && (
+              <Typography align="center" color="text.secondary" sx={{ py: 3 }}>
+                {userLocation ? 'No nearby stops found.' : 'Enter or select a location to see stops.'}
+              </Typography>
+            )
+          )}
+        </Grid>
+      </Grid>
+
+      <Dialog open={showLocationDialog} onClose={() => setShowLocationDialog(false)}>
+        <DialogTitle>Use Your Location?</DialogTitle>
+        <DialogContent>
+          <Typography>Allow MuniBuddy to use your current location to find nearby transit stops?</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowLocationDialog(false)}>No Thanks</Button>
+          <Button onClick={requestLocation} variant="contained">Use Location</Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 };
