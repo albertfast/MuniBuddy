@@ -28,6 +28,6 @@ jobs:
           echo "[ACTION STARTED]"
           cd MuniBuddy
           git pull origin main
-          docker compose down
+          docker compose restart
           docker compose up -d --build
           echo "[ACTION ENDED]"
