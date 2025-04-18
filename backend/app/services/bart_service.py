@@ -7,8 +7,8 @@ from app.services.debug_logger import log_debug
 from app.integrations.siri_api import fetch_siri_data
 
 class BartService:
-    def __init__(self):
-        self.scheduler = SchedulerService()
+    def __init__(self, scheduler: SchedulerService):
+        self.scheduler = scheduler
         self.agency = settings.normalize_agency("bart")
         self.realtime = RealtimeBartService(self.scheduler)
 
