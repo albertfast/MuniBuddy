@@ -62,7 +62,7 @@ const App = () => {
     setIsLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${BASE_URL}/nearby-stops?lat=${location.lat}&lon=${location.lng}&radius=${radius}`);
+      const res = await fetch(`${BASE_URL}/bus-positions?lat=${location.lat}&lon=${location.lng}&radius=${radius}`);
       if (!res.ok) throw new Error("Could not load stops");
       const data = await res.json();
       setNearbyStops(data);
@@ -91,6 +91,53 @@ const App = () => {
     }
   };
 
+  useEffect(() => {
+    const fetchAllLiveMarkers = async () => {
+      const agencies = ['SF', 'SFMTA', 'muni', 'BA', 'bart'];
+      let allMarkers = [];
+  
+      for (const stop of Object.values(nearbyStops)) {
+        const stopCode = stop.stop_code || stop.stop_id;
+        for (const agency of agencies) {
+          try {
+            const res = await fetch(`${BASE_URL}/bus-positions/by-stop?stopCode=${stopCode}&agency=${agency}`);
+            const json = await res.json();
+  
+            const visits = json?.ServiceDelivery?.StopMonitoringDelivery?.MonitoredStopVisit ?? [];
+  
+            const markers = visits.map((visit, index) => {
+              const loc = visit?.MonitoredVehicleJourney?.VehicleLocation;
+              if (!loc?.Latitude || !loc?.Longitude) return null;
+  
+              return {
+                position: {
+                  lat: parseFloat(loc.Latitude),
+                  lng: parseFloat(loc.Longitude)
+                },
+                title: `${visit.MonitoredVehicleJourney?.PublishedLineName || "Transit"} → ${visit.MonitoredVehicleJourney?.MonitoredCall?.DestinationDisplay || "?"}`,
+                stopId: `${stopCode}-${agency}-${index}`,
+                icon: {
+                  url: '/images/live-bus-icon.svg',
+                  scaledSize: { width: 28, height: 28 }
+                }
+              };
+            }).filter(Boolean);
+  
+            allMarkers.push(...markers);
+          } catch (err) {
+            console.warn(`Failed live vehicle fetch for stop ${stopCode} @ ${agency}: ${err.message}`);
+          }
+        }
+      }
+  
+      setLiveVehicleMarkers(allMarkers);
+    };
+  
+    if (Object.keys(nearbyStops).length > 0) {
+      fetchAllLiveMarkers();
+    }
+  }, [nearbyStops]);
+  
   const handleManualLocationSearch = async () => {
     const input = searchAddress.trim();
     if (!input) {
