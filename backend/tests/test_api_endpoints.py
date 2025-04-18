@@ -6,7 +6,6 @@ import pytest
 from httpx import AsyncClient
 from app.main import app
 
-# Örnek veriler
 SAMPLE_STOP_ID = "POWL"
 SAMPLE_STOP_CODE = "POWL"
 SAMPLE_LAT = 37.78407
@@ -28,7 +27,7 @@ async def test_bus_positions_by_stop(agency):
             "stopCode": SAMPLE_STOP_CODE,
             "agency": agency
         })
-        assert response.status_code in (200, 500)  # 500 olabilir ama çökmesin yeter
+        assert response.status_code in (200, 500)
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("agency", AGENCIES)
