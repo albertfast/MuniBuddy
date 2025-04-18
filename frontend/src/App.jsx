@@ -57,29 +57,29 @@ const App = () => {
     }
   };
 
-  const fetchNearbyStops = async (location) => {
-    if (!location) return;
-  
-    setIsLoading(true);
-    setError(null);
-  
-    const stopsFound = {};
-    const vehicleMarkers = [];
-    const visited = new Set();
-  
-    const agencyEndpoints = {
-      muni: {
-        nearby: `${BASE_URL}/bus/nearby-stops`,
-        vehicles: `${BASE_URL}/bus-positions/by-stop`,
-        codes: ['SF', 'SFMTA', 'muni']
-      },
-      bart: {
-        nearby: `${BASE_URL}/bart-positions/nearby-stops`,
-        vehicles: `${BASE_URL}/bart-positions/by-stop`,
-        codes: ['BA', 'bart']
-      }
-    };
-  
+const fetchNearbyStops = async (location) => {
+  if (!location) return;
+
+  setIsLoading(true);
+  setError(null);
+
+  const stopsFound = {};
+  const vehicleMarkers = [];
+  const visited = new Set();
+
+  const agencyEndpoints = {
+    muni: {
+      nearby: `${BASE_URL}/bus/nearby-stops`,
+      vehicles: `${BASE_URL}/bus-positions/by-stop`,
+      codes: ['SF', 'SFMTA', 'muni']
+    },
+    bart: {
+      nearby: `${BASE_URL}/bart-positions/nearby-stops`,
+      vehicles: `${BASE_URL}/bart-positions/by-stop`,
+      codes: ['BA', 'bart']
+    }
+  };
+
   const fetchByAgency = async (group) => {
     try {
       const res = await fetch(`${group.nearby}?lat=${location.lat}&lon=${location.lng}&radius=${radius}`);
@@ -126,12 +126,12 @@ const App = () => {
     fetchByAgency(agencyEndpoints.bart)
   ]);
 
-
+  // 🗺️ Marker'ları oluştur
   const stopMarkers = Object.values(stopsFound).map((stop) => ({
     position: { lat: parseFloat(stop.stop_lat), lng: parseFloat(stop.stop_lon) },
     title: stop.stop_name,
     stopId: stop.stop_id,
-    icon: { url: '/images/bus-stop-icon.svg', scaledSize: { width: 32, height: 32 } }
+    icon: { url: '/images/bus-stop-icon32.svg', scaledSize: { width: 32, height: 32 } }
   }));
 
   if (userLocation) {
@@ -147,7 +147,7 @@ const App = () => {
   setLiveVehicleMarkers(vehicleMarkers);
   setIsLoading(false);
 };
-  
+
   useEffect(() => {
     const fetchAllLiveMarkers = async () => {
       const agencies = ['SF', 'SFMTA', 'muni', 'BA', 'bart'];
