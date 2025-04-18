@@ -68,7 +68,7 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
   
     for (const ag of agenciesToTry) {
       try {
-        const res = await axios.get(`${API_BASE_URL}/bus/nearby-stops`, {
+        const res = await axios.get(`${API_BASE_URL}/bus-positions/by-stop`, {
           params: { stopCode, agency: ag }
         });
   
