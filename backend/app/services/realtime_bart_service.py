@@ -12,7 +12,6 @@ class RealtimeBartService:
     def __init__(self, scheduler: SchedulerService):
         log_debug("Initializing BartService...")
         self.scheduler = scheduler
-        self.realtime = RealtimeBartService()
         self.agency = settings.normalize_agency("bart")
 
     async def fetch_real_time_stop_data(self, stop_code: str, raw: bool = False) -> Dict[str, Any]:
