@@ -8,8 +8,9 @@ from app.integrations.siri_api import fetch_siri_data
 
 class BartService:
     def __init__(self):
+        self.scheduler = SchedulerService()
         self.agency = settings.normalize_agency("bart")
-        self.realtime = RealtimeBartService()
+        self.realtime = RealtimeBartService(self.scheduler)
 
     def get_nearby_barts(self, lat: float, lon: float, radius: float = 0.15) -> List[Dict[str, Any]]:
         log_debug(f"[BART] Looking for nearby stops around ({lat}, {lon}) with radius {radius}")
