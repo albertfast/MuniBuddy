@@ -5,6 +5,6 @@ from app.services.bart_service import BartService
 
 schedule_service = SchedulerService()
 bus_service = BusService(schedule_service)
-bart_service = BartService()
+bart_service = BartService(schedule_service)
 
 __all__ = ["bus_service", "schedule_service", "bart_service"]
