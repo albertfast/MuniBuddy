@@ -53,3 +53,8 @@ async def test_bart_by_stop():
             "stopCode": SAMPLE_STOP_CODE
         })
         assert response.status_code in (200, 500)
+
+[pytest]
+markers =
+    asyncio: mark test to be run with asyncio
+
