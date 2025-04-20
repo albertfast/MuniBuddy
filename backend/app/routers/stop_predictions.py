@@ -45,7 +45,7 @@ async def get_stop_predictions(
 
             return detailed
 
-        realtime = await fetch_real_time_stop_data(stop_id, agency="muni")
+        realtime = fetch_real_time_stop_data(stop_id, agency="muni")
         if not realtime.get("inbound") and not realtime.get("outbound"):
             return schedule_service.get_schedule(stop_id, agency="muni")
 
