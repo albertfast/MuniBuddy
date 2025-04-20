@@ -30,39 +30,53 @@ class BartService:
             log_debug(f"[BART:get_bart_stop_details] Error: {e}")
             return {"stop_id": stop_id, "stop_name": "Lookup Failed", "agency": self.agency}
 
-    def get_real_time_arrivals(self, lat: float, lon: float, radius: float = 0.15, agency: str = "bart"):
+    async def get_real_time_arrivals(self, lat: float, lon: float, radius: float = 0.15, agency: str = "bart"):
         agency = settings.normalize_agency(agency)
         log_debug(f"[BART] Looking for nearby real-time trains at ({lat}, {lon}) within {radius} miles")
+
         stops = load_stops(agency)
         nearby_stops = find_nearby_stops(lat, lon, stops, radius)
+        stop_code_map = {stop["stop_code"] or stop["stop_id"]: stop for stop in nearby_stops}
+
+        stop_codes = list(stop_code_map.keys())
+        if not stop_codes:
+            log_debug("[BART] ❌ No nearby stop codes found.")
+            return {"inbound": [], "outbound": []}
+
+        raw_data = await fetch_siri_data_multi(stop_codes, agency)
         results = []
 
-        for stop in nearby_stops:
-            realtime_data = fetch_real_time_stop_data(stop["stop_id"], agency)
+        for stop_code, data in raw_data.items():
+            stop_info = stop_code_map.get(stop_code)
+            visits = data.get("ServiceDelivery", {}).get("StopMonitoringDelivery", {}).get("MonitoredStopVisit", [])
+            for visit in visits:
+                journey = visit.get("MonitoredVehicleJourney", {})
+                call = journey.get("MonitoredCall", {})
+                arrival_time = call.get("ExpectedArrivalTime") or call.get("AimedArrivalTime")
 
-            if not realtime_data.get("inbound") and not realtime_data.get("outbound"):
-                log_debug(f"[BART FALLBACK] No live data for stop {stop['stop_id']}, using GTFS fallback")
-                realtime_data = self.scheduler.get_schedule(stop["stop_id"], agency)
+                results.append({
+                    "stop_id": stop_info.get("stop_id"),
+                    "stop_code": stop_code,
+                    "stop_name": stop_info.get("stop_name"),
+                    "distance_miles": stop_info.get("distance_miles"),
+                    "direction": journey.get("DirectionRef", "").lower(),
+                    "route_number": journey.get("PublishedLineName"),
+                    "destination": journey.get("DestinationName"),
+                    "arrival_time": arrival_time,
+                    "status": "Due",  # optionally calculate min_until
+                    "minutes_until": None,
+                    "is_realtime": True,
+                    "vehicle": {
+                        "lat": journey.get("VehicleLocation", {}).get("Latitude", ""),
+                        "lon": journey.get("VehicleLocation", {}).get("Longitude", "")
+                    }
+                })
 
-            for direction in ["inbound", "outbound"]:
-                for train in realtime_data.get(direction, []):
-                    results.append({
-                        "stop_id": stop["stop_id"],
-                        "stop_code": stop.get("stop_code"),
-                        "stop_name": stop["stop_name"],
-                        "distance_miles": stop["distance_miles"],
-                        "direction": direction,
-                        "route_number": train.get("route_number"),
-                        "destination": train.get("destination"),
-                        "arrival_time": train.get("arrival_time"),
-                        "status": train.get("status"),
-                        "minutes_until": train.get("minutes_until", None),
-                        "is_realtime": train.get("is_realtime", False),
-                        "vehicle": train.get("vehicle", {"lat": "", "lon": ""})
-                    })
+        return {
+            "inbound": [r for r in results if r["direction"] == "ib"],
+            "outbound": [r for r in results if r["direction"] == "ob"]
+        }
 
-        return {"inbound": [t for t in results if t["direction"] == "inbound"],
-                "outbound": [t for t in results if t["direction"] == "outbound"]}
 
     def get_stop_predictions(self, stop_id: str, lat: float = None, lon: float = None) -> Dict[str, Any]:
         try:
