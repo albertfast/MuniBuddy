@@ -1,4 +1,3 @@
-// frontend/src/components/TransitInfo.jsx
 import React, { useState, useCallback, useMemo } from 'react';
 import {
   Card, CardContent, Typography, List, ListItem, ListItemText, ListItemButton,
