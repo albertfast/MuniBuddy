@@ -5,7 +5,7 @@ from app.services.debug_logger import log_debug
 router = APIRouter(prefix="/bart-positions", tags=["BART Positions"])
 
 @router.get("/by-stop")
-async def get_parsed_bart_by_stop(
+def get_parsed_bart_by_stop(
     stopCode: str = Query(...),
     agency: str = Query("bart")
 ):
@@ -30,7 +30,7 @@ async def get_parsed_bart_by_stop(
         raise HTTPException(status_code=500, detail="Failed to fetch BART arrivals")
 
 @router.get("/stop-arrivals/{stop_id}")
-async def get_bart_stop_arrivals(
+def get_bart_stop_arrivals(
     stop_id: str,
     lat: float = Query(None),
     lon: float = Query(None),

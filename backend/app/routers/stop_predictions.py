@@ -21,7 +21,7 @@ def detect_agency_by_stop(stop_id: str, stop_code: str | None = None) -> str:
     return "muni"
 
 @router.get("/stop-predictions/{stop_id}")
-async def get_stop_predictions(
+def get_stop_predictions(
     stop_id: str,
     lat: float = Query(None),
     lon: float = Query(None),
