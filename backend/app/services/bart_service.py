@@ -12,17 +12,32 @@ class BartService:
         self.agency = settings.normalize_agency("bart")
         self.realtime = RealtimeBartService(self.scheduler)
 
-    def get_nearby_barts(self, lat: float, lon: float, radius: float = 0.15) -> List[Dict[str, Any]]:
-        log_debug(f"[BART] Looking for nearby stops around ({lat}, {lon}) with radius {radius}")
+    def get_nearby_barts(self, lat: float, lon: float, radius: float = 0.15, limit: int = 10) -> List[Dict[str, Any]]:
+        """
+        Loads GTFS stops for BART and finds nearby ones based on location.
+        """
         try:
             stops = load_stops(self.agency)
-            nearby = find_nearby_stops(lat, lon, stops, radius)
-            for stop in nearby:
-                stop["agency"] = self.agency
+            if not stops:
+                log_debug(f"[BART:get_nearby_stops] No stops loaded for agency: {self.agency}")
+                return []
+            
+            nearby = find_nearby_stops(
+                lat=lat,
+                lon=lon,
+                stops=stops,
+                radius_miles=radius,
+                limit=limit,
+                minimal=True
+            )
+
+            log_debug(f"[BART:get_nearby_stops] Found {len(nearby)} stops near ({lat}, {lon})")
             return nearby
+
         except Exception as e:
-            log_debug(f"[BART] Failed to find nearby stops: {e}")
+            log_debug(f"[BART:get_nearby_stops] Error finding nearby stops: {e}")
             return []
+
 
         def get_nearby_trains(self, lat: float, lon: float, radius: float = 0.15, agency: str = "bart"):
             agency = settings.normalize_agency(agency)
