@@ -50,6 +50,6 @@ def get_nearby_bart_stops(
     radius: float = Query(0.15)
 ):
     try:
-        return bart_service.get_nearby_barts(lat, lon, radius)
+        return bart_service.get_real_time_arrivals(lat, lon, radius)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch nearby BART stops: {e}")
