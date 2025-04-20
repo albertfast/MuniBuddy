@@ -33,7 +33,7 @@ def get_stop_predictions(
 
         if agency == "bart":
             detailed = bart_service.get_bart_stop_details(stop_id)
-            realtime = bart_service.get_real_time_arrivals(lat, lon)
+            realtime = await bart_service.get_real_time_arrivals(lat, lon)
 
             if not realtime.get("inbound") and not realtime.get("outbound"):
                 fallback = schedule_service.get_schedule(stop_id, agency="bart")

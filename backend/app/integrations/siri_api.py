@@ -1,11 +1,10 @@
+# app/integrations/siri_api.py
 import httpx
-from app.services.debug_logger import log_debug
+import asyncio
 from app.config import settings
+from app.services.debug_logger import log_debug
 
 def normalize_agency(agency: str) -> str:
-    """
-    Normalize agency to 511-compatible format.
-    """
     agency = agency.lower()
     if agency in ["sf", "muni", "sfmta"]:
         return "SF"
@@ -13,41 +12,34 @@ def normalize_agency(agency: str) -> str:
         return "BA"
     return agency.upper()
 
-def fetch_siri_data(stop_code: str, agency: str = "SF") -> dict:
-    """
-    Fetch StopMonitoring data from 511 SIRI API.
-    Returns full JSON response or error information.
-    """
-    agency = normalize_agency(agency)
+async def fetch_siri_data_multi(stop_codes: list[str], agency: str) -> dict:
+    agency_code = normalize_agency(agency)
     url = f"{settings.TRANSIT_511_BASE_URL}/StopMonitoring"
-    params = {
-        "api_key": settings.API_KEY,
-        "agency": agency,
-        "stopCode": stop_code,
-        "format": "json"
-    }
 
-    try:
-        with httpx.AsyncClient(timeout=10.0) as client:
-            response = client.get(url, params=params)
-            response.raise_for_status()
-            data = response.json()
+    results = {}
 
-            # Basic structure validation
-            delivery = data.get("ServiceDelivery", {}).get("StopMonitoringDelivery", [])
-            if not delivery:
-                log_debug(f"[SIRI API] ⚠️ No StopMonitoringDelivery for stop_code={stop_code}, agency={agency}")
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        tasks = []
+        for stop_code in stop_codes:
+            params = {
+                "api_key": settings.API_KEY,
+                "agency": agency_code,
+                "stopCode": stop_code,
+                "format": "json"
+            }
+            tasks.append(client.get(url, params=params))
+
+        responses = await asyncio.gather(*tasks, return_exceptions=True)
+
+        for stop_code, resp in zip(stop_codes, responses):
+            if isinstance(resp, Exception):
+                log_debug(f"[SIRI MULTI] ❌ Error for stop {stop_code}: {resp}")
+                results[stop_code] = {"error": str(resp)}
             else:
-                log_debug(f"[SIRI API] ✅ Received real-time data for stop_code={stop_code}, agency={agency}")
-            
-            return data
+                try:
+                    results[stop_code] = resp.json()
+                except Exception as e:
+                    log_debug(f"[SIRI MULTI] ❌ JSON parse failed for {stop_code}: {e}")
+                    results[stop_code] = {"error": "Invalid JSON"}
 
-    except httpx.HTTPStatusError as e:
-        log_debug(f"[SIRI API] ❌ HTTP {e.response.status_code} for {stop_code} ({agency})")
-        return {"error": f"HTTP error {e.response.status_code}", "details": str(e)}
-    except httpx.RequestError as e:
-        log_debug(f"[SIRI API] ❌ Request failed: {e}")
-        return {"error": "Request error", "details": str(e)}
-    except Exception as e:
-        log_debug(f"[SIRI API] ❌ Unexpected error: {e}")
-        return {"error": "Unexpected error", "details": str(e)}
+    return results
