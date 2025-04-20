@@ -32,7 +32,7 @@ async def get_stop_predictions(
         agency = settings.normalize_agency(agency) if agency else settings.normalize_agency(detect_agency_by_stop(stop_id, stop_code))
 
         if agency == "bart":
-            detailed = await bart_service.get_bart_stop_details(stop_id)
+            detailed = bart_service.get_bart_stop_details(stop_id)
             realtime = bart_service.get_real_time_arrivals(lat, lon)
 
             if not realtime.get("inbound") and not realtime.get("outbound"):
