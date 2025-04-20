@@ -1,7 +1,5 @@
-
 from typing import Dict, Any
 from datetime import datetime, timezone
-from zoneinfo import ZoneInfo
 from app.services.stop_helper import load_stops
 from app.services.debug_logger import log_debug
 from app.integrations.siri_api import fetch_siri_data
@@ -15,7 +13,6 @@ class RealtimeBartService:
         self.agency = settings.normalize_agency("bart")
 
     def _resolve_stop_code(self, identifier: str) -> str:
-        """Stop ID, code veya name verildiğinde gerçek stop_code'u bulur."""
         stops = load_stops(self.agency)
         for stop in stops:
             if stop.get("stop_id") == identifier or stop.get("stop_code") == identifier or stop.get("stop_name") == identifier:
@@ -69,6 +66,3 @@ class RealtimeBartService:
         except Exception as e:
             log_debug(f"[BART:fetch_real_time_stop_data] Fallback triggered for stop_code={stop_code}: {e}")
             return {"inbound": [], "outbound": []}
-    
-    async def get_bart_511_raw_data(self, stop_code: str) -> Dict[str, Any]:
-        return await fetch_siri_data(stop_code, agency=self.agency)
