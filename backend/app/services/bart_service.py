@@ -30,7 +30,7 @@ class BartService:
             log_debug(f"[BART:get_bart_stop_details] Error: {e}")
             return {"stop_id": stop_id, "stop_name": "Lookup Failed", "agency": self.agency}
 
-        def get_nearby_trains(self, lat: float, lon: float, radius: float = 0.15, agency: str = "bart"):
+        def get_real_time_arrivals(self, lat: float, lon: float, radius: float = 0.15, agency: str = "bart"):
             agency = settings.normalize_agency(agency)
             log_debug(f"[BART] Looking for nearby real-time trains at ({lat}, {lon}) within {radius} miles")
             nearby_stops = self.get_nearby_barts(lat, lon, radius, agency)
