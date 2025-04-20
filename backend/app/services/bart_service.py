@@ -12,32 +12,23 @@ class BartService:
         self.agency = settings.normalize_agency("bart")
         self.realtime = RealtimeBartService(self.scheduler)
 
-    def get_bart_stop_details(self, lat: float, lon: float, radius: float = 0.15, limit: int = 10) -> List[Dict[str, Any]]:
-        """
-        Loads GTFS stops for BART and finds nearby ones based on location.
-        """
+    async def get_bart_stop_details(self, stop_id: str) -> Dict[str, Any]:
         try:
             stops = load_stops(self.agency)
-            if not stops:
-                log_debug(f"[BART:get_nearby_stops] No stops loaded for agency: {self.agency}")
-                return []
-            
-            nearby = find_nearby_stops(
-                lat=lat,
-                lon=lon,
-                stops=stops,
-                radius_miles=radius,
-                limit=limit,
-                minimal=True
-            )
-
-            log_debug(f"[BART:get_nearby_stops] Found {len(nearby)} stops near ({lat}, {lon})")
-            return nearby
-
+            for stop in stops:
+                if stop["stop_id"] == stop_id or stop.get("stop_code") == stop_id:
+                    return {
+                        "stop_id": stop["stop_id"],
+                        "stop_code": stop.get("stop_code"),
+                        "stop_name": stop["stop_name"],
+                        "stop_lat": stop["stop_lat"],
+                        "stop_lon": stop["stop_lon"],
+                        "agency": self.agency
+                    }
+            return {"stop_id": stop_id, "stop_name": "Unknown Stop", "agency": self.agency}
         except Exception as e:
-            log_debug(f"[BART:get_nearby_stops] Error finding nearby stops: {e}")
-            return []
-
+            log_debug(f"[BART:get_bart_stop_details] Error: {e}")
+            return {"stop_id": stop_id, "stop_name": "Lookup Failed", "agency": self.agency}
 
         def get_nearby_trains(self, lat: float, lon: float, radius: float = 0.15, agency: str = "bart"):
             agency = settings.normalize_agency(agency)
