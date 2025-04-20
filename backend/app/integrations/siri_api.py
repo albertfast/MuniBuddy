@@ -2,6 +2,7 @@ from typing import List, Dict
 import httpx
 import asyncio
 from app.config import settings
+from typing import List, Dict, Any
 from app.services.debug_logger import log_debug
 
 def normalize_agency(agency: str) -> str:
