@@ -12,7 +12,7 @@ class BartService:
         self.agency = settings.normalize_agency("bart")
         self.realtime = RealtimeBartService(self.scheduler)
 
-    async def get_bart_stop_details(self, stop_id: str) -> Dict[str, Any]:
+    def get_bart_stop_details(self, stop_id: str) -> Dict[str, Any]:
         try:
             stops = load_stops(self.agency)
             for stop in stops:
