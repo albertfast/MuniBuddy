@@ -13,7 +13,7 @@ async def get_parsed_bart_by_stop(
         if agency.lower() not in ["bart", "ba"]:
             raise HTTPException(status_code=400, detail="Only BART agency is supported at this endpoint.")
 
-        data = await bart_service.realtime.fetch_real_time_stop_data(stopCode)
+        data = bart_service.realtime.fetch_real_time_stop_data(stopCode)
         visits = data.get("inbound", []) + data.get("outbound", [])
         if not visits:
             return {"stopCode": stopCode, "arrivals": [], "message": "No active arrivals found."}
@@ -37,7 +37,7 @@ async def get_bart_stop_arrivals(
     radius: float = Query(0.15)
 ):
     try:
-        return await bart_service.get_stop_predictions(stop_id, lat, lon)
+        return bart_service.get_stop_predictions(stop_id, lat, lon)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch arrivals: {e}")
 
