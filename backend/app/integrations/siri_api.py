@@ -12,7 +12,7 @@ def normalize_agency(agency: str) -> str:
         return "BA"
     return agency.upper()
 
-async def fetch_siri_data_multi(stop_codes: list[str], agency: str) -> dict:
+async def fetch_siri_data(stop_codes: list[str], agency: str) -> dict:
     agency_code = normalize_agency(agency)
     url = f"{settings.TRANSIT_511_BASE_URL}/StopMonitoring"
 
