@@ -11,7 +11,7 @@ class BusService:
         log_debug("Initializing BusService...")
         self.scheduler = scheduler
 
-    def get_nearby_stops(self, lat: float, lon: float, radius: float = 0.15, agency: str = "muni"):
+    async def get_nearby_stops(self, lat: float, lon: float, radius: float = 0.15, agency: str = "muni"):
         agency = settings.normalize_agency(agency)
         log_debug(f"Finding nearby stops for coordinates: ({lat}, {lon}), radius: {radius}, agency: {agency}")
         try:
@@ -19,7 +19,7 @@ class BusService:
             if not stops:
                 log_debug(f"✗ No stops loaded for agency: {agency}")
                 return []
-            return find_nearby_stops(lat, lon, stops, radius)
+            return await find_nearby_stops(lat, lon, stops, radius)
         except Exception as e:
             log_debug(f"[ERROR] get_nearby_stops failed for {agency}: {e}")
             return []
