@@ -19,10 +19,10 @@ class RealtimeBartService:
                 return stop.get("stop_code") or stop.get("stop_id")
         return identifier 
 
-    def fetch_real_time_stop_data(self, stop_code: str, raw: bool = False) -> Dict[str, Any]:
+    async def fetch_real_time_stop_data(self, stop_code: str, raw: bool = False) -> Dict[str, Any]:
         try:
             stop_code = self._resolve_stop_code(stop_code)
-            siri_data = fetch_siri_data(stop_code, agency=self.agency)
+            siri_data = await fetch_siri_data(stop_code, agency=self.agency)
             if raw:
                 return siri_data
 
