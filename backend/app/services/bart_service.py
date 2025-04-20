@@ -12,7 +12,7 @@ class BartService:
         self.agency = settings.normalize_agency("bart")
         self.realtime = RealtimeBartService(self.scheduler)
 
-    def get_nearby_barts(self, lat: float, lon: float, radius: float = 0.15, limit: int = 10) -> List[Dict[str, Any]]:
+    def get_bart_stop_details(self, lat: float, lon: float, radius: float = 0.15, limit: int = 10) -> List[Dict[str, Any]]:
         """
         Loads GTFS stops for BART and finds nearby ones based on location.
         """
