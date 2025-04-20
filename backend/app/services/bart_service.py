@@ -64,7 +64,7 @@ class BartService:
         return {"inbound": [t for t in results if t["direction"] == "inbound"],
                 "outbound": [t for t in results if t["direction"] == "outbound"]}
 
-    async def get_stop_predictions(self, stop_id: str, lat: float = None, lon: float = None) -> Dict[str, Any]:
+    def get_stop_predictions(self, stop_id: str, lat: float = None, lon: float = None) -> Dict[str, Any]:
         try:
             realtime = fetch_real_time_stop_data(stop_id, agency="bart")
             if not realtime.get("inbound") and not realtime.get("outbound"):

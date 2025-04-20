@@ -19,7 +19,7 @@ def detect_agency_by_stop(stop_id: str, stop_code: str | None = None) -> str:
     return "muni"
 
 @router.get("/stop-predictions/{stop_id}")
-async def get_stop_predictions(
+def get_stop_predictions(
     stop_id: str,
     lat: float = Query(None),
     lon: float = Query(None),
@@ -30,9 +30,9 @@ async def get_stop_predictions(
         normalized = settings.normalize_agency(agency or detect_agency_by_stop(stop_id, stop_code))
         
         if normalized == "bart":
-            return await bart.get_bart_predictions(stop_id, lat, lon)
+            return bart.get_bart_predictions(stop_id, lat, lon)
 
-        return await muni.get_muni_predictions(stop_id)
+        return muni.get_muni_predictions(stop_id)
         log_debug(f"[STOP_PREDICTIONS] {stop_id} resolved as {agency}")
 
     except Exception as e:

@@ -5,7 +5,7 @@ from app.services.debug_logger import log_debug
 router = APIRouter(prefix="/bart-positions", tags=["BART Positions"])
 
 @router.get("/by-stop")
-async def get_bart_position_by_stop(
+def get_bart_position_by_stop(
     stopCode: str = Query(..., description="BART stopCode like 'POWL'"),
     agency: str = Query("bart")
 ):
@@ -17,7 +17,7 @@ async def get_bart_position_by_stop(
         if agency.lower() not in ["bart", "ba"]:
             raise HTTPException(status_code=400, detail="Only BART agency is supported at this endpoint.")
         
-        data = await bart_service.get_bart_511_raw_data(stopCode)
+        data = bart_service.get_bart_511_raw_data(stopCode)
         if not data:
             return {"message": f"No data received for stopCode: {stopCode}"}
 

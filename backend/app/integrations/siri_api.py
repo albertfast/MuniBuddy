@@ -13,7 +13,7 @@ def normalize_agency(agency: str) -> str:
         return "BA"
     return agency.upper()
 
-async def fetch_siri_data(stop_code: str, agency: str = "SF") -> dict:
+def fetch_siri_data(stop_code: str, agency: str = "SF") -> dict:
     """
     Fetch StopMonitoring data from 511 SIRI API.
     Returns full JSON response or error information.
@@ -28,8 +28,8 @@ async def fetch_siri_data(stop_code: str, agency: str = "SF") -> dict:
     }
 
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.get(url, params=params)
+        with httpx.AsyncClient(timeout=10.0) as client:
+            response = client.get(url, params=params)
             response.raise_for_status()
             data = response.json()
 
