@@ -18,6 +18,34 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE ?? 'https://munibuddy.live/ap
 
 const normalizeId = (stop) => stop?.gtfs_stop_id || stop?.stop_code || stop?.stop_id;
 
+const normalizeSiriData = (visits = []) => {
+  const grouped = { inbound: [], outbound: [] };
+
+  for (const visit of visits) {
+    const journey = visit.MonitoredVehicleJourney;
+    const call = journey?.MonitoredCall || {};
+    const direction = (journey?.DirectionRef || "unknown").toLowerCase();
+
+    const entry = {
+      route_number: journey?.PublishedLineName,
+      destination: call?.DestinationDisplay || journey?.DestinationName,
+      arrival_time: call?.ExpectedArrivalTime || call?.AimedArrivalTime,
+      status: "Due",
+      minutes_until: null,
+      is_realtime: true,
+      vehicle: {
+        lat: journey?.VehicleLocation?.Latitude || "",
+        lon: journey?.VehicleLocation?.Longitude || ""
+      }
+    };
+
+    if (direction === "ib") grouped.inbound.push(entry);
+    else grouped.outbound.push(entry);
+  }
+
+  return grouped;
+};
+
 const formatTime = (isoTime) => {
   if (!isoTime || isoTime === "Unknown") return "Unknown";
   if (/\d{1,2}:\d{2}\s[AP]M/i.test(isoTime)) {
@@ -131,13 +159,17 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
     try {
       const predictionURL = agency === "bart"
         ? `/bart-positions/stop-arrivals/${stopId}`
-        : `/bus-positions/by-stop?stopCode${stopId}`;
+        : `/bus-positions/by-stop?stopCode=${stopId}&agency=${agency}`;
 
       const res = await axios.get(`${API_BASE_URL}${predictionURL}`, { timeout: API_TIMEOUT });
       const data = res.data?.realtime || res.data;
-
+      const visits = data?.ServiceDelivery?.StopMonitoringDelivery?.MonitoredStopVisit;
+      const schedule = Array.isArray(visits) ? normalizeSiriData(visits) : data;
+      
       await fetchVehiclePositions(stop);
-      setCachedSchedule(stopId, data);
+      setCachedSchedule(stopId, schedule);
+      setStopSchedule(schedule);
+      
       setStopSchedule(data);
     } catch (err) {
       setError('Failed to fetch predictions. Try again.');
@@ -157,8 +189,12 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
         params: { _t: Date.now() }
       });
       const data = res.data?.realtime || res.data;
-      setCachedSchedule(selectedStopId, data);
-      setStopSchedule(data);
+      const visits = data?.ServiceDelivery?.StopMonitoringDelivery?.MonitoredStopVisit;
+      const schedule = Array.isArray(visits) ? normalizeSiriData(visits) : data;
+      
+      setCachedSchedule(selectedStopId, schedule);
+      setStopSchedule(schedule);
+      
     } catch {
       setError('Failed to refresh schedule.');
     } finally {
