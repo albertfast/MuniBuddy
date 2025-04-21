@@ -6,16 +6,11 @@ from typing import Optional
 router = APIRouter()
 
 from app.config import settings
-def normalize_agency(agency: str) -> str:
-    agency = agency.lower()
-    if agency in ["sf", "muni", "sfmta"]:
-        return "SF"
-    elif agency in ["ba", "bart"]:
-        return "BA"
-    return agency.upper()
+
 
 @router.get("/bus-positions/by-stop/{stop_code}")
 async def get_bus_positions_by_location(
+    agency = settings.normalize_agency(agency)
     stop_code: str,
     lat: float = Query(..., description="User's latitude"),
     lon: float = Query(..., description="User's longitude"),
