@@ -9,7 +9,7 @@ def get_nearby_bus_stops(
     lat: float = Query(..., description="Latitude of the user"),
     lon: float = Query(..., description="Longitude of the user"),
     radius: float = Query(0.15, description="Search radius in miles"),
-    agency: str = Query("muni", description="Transit agency (e.g., muni or bart)")
+    agency: str = Query("muni", "bart", description="Transit agency (e.g., muni or bart)")
 ):
     """
     Returns nearby stops for the given agency based on user's coordinates.
