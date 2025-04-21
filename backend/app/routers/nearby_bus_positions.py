@@ -20,7 +20,7 @@ async def get_bus_positions_by_location(
     lat: float = Query(..., description="User's latitude"),
     lon: float = Query(..., description="User's longitude"),
     radius: float = Query(0.15, description="Search radius in miles"),
-    agency: str = Query("muni", description="Transit agency (e.g., muni, bart)")
+    agency: str = Query({agency}, description="Transit agency (e.g., muni, bart)")
 ):
     """
     Fetch real-time bus positions near a location using GTFS stops + 511 SIRI API.
