@@ -170,7 +170,6 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
       setCachedSchedule(stopId, schedule);
       setStopSchedule(schedule);
       
-      setStopSchedule(data);
     } catch (err) {
       setError('Failed to fetch predictions. Try again.');
       setStopSchedule({ inbound: [], outbound: [] });
