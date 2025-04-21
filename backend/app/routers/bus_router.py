@@ -25,7 +25,7 @@ async def get_bus_stop_arrivals(
     stop_id: str,
     lat: Optional[float] = Query(None, description="User's latitude (optional)"),
     lon: Optional[float] = Query(None, description="User's longitude (optional)"),
-    agency: str = Query("muni", description="Transit agency (e.g., muni or bart)")
+    agency: str = Query("muni", "bart",description="Transit agency (e.g., muni or bart)")
 ):
     try:
         return await bus_service.get_stop_predictions(stop_id, lat, lon)
