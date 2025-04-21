@@ -1,39 +1,38 @@
 from fastapi import APIRouter, Query, HTTPException
-import httpx
-from app.config import settings
+from app.services.debug_logger import log_debug
+from app.integrations.siri_api import fetch_siri_data
+from typing import Optional
 
 router = APIRouter()
 
+from app.config import settings
+def normalize_agency(agency: str) -> str:
+    agency = agency.lower()
+    if agency in ["sf", "muni", "sfmta"]:
+        return "SF"
+    elif agency in ["ba", "bart"]:
+        return "BA"
+    return agency.upper()
+
 @router.get("/bus-positions/by-stop")
-def get_bus_positions_by_stop(
-    stopCode: str = Query(..., description="Stop code from GTFS (e.g., 14212)"),
-    agency: str = Query("SF", description="Transit agency code (e.g., SF, SFMTA, muni, BA, bart)")
+async def get_bus_positions_by_location(
+    lat: float = Query(..., description="User's latitude"),
+    lon: float = Query(..., description="User's longitude"),
+    radius: float = Query(0.15, description="Search radius in miles"),
+    agency: str = Query("muni", description="Transit agency (e.g., muni, bart)")
 ):
     """
-    Returns raw real-time data from 511.org for the given stopCode and agency.
-    Accepts aliases like muni, SFMTA for SF; bart or BA for BART.
+    Fetch real-time bus positions near a location using GTFS stops + 511 SIRI API.
+    Returns structured inbound/outbound vehicle data.
     """
-    normalized_agency = {
-        "SF": "SF",
-        "SFMTA": "SF",
-        "muni": "SF",
-        "BA": "BA",
-        "bart": "BA"
-    }.get(agency.lower(), agency)
-
     try:
-        url = f"{settings.TRANSIT_511_BASE_URL}/StopMonitoring"
-        params = {
-            "api_key": settings.API_KEY,
-            "agency": normalized_agency,
-            "stopCode": stopCode,
-            "format": "json"
-        }
+        log_debug(f"[API] /bus-positions/by-stop lat={lat}, lon={lon}, agency={agency}, radius={radius}")
+        siri_result = await fetch_siri_data(lat, lon, agency, radius)
 
-        response = httpx.get(url, params=params)
-        response.raise_for_status()
-
-        return response.json()
+        if not siri_result["inbound"] and not siri_result["outbound"]:
+            log_debug("[API] ⚠ No inbound or outbound data found from SIRI.")
+        return siri_result
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to fetch 511 data: {e}")
+        log_debug(f"[API] ❌ Failed to fetch SIRI data: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch bus positions: {e}")
