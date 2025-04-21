@@ -1,34 +1,46 @@
+# backend/app/routers/nearby_bus_positions.py
+
 from fastapi import APIRouter, Query, HTTPException
+from app.config import settings
 from app.services.debug_logger import log_debug
-from app.integrations.siri_api import fetch_siri_data
-from typing import Optional
+import httpx
 
 router = APIRouter()
 
-from app.config import settings
+def normalize_agency(agency: str) -> str:
+    agency = agency.lower()
+    if agency in ["sf", "muni", "sfmta"]:
+        return "SF"
+    elif agency in ["ba", "bart"]:
+        return "BA"
+    return agency.upper()
 
-
-@router.get("/bus-positions/by-stop/{stop_code}")
-async def get_bus_positions_by_location(
-    agency = settings.normalize_agency(agency)
-    stop_code: str,
-    lat: float = Query(..., description="User's latitude"),
-    lon: float = Query(..., description="User's longitude"),
-    radius: float = Query(0.15, description="Search radius in miles"),
-    agency: str = Query({agency}, description="Transit agency (e.g., muni, bart)")
+@router.get("/bus-positions/by-stop")
+async def get_bus_positions_by_stop(
+    stopCode: str = Query(..., description="GTFS stop_code or stop_id"),
+    agency: str = Query("muni", description="Agency name (e.g., muni, SFMTA, bart)")
 ):
     """
-    Fetch real-time bus positions near a location using GTFS stops + 511 SIRI API.
-    Returns structured inbound/outbound vehicle data.
+    Fetch raw SIRI StopMonitoring data for a single stopCode & agency.
+    Returns 511 SIRI-compliant JSON.
     """
     try:
-        log_debug(f"[API] /bus-positions/by-stop lat={lat}, lon={lon}, agency={agency}, radius={radius}")
-        siri_result = await fetch_siri_data(lat, lon, agency, radius)
+        norm_agency = normalize_agency(agency)
+        log_debug(f"[API] Fetching SIRI StopMonitoring for stopCode={stopCode}, agency={norm_agency}")
 
-        if not siri_result["inbound"] and not siri_result["outbound"]:
-            log_debug("[API] ⚠ No inbound or outbound data found from SIRI.")
-        return siri_result
+        url = f"{settings.TRANSIT_511_BASE_URL}/StopMonitoring"
+        params = {
+            "api_key": settings.API_KEY,
+            "agency": norm_agency,
+            "stopCode": stopCode,
+            "format": "json"
+        }
+
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(url, params=params)
+            response.raise_for_status()
+            return response.json()
 
     except Exception as e:
-        log_debug(f"[API] ❌ Failed to fetch SIRI data: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to fetch bus positions: {e}")
+        log_debug(f"[API] ❌ SIRI fetch failed for stopCode={stopCode}, agency={agency}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch 511 SIRI data: {e}")
