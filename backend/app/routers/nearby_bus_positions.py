@@ -14,8 +14,9 @@ def normalize_agency(agency: str) -> str:
         return "BA"
     return agency.upper()
 
-@router.get("/bus-positions/by-stop")
+@router.get("/bus-positions/by-stop/{stop_code}")
 async def get_bus_positions_by_location(
+    stop_code: str,
     lat: float = Query(..., description="User's latitude"),
     lon: float = Query(..., description="User's longitude"),
     radius: float = Query(0.15, description="Search radius in miles"),
