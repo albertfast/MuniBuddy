@@ -25,7 +25,7 @@ def get_stop_predictions(
     stop_id: str,
     lat: float = Query(None),
     lon: float = Query(None),
-    agency: str = Query("muni"),
+    agency: str = Query(None),
     stop_code: str = Query(None)
 ):
     try:
