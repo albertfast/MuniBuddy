@@ -19,44 +19,34 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE ?? 'https://munibuddy.live/ap
 const normalizeId = (stop) => stop?.gtfs_stop_id || stop?.stop_code || stop?.stop_id;
 
 const normalizeSiriData = (visits = []) => {
-  console.log("🚦 normalizeSiriData called. Visit count:", visits.length);
-  const entry = {
-    route_number: journey?.LineRef
-      ? `${journey.LineRef} ${journey?.PublishedLineName ?? ''}`.trim()
-      : journey?.PublishedLineName ?? "Unknown Line",
-    destination: call?.DestinationDisplay || journey?.DestinationName,
-    arrival_time: arrivalTime,
-    status: minutesUntil !== null ? `${minutesUntil} min` : "Unknown",
-    minutes_until: minutesUntil,
-    is_realtime: true,
-    vehicle: {
-      lat: journey?.VehicleLocation?.Latitude || "",
-      lon: journey?.VehicleLocation?.Longitude || ""
-    }
-  };
-  
   const grouped = { inbound: [], outbound: [] };
 
   for (const visit of visits) {
     const journey = visit?.MonitoredVehicleJourney;
     const call = journey?.MonitoredCall || {};
-    const direction = (journey?.DirectionRef || "").toLowerCase();
-    if (["ib", "inbound", "n"].includes(direction)) grouped.inbound.push(entry);
-    else if (["ob", "outbound", "s"].includes(direction)) grouped.outbound.push(entry);
-    else grouped.outbound.push(entry); // fallback
-
-    console.log("LineRef:", journey?.LineRef);
-    console.log("PublishedLineName:", journey?.PublishedLineName);
+    const direction = (journey?.DirectionRef || '').toLowerCase();
 
     const arrivalTime = call?.ExpectedArrivalTime || call?.AimedArrivalTime;
     const arrivalDate = arrivalTime ? new Date(arrivalTime) : null;
     const now = new Date();
     const minutesUntil = arrivalDate ? Math.round((arrivalDate - now) / 60000) : null;
 
-    // Debug log for each route
-    console.log("🚌 Parsed entry:", entry);
+    const entry = {
+      route_number: journey?.LineRef
+        ? `${journey.LineRef} ${journey?.PublishedLineName ?? ''}`.trim()
+        : journey?.PublishedLineName ?? 'Unknown Line',
+      destination: call?.DestinationDisplay || journey?.DestinationName,
+      arrival_time: arrivalTime,
+      status: minutesUntil !== null ? `${minutesUntil} min` : 'Unknown',
+      minutes_until: minutesUntil,
+      is_realtime: true,
+      vehicle: {
+        lat: journey?.VehicleLocation?.Latitude || '',
+        lon: journey?.VehicleLocation?.Longitude || ''
+      }
+    };
 
-    if (direction === "ib") grouped.inbound.push(entry);
+    if (['ib', 'inbound', 'n'].includes(direction)) grouped.inbound.push(entry);
     else grouped.outbound.push(entry);
   }
 
@@ -64,12 +54,7 @@ const normalizeSiriData = (visits = []) => {
 };
 
 const formatTime = (isoTime) => {
-  if (!isoTime || isoTime === "Unknown") return "Unknown";
-  if (/\d{1,2}:\d{2}\s[AP]M/i.test(isoTime)) {
-    const [time, period] = isoTime.split(' ');
-    const [hours, minutes] = time.split(':');
-    return `${hours.padStart(2, '0')}:${minutes} ${period}`;
-  }
+  if (!isoTime || isoTime === 'Unknown') return 'Unknown';
   try {
     const date = new Date(isoTime);
     return isNaN(date.getTime())
@@ -115,10 +100,10 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
 
   const fetchVehiclePositions = async (stop) => {
     const stopCode = stop.stop_code || stop.stop_id;
-    const agency = stop.agency?.toLowerCase() || "sf";
-    const isBart = agency === "bart" || agency === "ba";
+    const agency = stop.agency?.toLowerCase() || 'sf';
+    const isBart = agency === 'bart' || agency === 'ba';
     const endpoint = isBart
-      ? `/bart-positions/nearby-stops?stopCode=${stopCode}&agency=${agency}`
+      ? `/bart-positions/by-stop?stopCode=${stopCode}&agency=${agency}`
       : `/bus-positions/by-stop?stopCode=${stopCode}&agency=${agency}`;
 
     try {
@@ -134,7 +119,7 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
             lat: parseFloat(loc.Latitude),
             lng: parseFloat(loc.Longitude)
           },
-          title: `${vehicle.PublishedLineName || "Transit"} → ${vehicle.MonitoredCall?.DestinationDisplay || "?"}`,
+          title: `${vehicle.PublishedLineName || 'Transit'} → ${vehicle.MonitoredCall?.DestinationDisplay || '?'}`,
           stopId: `${stopCode}-${agency}-${i}`,
           icon: {
             url: '/images/live-bus-icon.svg',
@@ -174,7 +159,7 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
     }
 
     try {
-      const predictionURL = agency === "bart"
+      const predictionURL = agency === 'bart'
         ? `/bart-positions/by-stop?stopCode=${stopId}&agency=${agency}`
         : `/bus-positions/by-stop?stopCode=${stopId}&agency=${agency}`;
 
@@ -182,11 +167,11 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
       const data = res.data?.realtime || res.data;
       const visits = data?.ServiceDelivery?.StopMonitoringDelivery?.MonitoredStopVisit;
       const schedule = Array.isArray(visits) ? normalizeSiriData(visits) : data;
-      
+
       await fetchVehiclePositions(stop);
       setCachedSchedule(stopId, schedule);
       setStopSchedule(schedule);
-      
+
     } catch (err) {
       setError('Failed to fetch predictions. Try again.');
       setStopSchedule({ inbound: [], outbound: [] });
@@ -196,8 +181,9 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
   }, [selectedStopId, getCachedSchedule, setCachedSchedule]);
 
   const handleRefreshSchedule = useCallback(async () => {
-    const agency = stops.find(s => normalizeId(s) === selectedStopId)?.agency ?? "muni";
-    const isBart = agency.toLowerCase() === "bart" || agency.toLowerCase() === "ba";
+    const stop = stopsArray.find(s => normalizeId(s) === selectedStopId);
+    const agency = stop?.agency ?? 'muni';
+    const isBart = agency.toLowerCase() === 'bart' || agency.toLowerCase() === 'ba';
 
     const refreshURL = isBart
       ? `/bart-positions/by-stop?stopCode=${selectedStopId}&agency=${agency}`
@@ -215,33 +201,22 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
       const visits = data?.ServiceDelivery?.StopMonitoringDelivery?.MonitoredStopVisit;
       const schedule = Array.isArray(visits) ? normalizeSiriData(visits) : data;
 
-      if (!stopId) {
-        console.warn("🚨 Invalid stop ID for stop:", stop);
-        return;
-      }
-      
       setCachedSchedule(selectedStopId, schedule);
       setStopSchedule(schedule);
-      
+
     } catch {
       setError('Failed to refresh schedule.');
     } finally {
       setLoading(false);
     }
-  }, [selectedStopId, setCachedSchedule]);
+  }, [selectedStopId, stopsArray, setCachedSchedule]);
 
   const renderRouteInfo = (route) => (
     <Box sx={{ borderLeft: '3px solid', borderColor: 'primary.light', pl: 1.5, py: 0.5, mb: 1 }}>
       <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
-        <Typography
-          variant="body2"
-          fontWeight="medium"
-          color="primary.main"
-          sx={{ maxWidth: '100%' }} 
-        >
+        <Typography variant="body2" fontWeight="medium" color="primary.main">
           {renderIcon(route.route_number)} {route.route_number || 'Route ?'} → {route.destination || 'Unknown'}
-      </Typography>
-
+        </Typography>
         {route.status && <Chip size="small" label={route.status} color={getStatusColor(route.status)} />}
       </Stack>
       <Typography variant="body2" color="text.secondary">
@@ -258,7 +233,7 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
       )}
     </Box>
   );
-    console.log("Rendering route:", route.route_number);
+
   return (
     <Card elevation={2}>
       <CardContent>
@@ -276,7 +251,7 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
                   <Box sx={{ flex: 1 }}>
                     <Stack direction="row" alignItems="center" spacing={1} mb={0.5}>
                       <LocationOnIcon color="primary" fontSize="small" />
-                      <Typography fontWeight={500} noWrap>{stop.stop_name || "Unknown Stop"}</Typography>
+                      <Typography fontWeight={500} noWrap>{stop.stop_name || 'Unknown Stop'}</Typography>
                     </Stack>
                     <Stack direction="row" justifyContent="space-between">
                       <Typography variant="caption" color="text.secondary">
@@ -299,7 +274,7 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
                     ) : stopSchedule ? (
                       <>
                         {error && <Alert severity="warning" sx={{ mb: 2 }}>{error}</Alert>}
-                        {["inbound", "outbound"].map((dir) => (
+                        {['inbound', 'outbound'].map((dir) => (
                           stopSchedule[dir]?.length > 0 && (
                             <Box key={dir} mb={2}>
                               <Typography variant="subtitle1" gutterBottom>{dir.charAt(0).toUpperCase() + dir.slice(1)}</Typography>
