@@ -37,7 +37,9 @@ const normalizeSiriData = (visits = []) => {
     const minutesUntil = arrivalDate ? Math.round((arrivalDate - now) / 60000) : null;
 
     const entry = {
-      route_number: `${journey?.LineRef ?? ''} ${journey?.PublishedLineName ?? ''}`.trim() || "Unknown Line",
+      route_number: journey?.LineRef
+        ? `${journey.LineRef} ${journey?.PublishedLineName ?? ''}`.trim()
+        : journey?.PublishedLineName ?? "Unknown Line",
       destination: call?.DestinationDisplay || journey?.DestinationName,
       arrival_time: arrivalTime,
       status: minutesUntil !== null ? `${minutesUntil} min` : "Unknown",
@@ -217,9 +219,15 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
   const renderRouteInfo = (route) => (
     <Box sx={{ borderLeft: '3px solid', borderColor: 'primary.light', pl: 1.5, py: 0.5, mb: 1 }}>
       <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
-        <Typography variant="body2" fontWeight="medium" color="primary.main" sx={{ maxWidth: '100%' }}>
+        <Typography
+          variant="body2"
+          fontWeight="medium"
+          color="primary.main"
+          sx={{ maxWidth: '100%' }} 
+        >
           {renderIcon(route.route_number)} {route.route_number || 'Route ?'} → {route.destination || 'Unknown'}
-        </Typography>
+      </Typography>
+
         {route.status && <Chip size="small" label={route.status} color={getStatusColor(route.status)} />}
       </Stack>
       <Typography variant="body2" color="text.secondary">
