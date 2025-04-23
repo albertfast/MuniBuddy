@@ -1,4 +1,4 @@
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from app.config import settings
 from app.services.stop_helper import load_stops, find_nearby_stops
 from app.services.schedule_service import SchedulerService
