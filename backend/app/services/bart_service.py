@@ -5,6 +5,7 @@ from app.services.schedule_service import SchedulerService
 from app.services.realtime_bart_service import RealtimeBartService
 from app.services.debug_logger import log_debug
 from app.integrations.siri_api import fetch_siri_data, fetch_siri_data_multi
+import httpx
 
 class BartService:
     def __init__(self, scheduler: SchedulerService):
@@ -37,6 +38,14 @@ class BartService:
         stops = load_stops(agency)
         nearby_stops = find_nearby_stops(lat, lon, stops, radius)
         stop_code_map = {stop["stop_code"] or stop["stop_id"]: stop for stop in nearby_stops}
+        seen = set()
+        unique_results = []
+        for entry in results:
+            key = (entry["route_number"], entry["arrival_time"], entry["direction"])
+            if key not in seen:
+                unique_results.append(entry)
+                seen.add(key)
+
 
         stop_codes = list(stop_code_map.keys())
         if not stop_codes:
@@ -53,6 +62,11 @@ class BartService:
                 journey = visit.get("MonitoredVehicleJourney", {})
                 call = journey.get("MonitoredCall", {})
                 arrival_time = call.get("ExpectedArrivalTime") or call.get("AimedArrivalTime")
+                minutes_until = None
+                if arrival_time:
+                    dt = datetime.fromisoformat(arrival_time.replace("Z", "+00:00"))
+                    now = datetime.now(timezone.utc)
+                    minutes_until = max(0, int((dt - now).total_seconds() // 60))
 
                 results.append({
                     "stop_id": stop_info.get("stop_id"),
@@ -64,7 +78,7 @@ class BartService:
                     "destination": journey.get("DestinationName"),
                     "arrival_time": arrival_time,
                     "status": "Due",  # optionally calculate min_until
-                    "minutes_until": None,
+                    "minutes_until": minutes_until,
                     "is_realtime": True,
                     "vehicle": {
                         "lat": journey.get("VehicleLocation", {}).get("Latitude", ""),
@@ -94,22 +108,20 @@ class BartService:
             log_debug(f"[BART PREDICTIONS] Error fetching predictions for {stop_id}: {e}")
             return {"inbound": [], "outbound": []}
 
-import httpx
+    def get_bart_511_raw_data(self, stop_code: str) -> Dict[str, Any]:
+        try:
+            url = f"{settings.TRANSIT_511_BASE_URL}/StopMonitoring"
+            params = {
+                "api_key": settings.API_KEY,
+                "agency": settings.normalize_agency("bart"),
+                "stopCode": stop_code,
+                "format": "json"
+            }
 
-def get_bart_511_raw_data(self, stop_code: str) -> Dict[str, Any]:
-    try:
-        url = f"{settings.TRANSIT_511_BASE_URL}/StopMonitoring"
-        params = {
-            "api_key": settings.API_KEY,
-            "agency": settings.normalize_agency("bart"),
-            "stopCode": stop_code,
-            "format": "json"
-        }
+            response = httpx.get(url, params=params, timeout=10.0)
+            response.raise_for_status()
+            return response.json()
 
-        response = httpx.get(url, params=params, timeout=10.0)
-        response.raise_for_status()
-        return response.json()
-
-    except Exception as e:
-        log_debug(f"[get_bart_511_raw_data] ❌ Error fetching data for stop {stop_code}: {e}")
-        return {}
+        except Exception as e:
+            log_debug(f"[get_bart_511_raw_data] ❌ Error fetching data for stop {stop_code}: {e}")
+            return {}
