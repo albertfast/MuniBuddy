@@ -84,8 +84,10 @@ class BartService:
 
         parsed = {"inbound": [], "outbound": []}
 
+        # Debugging: verify stop resolution
         stops = load_stops(settings.normalize_agency(agency))
-        stop_info = next((s for s in stops if s["stop_code"] == stop_code or s["stop_id"] == stop_code), {})
+        debug_matches = [s for s in stops if stop_code.lower() in (s["stop_id"].lower(), s["stop_code"].lower())]
+        print(f"[DEBUG] Matching stops for code {stop_code}: {debug_matches}")
 
         for visit in visits:
             journey = visit.get("MonitoredVehicleJourney", {})
@@ -94,11 +96,6 @@ class BartService:
             direction = journey.get("DirectionRef", "").strip().lower()
 
             entry = {
-                "stop_id": stop_info.get("stop_id", stop_code),
-                "stop_code": stop_code,
-                "stop_name": stop_info.get("stop_name", "Unknown Stop"),
-                "distance_miles": stop_info.get("distance_miles", None),
-                "direction": direction,
                 "route_number": journey.get("PublishedLineName"),
                 "destination": journey.get("DestinationName"),
                 "arrival_time": arrival_time,
@@ -111,14 +108,15 @@ class BartService:
                 }
             }
 
-            if direction in ["ib", "inbound", "n", "northbound"]:
+            if direction in ["ib", "n"]:
                 parsed["inbound"].append(entry)
-            elif direction in ["ob", "outbound", "s", "southbound"]:
+            elif direction in ["ob", "s"]:
                 parsed["outbound"].append(entry)
             else:
-                parsed["outbound"].append(entry)
+                parsed["outbound"].append(entry)  # default fallback
 
         return parsed
+
 
 
 
