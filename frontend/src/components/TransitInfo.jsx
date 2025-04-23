@@ -215,6 +215,11 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
       const data = res.data?.realtime || res.data;
       const visits = data?.ServiceDelivery?.StopMonitoringDelivery?.MonitoredStopVisit;
       const schedule = Array.isArray(visits) ? normalizeSiriData(visits) : data;
+
+      if (!stopId) {
+        console.warn("🚨 Invalid stop ID for stop:", stop);
+        return;
+      }
       
       setCachedSchedule(selectedStopId, schedule);
       setStopSchedule(schedule);
