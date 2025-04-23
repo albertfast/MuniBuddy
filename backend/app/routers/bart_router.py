@@ -27,19 +27,6 @@ async def get_parsed_bart_by_stop(
         log_debug(f"[BART POSITIONS] Error fetching for stopCode={stopCode}: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch BART arrivals")
 
-
-# @router.get("/stop-arrivals/{stop_id}")
-# def get_bart_stop_arrivals(
-#     stop_id: str,
-#     lat: float = Query(None),
-#     lon: float = Query(None),
-#     radius: float = Query(0.15)
-# ):
-#     try:
-#         return bart_service.get_stop_predictions(stop_id, lat, lon)
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=f"Failed to fetch arrivals: {e}")
-
 @router.get("/nearby-stops")
 async def get_nearby_bart_stops(
     lat: float = Query(...),
