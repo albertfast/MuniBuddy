@@ -12,6 +12,19 @@ class BartService:
         self.agency = settings.normalize_agency("bart")
         self.realtime = RealtimeBartService(self.scheduler)
 
+    def get_nearby_stops(
+        self,
+        lat: float,
+        lon: float,
+        radius: float = 0.15,
+        agency: Optional[str] = None,
+        limit: int = 20
+    ) -> List[Dict[str, Any]]:
+        """Return nearby stops for given agency (or all if agency=None)"""
+        normalized_agency = settings.normalize_agency(agency) if agency else None
+        stops = load_stops(normalized_agency)
+        return find_nearby_stops(lat, lon, stops, radius, limit)
+
     def get_bart_stop_details(self, stop_id: str) -> Dict[str, Any]:
         try:
             stops = load_stops(self.agency)
