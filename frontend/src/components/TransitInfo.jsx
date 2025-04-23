@@ -26,12 +26,17 @@ const normalizeSiriData = (visits = []) => {
     const call = journey?.MonitoredCall || {};
     const direction = (journey?.DirectionRef || "unknown").toLowerCase();
 
+    const arrivalTime = call?.ExpectedArrivalTime || call?.AimedArrivalTime;
+    const arrivalDate = arrivalTime ? new Date(arrivalTime) : null;
+    const now = new Date();
+    const minutesUntil = arrivalDate ? Math.round((arrivalDate - now) / 60000) : null;
+
     const entry = {
       route_number: journey?.PublishedLineName,
       destination: call?.DestinationDisplay || journey?.DestinationName,
-      arrival_time: call?.ExpectedArrivalTime || call?.AimedArrivalTime,
-      status: "DueW",
-      minutes_until: null,
+      arrival_time: arrivalTime,
+      status: minutesUntil !== null ? `${minutesUntil} min` : "Unknown",
+      minutes_until: minutesUntil,
       is_realtime: true,
       vehicle: {
         lat: journey?.VehicleLocation?.Latitude || "",
