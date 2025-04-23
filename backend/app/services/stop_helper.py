@@ -82,7 +82,7 @@ def load_stops(agency: Optional[str] = None) -> List[Dict[str, Any]]:
         return []
 
 
-def get_nearby_stops(lat: float, lon: float, radius: float = 0.15, limit: int = 10) -> List[Dict[str, Any]]:
+def get_nearby_stops(lat: float, lon: float, radius: float = 0.15, limit: int = 20) -> List[Dict[str, Any]]:
     """Unified function to get nearby stops across all agencies (if agency not specified)."""
     log_debug(f"[Unified] Searching for nearby stops at ({lat}, {lon}) across all agencies")
     all_nearby = []
