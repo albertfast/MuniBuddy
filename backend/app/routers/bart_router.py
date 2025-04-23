@@ -7,7 +7,7 @@ from app.integrations.siri_api import fetch_siri_data_multi
 router = APIRouter(prefix="/bart-positions", tags=["BART Positions"])
 
 @router.get("/by-stop")
-def get_parsed_bart_by_stop(
+async def get_parsed_bart_by_stop(
     stopCode: str = Query(...),
     agency: str = Query("bart")
 ):
@@ -18,8 +18,7 @@ def get_parsed_bart_by_stop(
         if not stop_info:
             raise HTTPException(status_code=404, detail=f"No stop found for code {stopCode}")
 
-        real_agency = stop_info["agency"]
-        data = bart_service.realtime.get_bart_511_raw_data(stopCode, agency=real_agency)
+        data = await bart_service.realtime.fetch_real_time_stop_data(stopCode)
 
         visits = data.get("inbound", []) + data.get("outbound", [])
         if not visits:
@@ -27,7 +26,7 @@ def get_parsed_bart_by_stop(
 
         return {
             "stopCode": stopCode,
-            "agency": real_agency,
+            "agency": stop_info["agency"],
             "arrivals": visits,
             "count": len(visits)
         }
