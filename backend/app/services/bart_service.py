@@ -77,6 +77,37 @@ class BartService:
             "outbound": [r for r in results if r["direction"] in ["ob", "outbound", "s"]]
         }
 
+    async def get_real_time_arrival_by_stop(self, stop_code: str, agency: str = "bart") -> Dict[str, Any]:
+        raw_data = await fetch_siri_data_multi([stop_code], agency)
+        siri_data = raw_data.get(stop_code, {})
+        visits = siri_data.get("ServiceDelivery", {}).get("StopMonitoringDelivery", [{}])[0].get("MonitoredStopVisit", [])
+
+        parsed = {"inbound": [], "outbound": []}
+        for visit in visits:
+            journey = visit.get("MonitoredVehicleJourney", {})
+            call = journey.get("MonitoredCall", {})
+            arrival_time = call.get("ExpectedArrivalTime") or call.get("AimedArrivalTime")
+            direction = journey.get("DirectionRef", "").upper()
+
+            entry = {
+                "route_number": journey.get("PublishedLineName"),
+                "destination": journey.get("DestinationName"),
+                "arrival_time": arrival_time,
+                "status": "Due",
+                "minutes_until": None,
+                "is_realtime": True,
+                "vehicle": {
+                    "lat": journey.get("VehicleLocation", {}).get("Latitude", ""),
+                    "lon": journey.get("VehicleLocation", {}).get("Longitude", "")
+                }
+            }
+            if direction == "IB":
+                parsed["inbound"].append(entry)
+            else:
+                parsed["outbound"].append(entry)
+        
+        return parsed
+
 
     # def get_stop_predictions(self, stop_id: str, lat: float = None, lon: float = None) -> Dict[str, Any]:
     #     try:
