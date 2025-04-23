@@ -1,4 +1,3 @@
-#backend/app/routers/bart_positions.py
 from fastapi import APIRouter, Query, HTTPException
 from app.core.singleton import bart_service
 from app.services.debug_logger import log_debug
@@ -11,10 +10,10 @@ def get_bart_position_by_stop(
     agency: str = Query("bart")
 ):
     """
-    Returns parsed real-time BART arrivals for a given stop code using 511 SIRI API.
+    Returns raw 511 SIRI BART data in standard StopMonitoring format,
+    compatible with normalizeSiriData() used on frontend.
     """
     try:
-        # BART only for now
         if agency.lower() not in ["bart", "ba"]:
             raise HTTPException(status_code=400, detail="Only BART agency is supported at this endpoint.")
         
@@ -24,29 +23,21 @@ def get_bart_position_by_stop(
 
         visits = data.get("ServiceDelivery", {}).get("StopMonitoringDelivery", {}).get("MonitoredStopVisit", [])
         if not visits:
-            return {"stopCode": stopCode, "arrivals": [], "message": "No active arrivals found."}
+            return {
+                "ServiceDelivery": {
+                    "StopMonitoringDelivery": {
+                        "MonitoredStopVisit": []
+                    }
+                }
+            }
 
-        arrivals = []
-        for v in visits:
-            journey = v.get("MonitoredVehicleJourney", {})
-            call = journey.get("MonitoredCall", {})
-            arrivals.append({
-                "route": journey.get("PublishedLineName"),
-                "destination": journey.get("DestinationName"),
-                "vehicle_id": journey.get("VehicleRef"),
-                "lat": journey.get("VehicleLocation", {}).get("Latitude"),
-                "lon": journey.get("VehicleLocation", {}).get("Longitude"),
-                "expected": call.get("ExpectedArrivalTime"),
-                "aimed": call.get("AimedArrivalTime"),
-                "stop_name": call.get("StopPointName"),
-                "at_stop": call.get("VehicleAtStop"),
-            })
-
+        # Return in full SIRI-compatible format
         return {
-            "stopCode": stopCode,
-            "agency": "bart",
-            "arrivals": arrivals,
-            "count": len(arrivals)
+            "ServiceDelivery": {
+                "StopMonitoringDelivery": {
+                    "MonitoredStopVisit": visits
+                }
+            }
         }
 
     except Exception as e:
