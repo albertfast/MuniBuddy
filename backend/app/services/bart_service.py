@@ -78,36 +78,20 @@ class BartService:
         }
 
 
-    def get_stop_predictions(self, stop_id: str, lat: float = None, lon: float = None) -> Dict[str, Any]:
-        try:
-            realtime = self.realtime.fetch_real_time_stop_data(stop_id)
-            if not realtime.get("inbound") and not realtime.get("outbound"):
-                fallback = self.scheduler.get_schedule(stop_id, agency="bart")
-                return fallback
+    # def get_stop_predictions(self, stop_id: str, lat: float = None, lon: float = None) -> Dict[str, Any]:
+    #     try:
+    #         realtime = self.realtime.fetch_real_time_stop_data(stop_id)
+    #         if not realtime.get("inbound") and not realtime.get("outbound"):
+    #             fallback = self.scheduler.get_schedule(stop_id, agency="bart")
+    #             return fallback
 
-            for entry in realtime.get("inbound", []) + realtime.get("outbound", []):
-                entry.setdefault("vehicle", {"lat": "", "lon": ""})
+    #         for entry in realtime.get("inbound", []) + realtime.get("outbound", []):
+    #             entry.setdefault("vehicle", {"lat": "", "lon": ""})
 
-            return realtime
+    #         return realtime
 
-        except Exception as e:
-            log_debug(f"[BART PREDICTIONS] Error fetching predictions for {stop_id}: {e}")
-            return {"inbound": [], "outbound": []}
+    #     except Exception as e:
+    #         log_debug(f"[BART PREDICTIONS] Error fetching predictions for {stop_id}: {e}")
+    #         return {"inbound": [], "outbound": []}
 
-    def get_bart_511_raw_data(self, stop_code: str) -> Dict[str, Any]:
-        try:
-            url = f"{settings.TRANSIT_511_BASE_URL}/StopMonitoring"
-            params = {
-                "api_key": settings.API_KEY,
-                "agency": settings.normalize_agency("bart"),
-                "stopCode": stop_code,
-                "format": "json"
-            }
 
-            response = httpx.get(url, params=params, timeout=10.0)
-            response.raise_for_status()
-            return response.json()
-
-        except Exception as e:
-            log_debug(f"[get_bart_511_raw_data] ❌ Error fetching data for stop {stop_code}: {e}")
-            return {}
