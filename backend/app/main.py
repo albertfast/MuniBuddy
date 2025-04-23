@@ -5,12 +5,10 @@ from dotenv import load_dotenv
 from app.core.singleton import bus_service, schedule_service, bart_service
 from app.db.database import init_db
 
-from app.routers.stop_predictions_router import (
-    bus_router,
-    bart_router,
-    stop_schedule_router,
-    bus_positions_router,
-)
+from app.routers.bus_router import router as bus_router
+from app.routers.bart_router import router as bart_router
+from app.routers.stop_schedule import router as stop_schedule_router
+from app.routers.nearby_bus_positions import router as bus_positions_router
 
 load_dotenv()
 
