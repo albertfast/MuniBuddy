@@ -42,8 +42,9 @@ const normalizeSiriData = (visits = []) => {
         lat: journey?.VehicleLocation?.Latitude || "",
         lon: journey?.VehicleLocation?.Longitude || ""
       }
+      
     };
-
+    console.log("✅ route_number:", entry.route_number);
     if (direction === "ib") grouped.inbound.push(entry);
     else grouped.outbound.push(entry);
   }
