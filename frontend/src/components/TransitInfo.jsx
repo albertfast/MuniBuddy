@@ -116,7 +116,7 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
     const agency = stop.agency?.toLowerCase() || "sf";
     const isBart = agency === "bart" || agency === "ba";
     const endpoint = isBart
-      ? `/bart-positions/by-stop?stopCode=${stopCode}`
+      ? `/bart-positions/by-stop?stopCode=${stopCode}&agency=${agency}`
       : `/bus-positions/by-stop?stopCode=${stopCode}&agency=${agency}`;
 
     try {
