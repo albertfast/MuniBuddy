@@ -93,3 +93,23 @@ class BartService:
         except Exception as e:
             log_debug(f"[BART PREDICTIONS] Error fetching predictions for {stop_id}: {e}")
             return {"inbound": [], "outbound": []}
+
+import httpx
+
+def get_bart_511_raw_data(self, stop_code: str) -> Dict[str, Any]:
+    try:
+        url = f"{settings.TRANSIT_511_BASE_URL}/StopMonitoring"
+        params = {
+            "api_key": settings.API_KEY,
+            "agency": settings.normalize_agency("bart"),
+            "stopCode": stop_code,
+            "format": "json"
+        }
+
+        response = httpx.get(url, params=params, timeout=10.0)
+        response.raise_for_status()
+        return response.json()
+
+    except Exception as e:
+        log_debug(f"[get_bart_511_raw_data] ❌ Error fetching data for stop {stop_code}: {e}")
+        return {}
