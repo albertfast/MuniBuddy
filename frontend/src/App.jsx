@@ -58,14 +58,14 @@ const App = () => {
 
   const fetchNearbyStops = async (location) => {
     if (!location) return;
-  
+
     setIsLoading(true);
     setError(null);
-  
+
     const stopsFound = {};
     const vehicleMarkers = [];
     const visited = new Set();
-  
+
     const agencyEndpoints = {
       muni: {
         nearby: `${BASE_URL}/bus/nearby-stops`,
@@ -78,32 +78,36 @@ const App = () => {
         codes: ['BA', 'bart']
       }
     };
-  
+
     const fetchByAgency = async (group) => {
       try {
         const res = await fetch(`${group.nearby}?lat=${location.lat}&lon=${location.lng}&radius=${radius}`);
         if (!res.ok) throw new Error("Failed to fetch nearby stops.");
         const stops = await res.json();
-  
+
         for (const stop of stops) {
           const stopCode = stop.stop_code || stop.stop_id;
           const key = `${stopCode}-${group.codes[0]}`;
           if (visited.has(key)) continue;
-  
+
           visited.add(key);
           stopsFound[stop.stop_id] = stop;
-  
+
           const res = await fetch(`${group.vehicles}?stopCode=${stopCode}&agency=${group.codes[0]}`);
           if (!res.ok) continue;
-  
+
           const data = await res.json();
           const visits = data?.ServiceDelivery?.StopMonitoringDelivery?.MonitoredStopVisit ?? [];
-  
+
           visits.forEach((visit, i) => {
             const vehicle = visit.MonitoredVehicleJourney;
             const loc = vehicle?.VehicleLocation;
+
+            // ✅ DEBUG LOG
+            console.log(`[Vehicle Debug] stopCode=${stopCode} → LineRef=${vehicle?.LineRef}, PublishedLineName=${vehicle?.PublishedLineName}`);
+
             if (!loc?.Latitude || !loc?.Longitude) return;
-  
+
             vehicleMarkers.push({
               position: { lat: parseFloat(loc.Latitude), lng: parseFloat(loc.Longitude) },
               title: `${vehicle?.PublishedLineName || "Transit"} → ${vehicle?.MonitoredCall?.DestinationDisplay || "?"}`,
@@ -119,19 +123,19 @@ const App = () => {
         console.warn(`[FETCH ERROR] ${group.codes[0]}: ${err.message}`);
       }
     };
-  
+
     await Promise.all([
       fetchByAgency(agencyEndpoints.muni),
       fetchByAgency(agencyEndpoints.bart)
     ]);
-  
+
     const stopMarkers = Object.values(stopsFound).map((stop) => ({
       position: { lat: parseFloat(stop.stop_lat), lng: parseFloat(stop.stop_lon) },
       title: stop.stop_name,
       stopId: stop.stop_id,
       icon: { url: '/images/bus-stop-icon.svg', scaledSize: { width: 32, height: 32 } }
     }));
-  
+
     if (userLocation) {
       stopMarkers.push({
         position: userLocation,
@@ -139,7 +143,7 @@ const App = () => {
         icon: { url: '/images/user-location-icon.svg', scaledSize: { width: 32, height: 32 } }
       });
     }
-  
+
     setNearbyStops(stopsFound);
     setMarkers([...stopMarkers, ...vehicleMarkers]);
     setLiveVehicleMarkers(vehicleMarkers);
