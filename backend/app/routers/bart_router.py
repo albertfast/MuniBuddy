@@ -48,12 +48,12 @@ def get_bart_stop_arrivals(
         raise HTTPException(status_code=500, detail=f"Failed to fetch arrivals: {e}")
 
 @router.get("/nearby-stops")
-def get_nearby_bart_stops(
+async def get_nearby_bart_stops(
     lat: float = Query(...),
     lon: float = Query(...),
     radius: float = Query(0.15)
 ):
     try:
-        return bart_service.get_real_time_arrivals(lat, lon, radius)
+        return await bart_service.get_real_time_arrivals(lat, lon, radius)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch nearby BART stops: {e}")
