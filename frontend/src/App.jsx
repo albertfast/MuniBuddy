@@ -147,8 +147,8 @@ const App = () => {
   };
   
   useEffect(() => {
-    const fetchAllLiveMarkers = async () => {
-      const allMarkers = [];
+    const fetchLiveMarkers = async () => {
+      let allMarkers = [];
   
       for (const stop of Object.values(nearbyStops)) {
         const stopCode = stop.stop_code || stop.stop_id;
@@ -157,6 +157,7 @@ const App = () => {
         try {
           const res = await fetch(`${BASE_URL}/bus-positions/by-stop?stopCode=${stopCode}&agency=${agency}`);
           const json = await res.json();
+  
           const visits = json?.ServiceDelivery?.StopMonitoringDelivery?.MonitoredStopVisit ?? [];
   
           const markers = visits.map((visit, index) => {
@@ -179,7 +180,7 @@ const App = () => {
   
           allMarkers.push(...markers);
         } catch (err) {
-          console.warn(`❌ Failed live vehicle fetch for ${stopCode} [${agency}]:`, err.message);
+          console.warn(`❌ Live fetch failed: ${stopCode} (${agency}): ${err.message}`);
         }
       }
   
@@ -187,7 +188,7 @@ const App = () => {
     };
   
     if (Object.keys(nearbyStops).length > 0) {
-      fetchAllLiveMarkers();
+      fetchLiveMarkers();
     }
   }, [nearbyStops]);
   
