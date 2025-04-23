@@ -45,22 +45,5 @@ async def get_bus_positions_by_stop(
         log_debug(f"[API] ❌ SIRI fetch failed for stopCode={stopCode}, agency={agency}: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to fetch 511 SIRI data: {e}")
 
-# @router.get("/bus-positions/nearby")
-# def get_bus_positions_nearby(
-#     lat: float = Query(..., description="User's latitude"),
-#     lon: float = Query(..., description="User's longitude"),
-#     radius: float = Query(0.15, description="Search radius in miles"),
-#     agency: str = Query("muni", description="Transit agency (e.g., muni, bart)")
-# ):
-#     """
-#     Returns real-time bus predictions for nearby stops, with GTFS fallback.
-#     Aggregated into a single response to avoid 511 API overuse.
-#     """
-#     try:
-#         log_debug(f"[API] Fetching nearby bus positions lat={lat}, lon={lon}, agency={agency}, radius={radius}")
-#         return bus_service.get_nearby_buses(lat, lon, radius, agency)
-#     except Exception as e:
-#         log_debug(f"[API] ❌ Failed to fetch nearby bus positions: {e}")
-#         raise HTTPException(status_code=500, detail=f"Failed to fetch nearby bus data: {e}")
 
 
