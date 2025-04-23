@@ -6,6 +6,14 @@ from app.integrations.siri_api import fetch_siri_data_multi
 
 router = APIRouter(prefix="/bart-positions", tags=["BART Positions"])
 
+def normalize_agency(agency: str) -> str:
+    agency = agency.lower()
+    if agency in ["sf", "muni", "sfmta"]:
+        return "SF"
+    elif agency in ["ba", "bart"]:
+        return "BA"
+    return agency.upper()
+
 @router.get("/by-stop")
 async def get_parsed_bart_by_stop(
     stopCode: str = Query(..., description="GTFS stop_code or stop_id"),
