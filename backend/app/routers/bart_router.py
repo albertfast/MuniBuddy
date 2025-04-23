@@ -12,7 +12,7 @@ router = APIRouter(prefix="/bart-positions", tags=["BART Positions"])
 @router.get("/by-stop")
 async def get_parsed_bart_by_stop(
     stopCode: str = Query(..., description="GTFS stop_code or stop_id"),
-    agency: str = Query("bart", description="Agency name (e.g., muni, SFMTA, bart)")
+    agency: str = Query(default="bart", description="Agency name (e.g., muni, SFMTA, bart)")
 ):
     """
     Fetch raw SIRI StopMonitoring data for a single stopCode & agency.
