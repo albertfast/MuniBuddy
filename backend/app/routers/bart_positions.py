@@ -1,11 +1,20 @@
 from fastapi import APIRouter, Query, HTTPException
-from app.core.singleton import bart_service
 from app.services.debug_logger import log_debug
+from app.config import settings
+import httpx
 
 router = APIRouter(prefix="/bart-positions", tags=["BART Positions"])
 
+def normalize_agency(agency: str) -> str:
+    agency = agency.lower()
+    if agency in ["sf", "muni", "sfmta"]:
+        return "SF"
+    elif agency in ["ba", "bart"]:
+        return "BA"
+    return agency.upper()
+
 @router.get("/by-stop")
-async def get_bus_positions_by_stop(
+async def get_bart_positions_by_stop(
     stopCode: str = Query(..., description="GTFS stop_code or stop_id"),
     agency: str = Query("bart", description="Agency name (e.g., muni, SFMTA, bart)")
 ):
