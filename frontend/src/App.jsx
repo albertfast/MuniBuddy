@@ -148,40 +148,38 @@ const App = () => {
   
   useEffect(() => {
     const fetchAllLiveMarkers = async () => {
-      const agencies = ['SF', 'SFMTA', 'muni', 'BA', 'bart'];
-      let allMarkers = [];
+      const allMarkers = [];
   
       for (const stop of Object.values(nearbyStops)) {
         const stopCode = stop.stop_code || stop.stop_id;
-        for (const agency of agencies) {
-          try {
-            const res = await fetch(`${BASE_URL}/bus-positions/by-stop?stopCode=${stopCode}&agency=${agency}`);
-            const json = await res.json();
+        const agency = (stop.agency || "muni").toLowerCase();
   
-            const visits = json?.ServiceDelivery?.StopMonitoringDelivery?.MonitoredStopVisit ?? [];
+        try {
+          const res = await fetch(`${BASE_URL}/bus-positions/by-stop?stopCode=${stopCode}&agency=${agency}`);
+          const json = await res.json();
+          const visits = json?.ServiceDelivery?.StopMonitoringDelivery?.MonitoredStopVisit ?? [];
   
-            const markers = visits.map((visit, index) => {
-              const loc = visit?.MonitoredVehicleJourney?.VehicleLocation;
-              if (!loc?.Latitude || !loc?.Longitude) return null;
+          const markers = visits.map((visit, index) => {
+            const loc = visit?.MonitoredVehicleJourney?.VehicleLocation;
+            if (!loc?.Latitude || !loc?.Longitude) return null;
   
-              return {
-                position: {
-                  lat: parseFloat(loc.Latitude),
-                  lng: parseFloat(loc.Longitude)
-                },
-                title: `${visit.MonitoredVehicleJourney?.PublishedLineName || "Transit"} → ${visit.MonitoredVehicleJourney?.MonitoredCall?.DestinationDisplay || "?"}`,
-                stopId: `${stopCode}-${agency}-${index}`,
-                icon: {
-                  url: '/images/live-bus-icon.svg',
-                  scaledSize: { width: 28, height: 28 }
-                }
-              };
-            }).filter(Boolean);
+            return {
+              position: {
+                lat: parseFloat(loc.Latitude),
+                lng: parseFloat(loc.Longitude)
+              },
+              title: `${visit.MonitoredVehicleJourney?.PublishedLineName || "Transit"} → ${visit.MonitoredVehicleJourney?.MonitoredCall?.DestinationDisplay || "?"}`,
+              stopId: `${stopCode}-${agency}-${index}`,
+              icon: {
+                url: '/images/live-bus-icon.svg',
+                scaledSize: { width: 28, height: 28 }
+              }
+            };
+          }).filter(Boolean);
   
-            allMarkers.push(...markers);
-          } catch (err) {
-            console.warn(`Failed live vehicle fetch for stop ${stopCode} @ ${agency}: ${err.message}`);
-          }
+          allMarkers.push(...markers);
+        } catch (err) {
+          console.warn(`❌ Failed live vehicle fetch for ${stopCode} [${agency}]:`, err.message);
         }
       }
   
