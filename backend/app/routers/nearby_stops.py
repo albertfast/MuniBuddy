@@ -1,8 +1,4 @@
-# backend/app/routers/combined_stop_router.py
-import sys
-import os
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
+#backend/app/routers/nearby_stops.py
 from fastapi import APIRouter, Query, HTTPException
 from typing import Optional, List, Dict, Any
 from app.services.stop_helper import load_stops, calculate_distance

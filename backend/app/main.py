@@ -1,7 +1,3 @@
-import sys
-import os
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
@@ -13,7 +9,7 @@ from app.routers.bus_router import router as bus_router
 from app.routers.bart_router import router as bart_router
 from app.routers.stop_schedule import router as stop_schedule_router
 from app.routers.nearby_bus_positions import router as bus_positions_router
-from app.routers.combined_stop_router import router as combined_stop_router
+from app.routers.nearby_stops import router as combined_stop_router
 
 load_dotenv()
 
