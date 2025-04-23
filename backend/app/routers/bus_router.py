@@ -23,17 +23,17 @@ def get_nearby_bus_stops(
         raise HTTPException(status_code=500, detail=f"Failed to fetch nearby bus stops: {e}")
 
 
-@router.get("/bus/stop-arrivals/{stop_id}")
-async def get_bus_stop_arrivals(
-    stop_id: str,
-    lat: Optional[float] = Query(None, description="User's latitude (optional)"),
-    lon: Optional[float] = Query(None, description="User's longitude (optional)"),
-    agency: Optional[str] = Query(None, description="Agency name if known (optional)")
-):
-    """
-    Returns arrival predictions (real-time or fallback) for a specific stop.
-    """
-    try:
-        return await bus_service.get_stop_predictions(stop_id, lat, lon, agency)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to fetch bus arrivals: {e}")
+# @router.get("/bus/stop-arrivals/{stop_id}")
+# async def get_bus_stop_arrivals(
+#     stop_id: str,
+#     lat: Optional[float] = Query(None, description="User's latitude (optional)"),
+#     lon: Optional[float] = Query(None, description="User's longitude (optional)"),
+#     agency: Optional[str] = Query(None, description="Agency name if known (optional)")
+# ):
+#     """
+#     Returns arrival predictions (real-time or fallback) for a specific stop.
+#     """
+#     try:
+#         return await bus_service.get_stop_predictions(stop_id, lat, lon, agency)
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=f"Failed to fetch bus arrivals: {e}")
