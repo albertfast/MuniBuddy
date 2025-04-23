@@ -30,7 +30,7 @@ const normalizeSiriData = (visits = []) => {
       route_number: journey?.PublishedLineName,
       destination: call?.DestinationDisplay || journey?.DestinationName,
       arrival_time: call?.ExpectedArrivalTime || call?.AimedArrivalTime,
-      status: "Due",
+      status: "DueW",
       minutes_until: null,
       is_realtime: true,
       vehicle: {
