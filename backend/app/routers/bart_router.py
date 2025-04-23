@@ -1,10 +1,8 @@
 from fastapi import APIRouter, Query, HTTPException
 from typing import Optional
-from app.core.singleton import bart_service
 from app.config import settings
 from app.services.debug_logger import log_debug
 from app.services.stop_helper import load_stops
-from app.integrations.siri_api import fetch_siri_data_multi
 import httpx
 
 router = APIRouter(prefix="/bart-positions", tags=["BART Positions"])
@@ -30,6 +28,12 @@ async def get_parsed_bart_by_stop(
         norm_agency = normalize_agency(agency)
         log_debug(f"[API] Fetching SIRI StopMonitoring for stopCode={stopCode}, agency={norm_agency}")
 
+        # Filter from preloaded GTFS stops to verify the stopCode exists and belongs to BART
+        all_stops = load_stops("bart")
+        matching_stop = next((stop for stop in all_stops if stop["stop_code"] == stopCode), None)
+        if not matching_stop:
+            raise HTTPException(status_code=404, detail=f"StopCode '{stopCode}' not found for BART")
+
         url = f"{settings.TRANSIT_511_BASE_URL}/StopMonitoring"
         params = {
             "api_key": settings.API_KEY,
@@ -46,19 +50,3 @@ async def get_parsed_bart_by_stop(
     except Exception as e:
         log_debug(f"[API] ❌ SIRI fetch failed for stopCode={stopCode}, agency={agency}: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to fetch 511 SIRI data: {e}")
-
-@router.get("/nearby-stops")
-async def get_nearby_bart_stops(
-    lat: float = Query(..., description="Latitude of the user"),
-    lon: float = Query(..., description="Longitude of the user"),
-    radius: float = Query(0.15, description="Search radius in miles"),
-    agency: Optional[str] = Query(None, description="Transit agency (e.g., muni or bart)")
-):
-    """
-    Returns nearby stops from one or more agencies (Muni, BART) around a given location.
-    If no agency is specified, returns stops from all GTFS agencies.
-    """
-    try:
-        return bart_service.get_nearby_stops(lat, lon, radius, agency=agency)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to fetch nearby bus stops: {e}")
