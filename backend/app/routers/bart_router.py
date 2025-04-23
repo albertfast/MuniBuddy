@@ -20,7 +20,7 @@ def normalize_agency(agency: str) -> str:
 @router.get("/by-stop")
 async def get_parsed_bart_by_stop(
     stopCode: str = Query(..., description="GTFS stop_code or stop_id"),
-    agency: str = Query("muni", description="Agency name (e.g., muni, SFMTA, bart)")
+    agency: str = Query("bart", description="Agency name (e.g., muni, SFMTA, bart)")
 ):
     """
     Fetch raw SIRI StopMonitoring data for a single stopCode & agency.
