@@ -83,11 +83,12 @@ class BartService:
         visits = siri_data.get("ServiceDelivery", {}).get("StopMonitoringDelivery", [{}])[0].get("MonitoredStopVisit", [])
 
         parsed = {"inbound": [], "outbound": []}
+
         for visit in visits:
             journey = visit.get("MonitoredVehicleJourney", {})
             call = journey.get("MonitoredCall", {})
             arrival_time = call.get("ExpectedArrivalTime") or call.get("AimedArrivalTime")
-            direction = journey.get("DirectionRef", "").upper()
+            direction = journey.get("DirectionRef", "").strip().lower()
 
             entry = {
                 "route_number": journey.get("PublishedLineName"),
@@ -101,11 +102,16 @@ class BartService:
                     "lon": journey.get("VehicleLocation", {}).get("Longitude", "")
                 }
             }
-            if direction == "IB":
+
+            # Normalize direction
+            if direction in ["ib", "inbound", "n", "northbound"]:
                 parsed["inbound"].append(entry)
-            else:
+            elif direction in ["ob", "outbound", "s", "southbound"]:
                 parsed["outbound"].append(entry)
-        
+            else:
+                # fallback if direction unknown
+                parsed["outbound"].append(entry)
+
         return parsed
 
 
