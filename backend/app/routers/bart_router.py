@@ -18,17 +18,43 @@ async def get_parsed_bart_by_stop(
         if not stop_info:
             raise HTTPException(status_code=404, detail=f"No stop found for code {stopCode}")
 
-        data = await bart_service.realtime.fetch_real_time_stop_data(stopCode)
+        # 🔁 Fetch real-time SIRI data using fetch_siri_data_multi
+        raw_data = await fetch_siri_data_multi([stopCode], agency=agency)
+        siri_data = raw_data.get(stopCode) or {}
 
-        visits = data.get("inbound", []) + data.get("outbound", [])
+        visits = siri_data.get("ServiceDelivery", {}).get("StopMonitoringDelivery", [{}])[0].get("MonitoredStopVisit", [])
         if not visits:
             return {"stopCode": stopCode, "arrivals": [], "message": "No active arrivals found."}
+
+        parsed = []
+        for visit in visits:
+            journey = visit.get("MonitoredVehicleJourney", {})
+            call = journey.get("MonitoredCall", {})
+            arrival_time = call.get("ExpectedArrivalTime") or call.get("AimedArrivalTime")
+            direction = journey.get("DirectionRef", "").upper()
+
+            parsed.append({
+                "stop_id": stop_info.get("stop_id"),
+                "stop_code": stopCode,
+                "stop_name": stop_info.get("stop_name"),
+                "direction": direction.lower(),
+                "route_number": journey.get("PublishedLineName"),
+                "destination": journey.get("DestinationName"),
+                "arrival_time": arrival_time,
+                "status": "Due",
+                "minutes_until": None,
+                "is_realtime": True,
+                "vehicle": {
+                    "lat": journey.get("VehicleLocation", {}).get("Latitude", ""),
+                    "lon": journey.get("VehicleLocation", {}).get("Longitude", "")
+                }
+            })
 
         return {
             "stopCode": stopCode,
             "agency": stop_info["agency"],
-            "arrivals": visits,
-            "count": len(visits)
+            "arrivals": parsed,
+            "count": len(parsed)
         }
 
     except Exception as e:
