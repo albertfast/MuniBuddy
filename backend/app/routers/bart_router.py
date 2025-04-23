@@ -2,6 +2,7 @@ from fastapi import APIRouter, Query, HTTPException
 from app.core.singleton import bart_service
 from app.services.debug_logger import log_debug
 from app.services.stop_helper import load_stops
+from app.integrations.siri_api import fetch_siri_data_multi
 
 router = APIRouter(prefix="/bart-positions", tags=["BART Positions"])
 
