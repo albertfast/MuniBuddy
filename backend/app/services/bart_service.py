@@ -6,7 +6,6 @@ from app.services.realtime_bart_service import RealtimeBartService
 from app.services.debug_logger import log_debug
 from app.integrations.siri_api import fetch_siri_data, fetch_siri_data_multi
 import httpx
-
 class BartService:
     def __init__(self, scheduler: SchedulerService):
         self.scheduler = scheduler
@@ -38,15 +37,6 @@ class BartService:
         stops = load_stops(agency)
         nearby_stops = find_nearby_stops(lat, lon, stops, radius)
         stop_code_map = {stop["stop_code"] or stop["stop_id"]: stop for stop in nearby_stops}
-
-        seen = set()
-        unique_results = []
-        for entry in results:
-            key = (entry["route_number"], entry["arrival_time"], entry["direction"])
-            if key not in seen:
-                unique_results.append(entry)
-                seen.add(key)
-
 
         stop_codes = list(stop_code_map.keys())
         if not stop_codes:
