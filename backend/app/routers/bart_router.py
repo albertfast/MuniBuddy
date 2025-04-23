@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Query, HTTPException
+from typing import Optional
 from app.core.singleton import bart_service
 from app.config import settings
 from app.services.debug_logger import log_debug
