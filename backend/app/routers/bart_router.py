@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Query, HTTPException
 from app.core.singleton import bart_service
 from app.services.debug_logger import log_debug
+from app.services.stop_helper import load_stops
 
 router = APIRouter(prefix="/bart-positions", tags=["BART Positions"])
 
@@ -10,17 +11,22 @@ def get_parsed_bart_by_stop(
     agency: str = Query("bart")
 ):
     try:
-        if agency.lower() not in ["bart", "ba"]:
-            raise HTTPException(status_code=400, detail="Only BART agency is supported at this endpoint.")
+        all_stops = load_stops("bart")
+        stop_info = next((s for s in all_stops if s["stop_code"] == stopCode or s["stop_id"] == stopCode), None)
 
-        data = bart_service.realtime.fetch_real_time_stop_data(stopCode)
+        if not stop_info:
+            raise HTTPException(status_code=404, detail=f"No stop found for code {stopCode}")
+
+        real_agency = stop_info["agency"]
+        data = bart_service.realtime.fetch_real_time_stop_data(stopCode, agency=real_agency)
+
         visits = data.get("inbound", []) + data.get("outbound", [])
         if not visits:
             return {"stopCode": stopCode, "arrivals": [], "message": "No active arrivals found."}
 
         return {
             "stopCode": stopCode,
-            "agency": "bart",
+            "agency": real_agency,
             "arrivals": visits,
             "count": len(visits)
         }
