@@ -80,7 +80,7 @@ class BartService:
 
     def get_stop_predictions(self, stop_id: str, lat: float = None, lon: float = None) -> Dict[str, Any]:
         try:
-            realtime = fetch_real_time_stop_data(stop_id, agency="bart")
+            realtime = self.realtime.fetch_real_time_stop_data(stop_id)
             if not realtime.get("inbound") and not realtime.get("outbound"):
                 fallback = self.scheduler.get_schedule(stop_id, agency="bart")
                 return fallback
