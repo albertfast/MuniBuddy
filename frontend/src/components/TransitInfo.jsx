@@ -27,9 +27,9 @@ const normalizeSiriData = (visits = []) => {
     const journey = visit?.MonitoredVehicleJourney;
     const call = journey?.MonitoredCall || {};
     const direction = (journey?.DirectionRef || "").toLowerCase();
-      if (["ib", "inbound", "n"].includes(direction)) grouped.inbound.push(entry);
-        else if (["ob", "outbound", "s"].includes(direction)) grouped.outbound.push(entry);
-     else grouped.outbound.push(entry); // fallback
+    if (["ib", "inbound", "n"].includes(direction)) grouped.inbound.push(entry);
+    else if (["ob", "outbound", "s"].includes(direction)) grouped.outbound.push(entry);
+    else grouped.outbound.push(entry); // fallback
 
     console.log("LineRef:", journey?.LineRef);
     console.log("PublishedLineName:", journey?.PublishedLineName);
@@ -197,11 +197,18 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
   }, [selectedStopId, getCachedSchedule, setCachedSchedule]);
 
   const handleRefreshSchedule = useCallback(async () => {
+    const agency = stops.find(s => normalizeId(s) === selectedStopId)?.agency ?? "muni";
+    const isBart = agency.toLowerCase() === "bart" || agency.toLowerCase() === "ba";
+
+    const refreshURL = isBart
+      ? `/bart-positions/by-stop?stopCode=${selectedStopId}&agency=${agency}`
+      : `/bus-positions/by-stop?stopCode=${selectedStopId}&agency=${agency}`;
+
     if (!selectedStopId) return;
     setLoading(true);
     setError(null);
     try {
-      const res = await axios.get(`${API_BASE_URL}/bus-positions/by-stop/${selectedStopId}`, {
+      const res = await axios.get(`${API_BASE_URL}${refreshURL}`, {
         timeout: API_TIMEOUT,
         params: { _t: Date.now() }
       });
