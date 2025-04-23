@@ -45,7 +45,7 @@ async def get_parsed_bart_by_stop(
     except Exception as e:
         log_debug(f"[API] ❌ SIRI fetch failed for stopCode={stopCode}, agency={agency}: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to fetch 511 SIRI data: {e}")
-        
+
 @router.get("/nearby-stops")
 async def get_nearby_bart_stops(
     lat: float = Query(...),
@@ -53,6 +53,6 @@ async def get_nearby_bart_stops(
     radius: float = Query(0.15)
 ):
     try:
-        return await bart_service.get_real_time_arrivals(lat, lon, radius)
+        return bart_service.get_real_time_arrivals(lat, lon, radius)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch nearby BART stops: {e}")
