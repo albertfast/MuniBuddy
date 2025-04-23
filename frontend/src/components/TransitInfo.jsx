@@ -32,7 +32,7 @@ const normalizeSiriData = (visits = []) => {
     const minutesUntil = arrivalDate ? Math.round((arrivalDate - now) / 60000) : null;
 
     const entry = {
-      route_number: journey?.PublishedLineName,
+      route_number: journey?.LineRef || journey?.PublishedLineName || "Unknown Line",
       destination: call?.DestinationDisplay || journey?.DestinationName,
       arrival_time: arrivalTime,
       status: minutesUntil !== null ? `${minutesUntil} min` : "Unknown",
