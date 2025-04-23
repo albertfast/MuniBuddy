@@ -173,7 +173,7 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
 
     try {
       const predictionURL = agency === "bart"
-        ? `/bart-positions/stop-arrivals/${stopId}`
+        ? `/bart-positions/stop-arrivals/${stopId}&agency=${agency}`
         : `/bus-positions/by-stop?stopCode=${stopId}&agency=${agency}`;
 
       const res = await axios.get(`${API_BASE_URL}${predictionURL}`, { timeout: API_TIMEOUT });
