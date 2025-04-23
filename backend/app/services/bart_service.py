@@ -38,6 +38,7 @@ class BartService:
         stops = load_stops(agency)
         nearby_stops = find_nearby_stops(lat, lon, stops, radius)
         stop_code_map = {stop["stop_code"] or stop["stop_id"]: stop for stop in nearby_stops}
+
         seen = set()
         unique_results = []
         for entry in results:
@@ -62,11 +63,6 @@ class BartService:
                 journey = visit.get("MonitoredVehicleJourney", {})
                 call = journey.get("MonitoredCall", {})
                 arrival_time = call.get("ExpectedArrivalTime") or call.get("AimedArrivalTime")
-                minutes_until = None
-                if arrival_time:
-                    dt = datetime.fromisoformat(arrival_time.replace("Z", "+00:00"))
-                    now = datetime.now(timezone.utc)
-                    minutes_until = max(0, int((dt - now).total_seconds() // 60))
 
                 results.append({
                     "stop_id": stop_info.get("stop_id"),
@@ -78,7 +74,7 @@ class BartService:
                     "destination": journey.get("DestinationName"),
                     "arrival_time": arrival_time,
                     "status": "Due",  # optionally calculate min_until
-                    "minutes_until": minutes_until,
+                    "minutes_until": None,
                     "is_realtime": True,
                     "vehicle": {
                         "lat": journey.get("VehicleLocation", {}).get("Latitude", ""),
