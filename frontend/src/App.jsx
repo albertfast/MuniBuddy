@@ -27,12 +27,12 @@ const App = () => {
 
   const agencyEndpoints = {
     muni: {
-      nearby: `${BASE_URL}/bus/nearby-stops`,
+      nearby: `${BASE_URL}/nearby-stops`,
       vehicles: `${BASE_URL}/bus-positions/by-stop`,
       codes: ['SF']
     },
     bart: {
-      nearby: `${BASE_URL}/bart-positions/nearby-stops`,
+      nearby: `${BASE_URL}/nearby-stops`,
       vehicles: `${BASE_URL}/bart-positions/by-stop`,
       codes: ['BA']
     }
