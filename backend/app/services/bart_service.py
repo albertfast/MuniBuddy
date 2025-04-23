@@ -73,8 +73,8 @@ class BartService:
                 })
 
         return {
-            "inbound": [r for r in results if r["direction"] == "ib"],
-            "outbound": [r for r in results if r["direction"] == "ob"]
+            "inbound": [r for r in results if r["direction"] in ["ib", "inbound", "n"]],
+            "outbound": [r for r in results if r["direction"] in ["ob", "outbound", "s"]]
         }
 
 
