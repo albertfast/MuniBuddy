@@ -5,8 +5,7 @@ from dotenv import load_dotenv
 from app.core.singleton import bus_service, schedule_service, bart_service
 from app.db.database import init_db
 
-from app.routers.stop_predictions_router import (
-    stop_predictions_router,
+from app.routers import (
     bus_router,
     bart_router,
     stop_schedule_router,
@@ -21,6 +20,9 @@ app = FastAPI(
     version="1.1.0"
 )
 
+app.include_router(bart_router.router)
+app.include_router(bus_router.router)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -31,7 +33,7 @@ app.add_middleware(
 
 app.include_router(bus_router, prefix="/api/v1")
 app.include_router(bart_router, prefix="/api/v1")
-app.include_router(stop_predictions_router, prefix="/api/v1")
+router = APIRouter(prefix="/bart-positions", tags=["BART Positions"])
 app.include_router(stop_schedule_router, prefix="/api/v1")
 app.include_router(bus_positions_router, prefix="/api/v1")
 
