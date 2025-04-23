@@ -32,7 +32,7 @@ const App = () => {
       codes: ['SF']
     },
     bart: {
-      nearby: `${BASE_URL}/bart-positions/nearby-stops`,
+      nearby: `${BASE_URL}/bus/nearby-stops`,
       vehicles: `${BASE_URL}/bart-positions/by-stop`,
       codes: ['BA']
     }
