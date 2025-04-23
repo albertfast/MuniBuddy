@@ -16,7 +16,7 @@ class BusService:
         lon: float,
         radius: float = 0.15,
         agency: Optional[str] = None,
-        limit: int = 10
+        limit: int = 20
     ) -> List[Dict[str, Any]]:
         """Return nearby stops for given agency (or all if agency=None)"""
         normalized_agency = settings.normalize_agency(agency) if agency else None
