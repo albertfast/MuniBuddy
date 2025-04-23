@@ -3,6 +3,7 @@ from app.core.singleton import bus_service
 from fastapi import APIRouter, Query, HTTPException
 from app.config import settings
 from app.services.debug_logger import log_debug
+from app.routers.nearby_stops import get_combined_nearby_stops
 import httpx
 
 router = APIRouter()
