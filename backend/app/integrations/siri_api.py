@@ -75,3 +75,40 @@ async def fetch_siri_data(lat: float, lon: float, agency: str = "muni", radius: 
                 log_debug(f"[SIRI] ❌ JSON parse or visit extraction failed for {stop_code}: {e}")
 
     return results
+
+
+async def fetch_siri_data_multi(stop_codes: List[str], agency: str = "bart") -> Dict[str, Dict[str, Any]]:
+    """
+    Fetch SIRI StopMonitoring data for multiple stop codes in parallel.
+    Returns a dictionary keyed by stop_code.
+    """
+    normalized_agency = normalize_agency(agency)
+    url = f"{settings.TRANSIT_511_BASE_URL}/StopMonitoring"
+    headers = {"accept": "application/json"}
+
+    results = {}
+
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        tasks = []
+        for stop_code in stop_codes:
+            params = {
+                "api_key": settings.API_KEY,
+                "agency": normalized_agency,
+                "stopCode": stop_code,
+                "format": "json"
+            }
+            tasks.append(client.get(url, params=params, headers=headers))
+
+        responses = await asyncio.gather(*tasks, return_exceptions=True)
+
+        for stop_code, response in zip(stop_codes, responses):
+            if isinstance(response, Exception):
+                log_debug(f"[SIRI MULTI] ❌ Failed for stop {stop_code}: {response}")
+                continue
+            try:
+                results[stop_code] = response.json()
+            except Exception as e:
+                log_debug(f"[SIRI MULTI] ❌ Failed to parse JSON for {stop_code}: {e}")
+                results[stop_code] = {}
+
+    return results
