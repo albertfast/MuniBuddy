@@ -19,7 +19,7 @@ def get_parsed_bart_by_stop(
             raise HTTPException(status_code=404, detail=f"No stop found for code {stopCode}")
 
         real_agency = stop_info["agency"]
-        data = bart_service.get_real_time_arrivals(lat, lon, radius)
+        data = bart_service.realtime.get_bart_511_raw_data(stopCode, agency=real_agency)
 
         visits = data.get("inbound", []) + data.get("outbound", [])
         if not visits:
