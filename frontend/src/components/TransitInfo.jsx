@@ -26,7 +26,10 @@ const normalizeSiriData = (visits = []) => {
   for (const visit of visits) {
     const journey = visit?.MonitoredVehicleJourney;
     const call = journey?.MonitoredCall || {};
-    const direction = (journey?.DirectionRef || "unknown").toLowerCase();
+    const direction = (journey?.DirectionRef || "").toLowerCase();
+      if (["ib", "inbound", "n"].includes(direction)) grouped.inbound.push(entry);
+        else if (["ob", "outbound", "s"].includes(direction)) grouped.outbound.push(entry);
+     else grouped.outbound.push(entry); // fallback
 
     console.log("LineRef:", journey?.LineRef);
     console.log("PublishedLineName:", journey?.PublishedLineName);
