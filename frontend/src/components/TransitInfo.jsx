@@ -19,10 +19,12 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE ?? 'https://munibuddy.live/ap
 const normalizeId = (stop) => stop?.gtfs_stop_id || stop?.stop_code || stop?.stop_id;
 
 const normalizeSiriData = (visits = []) => {
+  console.log("🚦 normalizeSiriData called. Visit count:", visits.length);
+  
   const grouped = { inbound: [], outbound: [] };
 
   for (const visit of visits) {
-    const journey = visit.MonitoredVehicleJourney;
+    const journey = visit?.MonitoredVehicleJourney;
     const call = journey?.MonitoredCall || {};
     const direction = (journey?.DirectionRef || "unknown").toLowerCase();
 
@@ -42,9 +44,11 @@ const normalizeSiriData = (visits = []) => {
         lat: journey?.VehicleLocation?.Latitude || "",
         lon: journey?.VehicleLocation?.Longitude || ""
       }
-      
     };
-    console.log("✅ route_number:", entry.route_number);
+
+    // Debug log for each route
+    console.log("🚌 Parsed entry:", entry);
+
     if (direction === "ib") grouped.inbound.push(entry);
     else grouped.outbound.push(entry);
   }
