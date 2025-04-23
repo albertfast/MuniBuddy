@@ -4,7 +4,7 @@ from app.services.stop_helper import load_stops, find_nearby_stops
 from app.services.schedule_service import SchedulerService
 from app.services.realtime_bart_service import RealtimeBartService
 from app.services.debug_logger import log_debug
-from app.integrations.siri_api import fetch_siri_data
+from app.integrations.siri_api import fetch_siri_data, fetch_siri_data_multi
 
 class BartService:
     def __init__(self, scheduler: SchedulerService):
