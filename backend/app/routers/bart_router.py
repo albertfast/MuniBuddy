@@ -8,26 +8,37 @@ router = APIRouter(prefix="/bart-positions", tags=["BART Positions"])
 
 @router.get("/by-stop")
 async def get_parsed_bart_by_stop(
-    lat: float = Query(...),
-    lon: float = Query(...),
-    radius: float = Query(0.15)
+    stopCode: str = Query(...),
+    agency: str = Query("bart")
 ):
     try:
-        return await bart_service.get_real_time_arrivals(lat, lon, radius)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to fetch nearby BART stops: {e}")
+        arrivals = await bart_service.get_real_time_arrival_by_stop(stopCode, agency)
 
-@router.get("/stop-arrivals/{stop_id}")
-def get_bart_stop_arrivals(
-    stop_id: str,
-    lat: float = Query(None),
-    lon: float = Query(None),
-    radius: float = Query(0.15)
-):
-    try:
-        return bart_service.get_stop_predictions(stop_id, lat, lon)
+        if not arrivals["inbound"] and not arrivals["outbound"]:
+            return {"stopCode": stopCode, "arrivals": [], "message": "No active arrivals found."}
+
+        return {
+            "stopCode": stopCode,
+            "agency": agency,
+            "arrivals": arrivals["inbound"] + arrivals["outbound"],
+            "count": len(arrivals["inbound"]) + len(arrivals["outbound"])
+        }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to fetch arrivals: {e}")
+        log_debug(f"[BART POSITIONS] Error fetching for stopCode={stopCode}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch BART arrivals")
+
+
+# @router.get("/stop-arrivals/{stop_id}")
+# def get_bart_stop_arrivals(
+#     stop_id: str,
+#     lat: float = Query(None),
+#     lon: float = Query(None),
+#     radius: float = Query(0.15)
+# ):
+#     try:
+#         return bart_service.get_stop_predictions(stop_id, lat, lon)
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=f"Failed to fetch arrivals: {e}")
 
 @router.get("/nearby-stops")
 async def get_nearby_bart_stops(
