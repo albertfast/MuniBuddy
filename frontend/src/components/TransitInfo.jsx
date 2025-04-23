@@ -28,6 +28,9 @@ const normalizeSiriData = (visits = []) => {
     const call = journey?.MonitoredCall || {};
     const direction = (journey?.DirectionRef || "unknown").toLowerCase();
 
+    console.log("LineRef:", journey?.LineRef);
+    console.log("PublishedLineName:", journey?.PublishedLineName);
+
     const arrivalTime = call?.ExpectedArrivalTime || call?.AimedArrivalTime;
     const arrivalDate = arrivalTime ? new Date(arrivalTime) : null;
     const now = new Date();
@@ -214,7 +217,7 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
   const renderRouteInfo = (route) => (
     <Box sx={{ borderLeft: '3px solid', borderColor: 'primary.light', pl: 1.5, py: 0.5, mb: 1 }}>
       <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
-        <Typography variant="body2" fontWeight="medium" color="primary.main">
+        <Typography variant="body2" fontWeight="medium" color="primary.main" sx={{ maxWidth: '100%' }}>
           {renderIcon(route.route_number)} {route.route_number || 'Route ?'} → {route.destination || 'Unknown'}
         </Typography>
         {route.status && <Chip size="small" label={route.status} color={getStatusColor(route.status)} />}
@@ -233,7 +236,7 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
       )}
     </Box>
   );
-
+    console.log("Rendering route:", route.route_number);
   return (
     <Card elevation={2}>
       <CardContent>
