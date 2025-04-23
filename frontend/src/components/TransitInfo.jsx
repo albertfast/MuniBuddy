@@ -20,6 +20,20 @@ const normalizeId = (stop) => stop?.gtfs_stop_id || stop?.stop_code || stop?.sto
 
 const normalizeSiriData = (visits = []) => {
   console.log("🚦 normalizeSiriData called. Visit count:", visits.length);
+  const entry = {
+    route_number: journey?.LineRef
+      ? `${journey.LineRef} ${journey?.PublishedLineName ?? ''}`.trim()
+      : journey?.PublishedLineName ?? "Unknown Line",
+    destination: call?.DestinationDisplay || journey?.DestinationName,
+    arrival_time: arrivalTime,
+    status: minutesUntil !== null ? `${minutesUntil} min` : "Unknown",
+    minutes_until: minutesUntil,
+    is_realtime: true,
+    vehicle: {
+      lat: journey?.VehicleLocation?.Latitude || "",
+      lon: journey?.VehicleLocation?.Longitude || ""
+    }
+  };
   
   const grouped = { inbound: [], outbound: [] };
 
@@ -38,21 +52,6 @@ const normalizeSiriData = (visits = []) => {
     const arrivalDate = arrivalTime ? new Date(arrivalTime) : null;
     const now = new Date();
     const minutesUntil = arrivalDate ? Math.round((arrivalDate - now) / 60000) : null;
-
-    const entry = {
-      route_number: journey?.LineRef
-        ? `${journey.LineRef} ${journey?.PublishedLineName ?? ''}`.trim()
-        : journey?.PublishedLineName ?? "Unknown Line",
-      destination: call?.DestinationDisplay || journey?.DestinationName,
-      arrival_time: arrivalTime,
-      status: minutesUntil !== null ? `${minutesUntil} min` : "Unknown",
-      minutes_until: minutesUntil,
-      is_realtime: true,
-      vehicle: {
-        lat: journey?.VehicleLocation?.Latitude || "",
-        lon: journey?.VehicleLocation?.Longitude || ""
-      }
-    };
 
     // Debug log for each route
     console.log("🚌 Parsed entry:", entry);
