@@ -96,6 +96,9 @@ class BartService:
             direction = journey.get("DirectionRef", "").strip().lower()
 
             entry = {
+                "stop_id": stop_info.get("stop_id"),
+                "stop_code": stop_code,
+                "stop_name": stop_info.get("stop_name"),
                 "route_number": journey.get("PublishedLineName"),
                 "destination": journey.get("DestinationName"),
                 "arrival_time": arrival_time,
