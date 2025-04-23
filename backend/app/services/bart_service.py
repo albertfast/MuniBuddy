@@ -79,7 +79,8 @@ class BartService:
 
     async def get_real_time_arrival_by_stop(self, stop_code: str, agency: str = "bart") -> Dict[str, Any]:
         raw_data = await fetch_siri_data_multi([stop_code], agency)
-        siri_data = raw_data.get(stop_code, {})
+        normalized_keys = {k.lower(): v for k, v in raw_data.items()}
+        siri_data = normalized_keys.get(stop_code.lower(), {})
         visits = siri_data.get("ServiceDelivery", {}).get("StopMonitoringDelivery", [{}])[0].get("MonitoredStopVisit", [])
 
         parsed = {"inbound": [], "outbound": []}
