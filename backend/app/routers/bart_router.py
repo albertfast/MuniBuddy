@@ -13,13 +13,11 @@ async def get_parsed_bart_by_stop(
     try:
         norm_agency = settings.normalize_agency(agency, to_511=True)
 
-        # Validation: stopCode gerçekten BART stop'larından biri mi?
         bart_stops = load_stops("bart")
         valid_stop_codes = {s["stop_code"] for s in bart_stops if s.get("stop_code")}
         if stopCode not in valid_stop_codes:
             raise HTTPException(status_code=404, detail=f"Stop {stopCode} is not a valid BART stop")
 
-        # 511 SIRI StopMonitoring API çağrısı
         url = f"{settings.TRANSIT_511_BASE_URL}/StopMonitoring"
         params = {
             "api_key": settings.API_KEY,
