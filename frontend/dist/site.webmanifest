@@ -20,15 +20,20 @@
       "purpose": "maskable"
     },
     {
-      "src": "/icons/live-bus-icon.svg",
+      "src": "/images/live-bus-icon.svg",
       "sizes": "32x32",
       "type": "image/svg+xml"
     },
     {
-      "src": "/icons/live-bus-icon-34.svg",
+      "src": "/images/live-bus-icon-34.svg",
       "sizes": "34x34",
       "type": "image/svg+xml"
-    }    
+    },
+    {
+      "src": "/images/bus-stop-icon.svg",
+      "sizes": "32x32",
+      "type": "image/svg+xml"
+    }        
   ],
   "theme_color": "#1976d2",
   "background_color": "#f5f5f7",
