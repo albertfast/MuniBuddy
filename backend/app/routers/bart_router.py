@@ -43,11 +43,13 @@ async def get_vehicle_locations_by_stop(
     try:
         norm_agency = settings.normalize_agency(agency, to_511=True)
 
+        # GTFS üzerinden stop_code doğrulaması yap
         bart_stops = load_stops("bart")
         valid_stop_codes = {s["stop_code"] for s in bart_stops if s.get("stop_code")}
         if stopCode not in valid_stop_codes:
             raise HTTPException(status_code=404, detail=f"Stop {stopCode} is not a valid BART stop")
 
+        # StopMonitoring çağrısı
         stopmonitor_url = f"{settings.TRANSIT_511_BASE_URL}/StopMonitoring"
         params = {
             "api_key": settings.API_KEY,
@@ -64,16 +66,56 @@ async def get_vehicle_locations_by_stop(
                                .get("StopMonitoringDelivery", {}) \
                                .get("MonitoredStopVisit", [])
 
-        vehicle_refs = list({visit.get("MonitoredVehicleJourney", {}).get("VehicleRef")
-                             for visit in stop_visits if visit.get("MonitoredVehicleJourney", {}).get("VehicleRef")})
+        # (LineRef, DatedVehicleJourneyRef) çiftlerini topla
+        valid_keys = set()
+        for visit in stop_visits:
+            mvj = visit.get("MonitoredVehicleJourney", {})
+            fr = mvj.get("FramedVehicleJourneyRef", {})
+            line = mvj.get("LineRef")
+            jid = fr.get("DatedVehicleJourneyRef")
+            if line and jid:
+                valid_keys.add((line, jid))
 
-        if not vehicle_refs:
+        if not valid_keys:
             return {"stopCode": stopCode, "vehicles": []}
 
-        matched = await fetch_vehicle_locations_by_refs(vehicle_refs, agency=agency)
+        # VehicleMonitoring çağrısı (tüm araçlar)
+        vehiclemonitor_url = f"{settings.TRANSIT_511_BASE_URL}/VehicleMonitoring"
+        vehicle_params = {
+            "api_key": settings.API_KEY,
+            "agency": norm_agency,
+            "format": "json"
+        }
+
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            vehicle_response = await client.get(vehiclemonitor_url, params=vehicle_params)
+            vehicle_data = vehicle_response.json()
+
+        vehicle_activities = vehicle_data.get("ServiceDelivery", {}) \
+                                         .get("VehicleMonitoringDelivery", [{}])[0] \
+                                         .get("VehicleActivity", [])
+
+        matched = []
+        for activity in vehicle_activities:
+            mvj = activity.get("MonitoredVehicleJourney", {})
+            fr = mvj.get("FramedVehicleJourneyRef", {})
+            line = mvj.get("LineRef")
+            jid = fr.get("DatedVehicleJourneyRef")
+            vehicle = mvj.get("VehicleRef")
+            location = mvj.get("VehicleLocation")
+
+            if (line, jid) in valid_keys and vehicle and location:
+                matched.append({
+                    "vehicle_id": vehicle,
+                    "line": line,
+                    "latitude": location.get("Latitude"),
+                    "longitude": location.get("Longitude")
+                })
+
         return {"stopCode": stopCode, "vehicles": matched}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to match vehicle locations: {e}")
+
 
 
