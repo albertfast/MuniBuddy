@@ -1,24 +1,36 @@
-from fastapi import APIRouter, HTTPException, Query
-from typing import Optional
-
-from app.core.singleton import bus_service
+# backend/app/routers/bus_router.py
+from fastapi import APIRouter, Query, HTTPException
 from app.config import settings
+from app.services.stop_helper import load_stops
+import httpx
 
-router = APIRouter()
+router = APIRouter(prefix="/bus-positions", tags=["MUNI Bus Positions"])
 
-@router.get("/bus/nearby-stops")
-def get_nearby_bus_stops(
-    lat: float = Query(..., description="Latitude of the user"),
-    lon: float = Query(..., description="Longitude of the user"),
-    radius: float = Query(0.15, description="Search radius in miles"),
-    agency: Optional[str] = Query(None, description="Transit agency (e.g., muni or bart)")
+@router.get("/by-stop")
+async def get_parsed_bus_by_stop(
+    stopCode: str = Query(...),
+    agency: str = Query(default="muni")
 ):
-    """
-    Returns nearby stops from one or more agencies (Muni, BART) around a given location.
-    If no agency is specified, returns stops from all GTFS agencies.
-    """
     try:
-        return bus_service.get_nearby_stops(lat, lon, radius, agency=agency)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to fetch nearby bus stops: {e}")
+        norm_agency = settings.normalize_agency(agency, to_511=True)
 
+        muni_stops = load_stops("muni")
+        valid_stop_codes = {s["stop_code"] for s in muni_stops if s.get("stop_code")}
+        if stopCode not in valid_stop_codes:
+            raise HTTPException(status_code=404, detail=f"Stop {stopCode} is not a valid MUNI stop")
+
+        url = f"{settings.TRANSIT_511_BASE_URL}/StopMonitoring"
+        params = {
+            "api_key": settings.API_KEY,
+            "agency": norm_agency,
+            "stopCode": stopCode,
+            "format": "json"
+        }
+
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(url, params=params)
+            response.raise_for_status()
+            return response.json()
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch 511 SIRI data: {e}")
