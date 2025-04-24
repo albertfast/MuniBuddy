@@ -20,12 +20,10 @@ const normalizeId = (stop) => stop?.gtfs_stop_id || stop?.stop_code || stop?.sto
 
 const normalizeSiriData = (visits = []) => {
   const grouped = { inbound: [], outbound: [] };
-
   for (const visit of visits) {
     const journey = visit?.MonitoredVehicleJourney;
     const call = journey?.MonitoredCall || {};
     const direction = (journey?.DirectionRef || '').toLowerCase();
-
     const arrivalTime = call?.ExpectedArrivalTime || call?.AimedArrivalTime;
     const arrivalDate = arrivalTime ? new Date(arrivalTime) : null;
     const now = new Date();
@@ -49,7 +47,6 @@ const normalizeSiriData = (visits = []) => {
     if (['ib', 'inbound', 'n'].includes(direction)) grouped.inbound.push(entry);
     else grouped.outbound.push(entry);
   }
-
   return grouped;
 };
 
@@ -82,7 +79,7 @@ const renderIcon = (routeNumber) =>
     ? <TrainIcon color="primary" fontSize="small" />
     : <DirectionsBusIcon color="secondary" fontSize="small" />;
 
-const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
+const TransitInfo = ({ stops, setLiveVehicleMarkers, onSelectStop }) => {
   const [selectedStopId, setSelectedStopId] = useState(null);
   const [stopSchedule, setStopSchedule] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -97,6 +94,40 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
   const setCachedSchedule = useCallback((stopId, data) => {
     SCHEDULE_CACHE[stopId] = { data, timestamp: Date.now() };
   }, []);
+
+  const fetchStopSchedule = async (stop) => {
+    const stopId = normalizeId(stop);
+    const agency = stop.agency?.toLowerCase();
+    if (!stopId || !agency) return;
+
+    const cached = getCachedSchedule(stopId);
+    if (cached) {
+      setStopSchedule(cached);
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const predictionURL = agency === 'bart'
+        ? `/bart-positions/by-stop?stopCode=${stopId}&agency=${agency}`
+        : `/bus-positions/by-stop?stopCode=${stopId}&agency=${agency}`;
+
+      const res = await axios.get(`${API_BASE_URL}${predictionURL}`, { timeout: API_TIMEOUT });
+      const data = res.data?.realtime || res.data;
+      const visits = data?.ServiceDelivery?.StopMonitoringDelivery?.MonitoredStopVisit;
+      const schedule = Array.isArray(visits) ? normalizeSiriData(visits) : data;
+
+      setCachedSchedule(stopId, schedule);
+      setStopSchedule(schedule);
+    } catch (err) {
+      setError('Failed to fetch predictions. Try again.');
+      setStopSchedule({ inbound: [], outbound: [] });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const fetchVehiclePositions = async (stop) => {
     const stopCode = stop.stop_code || stop.stop_id;
@@ -136,80 +167,20 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
 
   const handleStopClick = useCallback(async (stop) => {
     const stopId = normalizeId(stop);
-    const agency = stop.agency?.toLowerCase();
-
     if (!stopId) return;
-    if (stopId === selectedStopId) {
-      setSelectedStopId(null);
-      setStopSchedule(null);
-      setError(null);
-      return;
-    }
+    const isSame = stopId === selectedStopId;
 
-    setSelectedStopId(stopId);
+    setSelectedStopId(isSame ? null : stopId);
     setStopSchedule(null);
     setError(null);
-    setLoading(true);
 
-    const cached = getCachedSchedule(stopId);
-    if (cached) {
-      setStopSchedule(cached);
-      setLoading(false);
-      return;
-    }
+    if (onSelectStop) onSelectStop(isSame ? null : stop);
 
-    try {
-      const predictionURL = agency === 'bart'
-        ? `/bart-positions/by-stop?stopCode=${stopId}&agency=${agency}`
-        : `/bus-positions/by-stop?stopCode=${stopId}&agency=${agency}`;
-
-      const res = await axios.get(`${API_BASE_URL}${predictionURL}`, { timeout: API_TIMEOUT });
-      const data = res.data?.realtime || res.data;
-      const visits = data?.ServiceDelivery?.StopMonitoringDelivery?.MonitoredStopVisit;
-      const schedule = Array.isArray(visits) ? normalizeSiriData(visits) : data;
-
+    if (!isSame) {
       await fetchVehiclePositions(stop);
-      setCachedSchedule(stopId, schedule);
-      setStopSchedule(schedule);
-
-    } catch (err) {
-      setError('Failed to fetch predictions. Try again.');
-      setStopSchedule({ inbound: [], outbound: [] });
-    } finally {
-      setLoading(false);
+      await fetchStopSchedule(stop);
     }
-  }, [selectedStopId, getCachedSchedule, setCachedSchedule]);
-
-  const handleRefreshSchedule = useCallback(async () => {
-    const stop = stopsArray.find(s => normalizeId(s) === selectedStopId);
-    const agency = stop?.agency ?? 'muni';
-    const isBart = agency.toLowerCase() === 'bart' || agency.toLowerCase() === 'ba';
-
-    const refreshURL = isBart
-      ? `/bart-positions/by-stop?stopCode=${selectedStopId}&agency=${agency}`
-      : `/bus-positions/by-stop?stopCode=${selectedStopId}&agency=${agency}`;
-
-    if (!selectedStopId) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await axios.get(`${API_BASE_URL}${refreshURL}`, {
-        timeout: API_TIMEOUT,
-        params: { _t: Date.now() }
-      });
-      const data = res.data?.realtime || res.data;
-      const visits = data?.ServiceDelivery?.StopMonitoringDelivery?.MonitoredStopVisit;
-      const schedule = Array.isArray(visits) ? normalizeSiriData(visits) : data;
-
-      setCachedSchedule(selectedStopId, schedule);
-      setStopSchedule(schedule);
-
-    } catch {
-      setError('Failed to refresh schedule.');
-    } finally {
-      setLoading(false);
-    }
-  }, [selectedStopId, stopsArray, setCachedSchedule]);
+  }, [selectedStopId, onSelectStop]);
 
   const renderRouteInfo = (route) => (
     <Box sx={{ borderLeft: '3px solid', borderColor: 'primary.light', pl: 1.5, py: 0.5, mb: 1 }}>
@@ -266,7 +237,7 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
                 </ListItemButton>
                 <Collapse in={isSelected} timeout="auto" unmountOnExit>
                   <Box px={2} pb={2} pt={1}>
-                    <Button size="small" variant="outlined" startIcon={<RefreshIcon />} onClick={handleRefreshSchedule} sx={{ mb: 1 }}>
+                    <Button size="small" variant="outlined" startIcon={<RefreshIcon />} onClick={() => handleStopClick(stop)} sx={{ mb: 1 }}>
                       Refresh
                     </Button>
                     {loading ? (

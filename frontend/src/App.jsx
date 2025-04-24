@@ -1,4 +1,3 @@
-// App.jsx
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Container, Box, Typography, Alert, TextField, InputAdornment,
@@ -31,6 +30,26 @@ const App = () => {
   }, [theme]);
 
   const toggleTheme = () => setTheme(prev => prev === 'light' ? 'dark' : 'light');
+
+  const [selectedStop, setSelectedStop] = useState(null);
+  const [bartVehicles, setBartVehicles] = useState([]);
+
+  useEffect(() => {
+    const fetchBartVehicles = async () => {
+      if (!selectedStop || selectedStop.agency !== "bart") return;
+  
+      try {
+        const response = await fetch(`${BASE_URL}/bart-positions/vehicle-locations/by-stop?stopCode=${selectedStop.stop_code}&agency=bart`);
+        const data = await response.json();
+        console.log("🚆 BART vehicle locations:", data);
+        setBartVehicles(data.vehicles || []);
+      } catch (error) {
+        console.error("BART vehicle fetch error:", error);
+      }
+    };
+  
+    fetchBartVehicles();
+  }, [selectedStop]);  
 
   const requestLocation = () => {
     setShowLocationDialog(false);
@@ -206,7 +225,7 @@ const App = () => {
         </Grid>
         <Grid item xs={12} md={4} className="transit-info-panel">
           {!isLoading && Object.keys(nearbyStops).length > 0 ? (
-            <TransitInfo stops={nearbyStops} setLiveVehicleMarkers={setLiveVehicleMarkers} />
+            <TransitInfo stops={nearbyStops} setLiveVehicleMarkers={setLiveVehicleMarkers} onSelectStop={setSelectedStop} />
           ) : (
             !isLoading && (
               <Typography align="center" color="text.secondary" sx={{ py: 3 }}>
