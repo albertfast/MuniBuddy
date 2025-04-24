@@ -43,13 +43,13 @@ async def get_vehicle_locations_by_stop(
     try:
         norm_agency = settings.normalize_agency(agency, to_511=True)
 
-        # GTFS kontrolü
+        # 1. Stop doğrulama (GTFS)
         bart_stops = load_stops("bart")
         valid_stop_codes = {s["stop_code"] for s in bart_stops if s.get("stop_code")}
         if stopCode not in valid_stop_codes:
             raise HTTPException(status_code=404, detail=f"Stop {stopCode} is not a valid BART stop")
 
-        # StopMonitoring çağrısı
+        # 2. StopMonitoring verisini al
         stopmonitor_url = f"{settings.TRANSIT_511_BASE_URL}/StopMonitoring"
         params = {
             "api_key": settings.API_KEY,
@@ -66,31 +66,20 @@ async def get_vehicle_locations_by_stop(
                                .get("StopMonitoringDelivery", {}) \
                                .get("MonitoredStopVisit", [])
 
-        # VehicleRef varsa → direkt kullan
-        vehicle_refs = []
+        # 3. StopMonitoring'den eşleşme için key çıkar
         valid_keys = set()
-
         for visit in stop_visits:
             mvj = visit.get("MonitoredVehicleJourney", {})
             fr = mvj.get("FramedVehicleJourneyRef", {})
-            vref = mvj.get("VehicleRef")
             line = mvj.get("LineRef")
             jid = fr.get("DatedVehicleJourneyRef")
-
-            if vref:
-                vehicle_refs.append(vref)
             if line and jid:
                 valid_keys.add((line, jid))
 
-        vehicle_refs = list(set(vehicle_refs))[:10]
+        if not valid_keys:
+            return {"stopCode": stopCode, "vehicles": []}
 
-        # 1. Eğer VehicleRef varsa → hızlı çözüm
-        if vehicle_refs:
-            from app.services.bart_service import fetch_vehicle_locations_by_refs
-            matched = await fetch_vehicle_locations_by_refs(vehicle_refs, agency=agency)
-            return {"stopCode": stopCode, "vehicles": matched}
-
-        # 2. Fallback: VehicleMonitoring tüm trenler
+        # 4. VehicleMonitoring çağrısı (tüm araçlar)
         vehiclemonitor_url = f"{settings.TRANSIT_511_BASE_URL}/VehicleMonitoring"
         vehicle_params = {
             "api_key": settings.API_KEY,
