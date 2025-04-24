@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Query, HTTPException
 from app.config import settings
 from app.services.stop_helper import load_stops
-from app.services.bart_service import fetch_vehicle_locations_by_refs
 import httpx
 
 router = APIRouter(prefix="/bart-positions", tags=["BART Positions"])
