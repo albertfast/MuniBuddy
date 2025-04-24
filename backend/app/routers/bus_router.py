@@ -1,4 +1,3 @@
-# backend/app/routers/bus_router.py
 from fastapi import APIRouter, Query, HTTPException
 from app.config import settings
 from app.services.stop_helper import load_stops
