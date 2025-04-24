@@ -4,3 +4,5 @@ venv_backup/
 __pycache__/
 *.pyc.venv/
 .env
+caddy_config/
+caddy_data/
