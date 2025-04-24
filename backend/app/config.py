@@ -5,14 +5,14 @@ from typing import List, Optional, Dict
 from pydantic_settings import BaseSettings
 from pydantic import Field, model_validator, field_validator
 
-# --- Load .env from project root ---
 ENV_PATH = Path(__file__).resolve().parent.parent / ".env"
 load_dotenv(dotenv_path=ENV_PATH)
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "MuniBuddy"
     API_V1_STR: str = "/api/v1"
-
+    BART_API_KEY: str
+    
     AGENCY_ID: List[str] = ["muni", "bart"]
 
     @field_validator("AGENCY_ID", mode="before")
