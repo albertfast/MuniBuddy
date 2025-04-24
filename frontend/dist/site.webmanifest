@@ -1,0 +1,40 @@
+{
+  "name": "MuniBuddy - San Francisco Transit Finder",
+  "short_name": "MuniBuddy",
+  "description": "Find nearby bus and train stops in San Francisco with real-time arrivals",
+  "icons": [
+    {
+      "src": "/images/munibuddy_icon_192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "/images/munibuddy_icon_512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "/images/munibuddy_icon_512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icons/live-bus-icon.svg",
+      "sizes": "32x32",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "/icons/live-bus-icon-34.svg",
+      "sizes": "34x34",
+      "type": "image/svg+xml"
+    }    
+  ],
+  "theme_color": "#1976d2",
+  "background_color": "#f5f5f7",
+  "display": "standalone",
+  "orientation": "portrait",
+  "scope": "/",
+  "start_url": "/",
+  "categories": ["transportation", "travel", "utilities"]
+}
