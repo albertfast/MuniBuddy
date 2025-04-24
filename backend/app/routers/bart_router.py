@@ -43,7 +43,7 @@ async def get_vehicle_locations_by_stop(
     try:
         norm_agency = settings.normalize_agency(agency, to_511=True)
 
-        # GTFS üzerinden stop_code doğrulaması yap
+        # GTFS kontrolü
         bart_stops = load_stops("bart")
         valid_stop_codes = {s["stop_code"] for s in bart_stops if s.get("stop_code")}
         if stopCode not in valid_stop_codes:
@@ -66,20 +66,31 @@ async def get_vehicle_locations_by_stop(
                                .get("StopMonitoringDelivery", {}) \
                                .get("MonitoredStopVisit", [])
 
-        # (LineRef, DatedVehicleJourneyRef) çiftlerini topla
+        # VehicleRef varsa → direkt kullan
+        vehicle_refs = []
         valid_keys = set()
+
         for visit in stop_visits:
             mvj = visit.get("MonitoredVehicleJourney", {})
             fr = mvj.get("FramedVehicleJourneyRef", {})
+            vref = mvj.get("VehicleRef")
             line = mvj.get("LineRef")
             jid = fr.get("DatedVehicleJourneyRef")
+
+            if vref:
+                vehicle_refs.append(vref)
             if line and jid:
                 valid_keys.add((line, jid))
 
-        if not valid_keys:
-            return {"stopCode": stopCode, "vehicles": []}
+        vehicle_refs = list(set(vehicle_refs))[:10]
 
-        # VehicleMonitoring çağrısı (tüm araçlar)
+        # 1. Eğer VehicleRef varsa → hızlı çözüm
+        if vehicle_refs:
+            from app.services.bart_service import fetch_vehicle_locations_by_refs
+            matched = await fetch_vehicle_locations_by_refs(vehicle_refs, agency=agency)
+            return {"stopCode": stopCode, "vehicles": matched}
+
+        # 2. Fallback: VehicleMonitoring tüm trenler
         vehiclemonitor_url = f"{settings.TRANSIT_511_BASE_URL}/VehicleMonitoring"
         vehicle_params = {
             "api_key": settings.API_KEY,
@@ -116,6 +127,3 @@ async def get_vehicle_locations_by_stop(
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to match vehicle locations: {e}")
-
-
-
