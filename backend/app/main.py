@@ -2,9 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
-from app.core.singleton import bus_service, schedule_service, bart_service
 from app.db.database import init_db
-
 from app.routers.nearby_stops import router as nearby_stops_router
 from app.routers.bus_router import router as bus_router
 from app.routers.bart_router import router as bart_router
@@ -39,16 +37,11 @@ async def root():
 def health_check():
     return {
         "status": "ok",
-        "bus_service": True,
-        "scheduler_service": True,
-        "bart_service": True
+        "services_initialized": True
     }
 
 @app.on_event("startup")
 async def startup_event():
     print("🔄 Starting MuniBuddy API...")
     init_db()
-    _ = bus_service
-    _ = schedule_service
-    _ = bart_service
-    print("✅ Services initialized: Bus, Scheduler, BART")
+    print("✅ Database initialized")
