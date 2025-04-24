@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Query, HTTPException
 from app.config import settings
 from app.services.stop_helper import load_stops
+from app.services.bart_service import fetch_vehicle_locations_by_refs
 import httpx
 
 router = APIRouter(prefix="/bart-positions", tags=["BART Positions"])
@@ -42,58 +43,37 @@ async def get_vehicle_locations_by_stop(
     try:
         norm_agency = settings.normalize_agency(agency, to_511=True)
 
+        bart_stops = load_stops("bart")
+        valid_stop_codes = {s["stop_code"] for s in bart_stops if s.get("stop_code")}
+        if stopCode not in valid_stop_codes:
+            raise HTTPException(status_code=404, detail=f"Stop {stopCode} is not a valid BART stop")
+
         stopmonitor_url = f"{settings.TRANSIT_511_BASE_URL}/StopMonitoring"
-        vehiclemonitor_url = f"{settings.TRANSIT_511_BASE_URL}/VehicleMonitoring"
-        params_common = {
+        params = {
             "api_key": settings.API_KEY,
             "agency": norm_agency,
+            "stopCode": stopCode,
             "format": "json"
         }
 
         async with httpx.AsyncClient(timeout=10.0) as client:
-            stop_response = await client.get(stopmonitor_url, params={**params_common, "stopCode": stopCode})
+            stop_response = await client.get(stopmonitor_url, params=params)
             stop_data = stop_response.json()
 
-            vehicle_response = await client.get(vehiclemonitor_url, params=params_common)
-            vehicle_data = vehicle_response.json()
-
         stop_visits = stop_data.get("ServiceDelivery", {}) \
-                                .get("StopMonitoringDelivery", {}) \
-                                .get("MonitoredStopVisit", [])
+                               .get("StopMonitoringDelivery", {}) \
+                               .get("MonitoredStopVisit", [])
 
-        vehicle_activities = vehicle_data.get("ServiceDelivery", {}) \
-                                         .get("VehicleMonitoringDelivery", [{}])[0] \
-                                         .get("VehicleActivity", [])
+        vehicle_refs = list({visit.get("MonitoredVehicleJourney", {}).get("VehicleRef")
+                             for visit in stop_visits if visit.get("MonitoredVehicleJourney", {}).get("VehicleRef")})
 
-        # Extract set of (line, journey_id) tuples
-        valid_keys = set()
-        for visit in stop_visits:
-            mvj = visit.get("MonitoredVehicleJourney", {})
-            fr = mvj.get("FramedVehicleJourneyRef", {})
-            line = mvj.get("LineRef")
-            jid = fr.get("DatedVehicleJourneyRef")
-            if line and jid:
-                valid_keys.add((line, jid))
+        if not vehicle_refs:
+            return {"stopCode": stopCode, "vehicles": []}
 
-        # Match with vehicle activity
-        matched = []
-        for activity in vehicle_activities:
-            mvj = activity.get("MonitoredVehicleJourney", {})
-            fr = mvj.get("FramedVehicleJourneyRef", {})
-            line = mvj.get("LineRef")
-            jid = fr.get("DatedVehicleJourneyRef")
-            vehicle = mvj.get("VehicleRef")
-            location = mvj.get("VehicleLocation")
-
-            if (line, jid) in valid_keys and location and vehicle:
-                matched.append({
-                    "vehicle_id": vehicle,
-                    "line": line,
-                    "latitude": location.get("Latitude"),
-                    "longitude": location.get("Longitude")
-                })
-
+        matched = await fetch_vehicle_locations_by_refs(vehicle_refs, agency=agency)
         return {"stopCode": stopCode, "vehicles": matched}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to match vehicle locations: {e}")
+
+
