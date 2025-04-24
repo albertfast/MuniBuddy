@@ -1,6 +1,9 @@
 # Use official Python image as base
 FROM python:3.11
 
+ENV TZ=America/Los_Angeles
+RUN apt-get update && apt-get install -y tzdata
+
 # Set working directory
 WORKDIR /app
 
