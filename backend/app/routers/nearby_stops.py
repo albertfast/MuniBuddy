@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Query, HTTPException
 from typing import Optional, List, Dict, Any
 from app.services.stop_helper import load_stops, calculate_distance
+from app.services.stations_data import station_to_lines
 
 router = APIRouter()
 
@@ -16,6 +17,8 @@ def get_combined_nearby_stops(
         filtered: List[Dict[str, Any]] = []
 
         for stop in all_stops:
+            code = (stop.get("stop_code") or stop.get("stop_id") or "").upper()
+            stop["bart_lines"] = station_to_lines.get(code, [])
             if agency and stop["agency"].lower() != agency.lower():
                 continue
             dist = calculate_distance(lat, lon, stop["stop_lat"], stop["stop_lon"])
