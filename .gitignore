@@ -1,8 +1,31 @@
+# Python venv & caches
 venv/
 .venv/
 venv_backup/
 __pycache__/
-*.pyc.venv/
+*.pyc
+
+# Dotenv files
 .env
+
+# Caddy reverse proxy
 caddy_config/
 caddy_data/
+
+# Flutter artifacts (in case Flutter was opened once)
+.dart_tool/
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+
+# Node/React artifacts
+node_modules/
+dist/
+.vite/
+*.log
+
+# Editor/IDE configs
+.idea/
+.vscode/
+.DS_Store
