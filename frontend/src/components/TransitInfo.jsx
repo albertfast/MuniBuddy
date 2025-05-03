@@ -177,7 +177,6 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
 
                 const stops = res.data;
 
-                // ✅ stop_id bazlı uniq filtreleme
                 const uniqueStops = [];
                 const seen = new Set();
 
