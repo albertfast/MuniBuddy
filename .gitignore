@@ -21,7 +21,6 @@ build/
 
 # Node/React artifacts
 node_modules/
-dist/
 .vite/
 *.log
 
