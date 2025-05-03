@@ -1,7 +1,8 @@
-import React, { useState, useCallback, useMemo } from 'react';
+// frontend/src/components/TransitInfo.jsx
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
-  Card, CardContent, Typography, List, ListItem, ListItemText, ListItemButton,
-  Box, Collapse, CircularProgress, Stack, Chip, Button, Alert
+    Card, CardContent, Typography, List, ListItem, ListItemText, ListItemButton,
+    Box, Collapse, CircularProgress, Stack, Chip, Button, Alert
 } from '@mui/material';
 import DirectionsBusIcon from '@mui/icons-material/DirectionsBus';
 import TrainIcon from '@mui/icons-material/Train';
@@ -18,292 +19,302 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE ?? 'https://munibuddy.live/ap
 
 const normalizeId = (stop) => stop?.gtfs_stop_id || stop?.stop_code || stop?.stop_id;
 
-const normalizeSiriData = (visits = []) => {
-  const grouped = { inbound: [], outbound: [] };
-
-  for (const visit of visits) {
-    const journey = visit?.MonitoredVehicleJourney;
-    const call = journey?.MonitoredCall || {};
-    const direction = (journey?.DirectionRef || '').toLowerCase();
-
-    const arrivalTime = call?.ExpectedArrivalTime || call?.AimedArrivalTime;
-    const arrivalDate = arrivalTime ? new Date(arrivalTime) : null;
-    const now = new Date();
-    const minutesUntil = arrivalDate ? Math.round((arrivalDate - now) / 60000) : null;
-
-    const entry = {
-      route_number: journey?.LineRef
-        ? `${journey.LineRef} ${journey?.PublishedLineName ?? ''}`.trim()
-        : journey?.PublishedLineName ?? 'Unknown Line',
-      destination: call?.DestinationDisplay || journey?.DestinationName,
-      arrival_time: arrivalTime,
-      status: minutesUntil !== null ? `${minutesUntil} min` : 'Unknown',
-      minutes_until: minutesUntil,
-      is_realtime: true,
-      vehicle: {
-        lat: journey?.VehicleLocation?.Latitude || '',
-        lon: journey?.VehicleLocation?.Longitude || ''
-      }
-    };
-
-    if (['ib', 'inbound', 'n'].includes(direction)) grouped.inbound.push(entry);
-    else grouped.outbound.push(entry);
-  }
-
-  return grouped;
-};
-
 const formatTime = (isoTime) => {
-  if (!isoTime || isoTime === 'Unknown') return 'Unknown';
-  try {
-    const date = new Date(isoTime);
-    return isNaN(date.getTime())
-      ? isoTime
-      : date.toLocaleTimeString('en-US', {
-          hour: '2-digit',
-          minute: '2-digit',
-          hour12: true,
-          timeZone: 'America/Los_Angeles'
+    if (!isoTime || isoTime === "Unknown") return "Unknown";
+    if (/\d{1,2}:\d{2}\s[AP]M/i.test(isoTime)) {
+        const [time, period] = isoTime.split(' ');
+        const [hours, minutes] = time.split(':');
+        return `${hours.padStart(2, '0')}:${minutes} ${period}`;
+    }
+    try {
+        const date = new Date(isoTime);
+        return isNaN(date.getTime())
+        ? isoTime
+        : date.toLocaleTimeString('en-US', {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true,
+            timeZone: 'America/Los_Angeles'
         });
-  } catch {
-    return isoTime;
-  }
+    } catch {
+        return isoTime;
+    }
 };
 
 const getStatusColor = (status = '') => {
-  const s = status.toLowerCase();
-  if (s.includes('late')) return 'error';
-  if (s.includes('early')) return 'warning';
-  return 'success';
+    const s = status.toLowerCase();
+    if (s.includes('late')) return 'error';
+    if (s.includes('early')) return 'warning';
+    return 'success';
 };
 
 const renderIcon = (routeNumber) =>
-  routeNumber?.toLowerCase().includes('to')
-    ? <TrainIcon color="primary" fontSize="small" />
-    : <DirectionsBusIcon color="secondary" fontSize="small" />;
+routeNumber?.toLowerCase().includes('to')
+? <TrainIcon color="primary" fontSize="small" />
+: <DirectionsBusIcon color="secondary" fontSize="small" />;
 
 const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
-  const [selectedStopId, setSelectedStopId] = useState(null);
-  const [stopSchedule, setStopSchedule] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const stopsArray = useMemo(() => Array.isArray(stops) ? stops : Object.values(stops), [stops]);
+    const [selectedStopId, setSelectedStopId] = useState(null);
+    const [stopSchedule, setStopSchedule] = useState(null);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
+    const [nearestStops, setNearestStops] = useState({});
+    const stopsArray = useMemo(() => Array.isArray(stops) ? stops : Object.values(stops), [stops]);
 
-  const getCachedSchedule = useCallback((stopId) => {
-    const item = SCHEDULE_CACHE[stopId];
-    return item && Date.now() - item.timestamp < CACHE_TTL ? item.data : null;
-  }, []);
-
-  const setCachedSchedule = useCallback((stopId, data) => {
-    SCHEDULE_CACHE[stopId] = { data, timestamp: Date.now() };
-  }, []);
-
-  const fetchVehiclePositions = async (stop) => {
-    const stopCode = stop.stop_code || stop.stop_id;
-    const agency = stop.agency?.toLowerCase() || 'sf';
-    const isBart = agency === 'bart' || agency === 'ba';
-    const endpoint = isBart
-      ? `/bart-positions/by-stop?stopCode=${stopCode}&agency=${agency}`
-      : `/bus-positions/by-stop?stopCode=${stopCode}&agency=${agency}`;
-
-    try {
-      const res = await axios.get(`${API_BASE_URL}${endpoint}`);
-      const visits = res.data?.ServiceDelivery?.StopMonitoringDelivery?.MonitoredStopVisit ?? [];
-
-      const markers = visits.map((visit, i) => {
-        const vehicle = visit.MonitoredVehicleJourney;
-        const loc = vehicle?.VehicleLocation;
-        if (!loc?.Latitude || !loc?.Longitude) return null;
-        return {
-          position: {
-            lat: parseFloat(loc.Latitude),
-            lng: parseFloat(loc.Longitude)
-          },
-          title: `${vehicle.PublishedLineName || 'Transit'} → ${vehicle.MonitoredCall?.DestinationDisplay || '?'}`,
-          stopId: `${stopCode}-${agency}-${i}`,
-          icon: {
-            url: '/images/live-bus-icon.svg',
-            scaledSize: { width: 28, height: 28 }
-          }
+    useEffect(() => {
+        const updateNearestStops = async () => {
+            const updates = {};
+            for (const dir of ['inbound', 'outbound']) {
+                for (const route of stopSchedule?.[dir] || []) {
+                    const key = `${route.vehicle.lat},${route.vehicle.lon}`;
+                    if (route.vehicle?.lat && route.vehicle?.lon && !nearestStops[key]) {
+                        const stopName = await getNearestStopName(route.vehicle.lat, route.vehicle.lon);
+                        updates[key] = stopName;
+                    }
+                }
+            }
+            if (Object.keys(updates).length > 0) {
+                setNearestStops(prev => ({ ...prev, ...updates }));
+            }
         };
-      }).filter(Boolean);
 
-      setLiveVehicleMarkers(markers);
-    } catch (err) {
-      console.warn(`Failed to fetch vehicle positions for ${stopCode} (${agency}): ${err.message}`);
-    }
-  };
+        if (stopSchedule) updateNearestStops();
+    }, [stopSchedule]);
 
-  const handleStopClick = useCallback(async (stop) => {
-    const stopId = normalizeId(stop);
-    const agency = stop.agency?.toLowerCase();
+        const getCachedSchedule = useCallback((stopId) => {
+            const item = SCHEDULE_CACHE[stopId];
+            return item && Date.now() - item.timestamp < CACHE_TTL ? item.data : null;
+        }, []);
 
-    if (!stopId) return;
-    if (stopId === selectedStopId) {
-      setSelectedStopId(null);
-      setStopSchedule(null);
-      setError(null);
-      return;
-    }
+        const setCachedSchedule = useCallback((stopId, data) => {
+            SCHEDULE_CACHE[stopId] = { data, timestamp: Date.now() };
+        }, []);
 
-    setSelectedStopId(stopId);
-    setStopSchedule(null);
-    setError(null);
-    setLoading(true);
+        const fetchVehiclePositions = async (stop) => {
+            const stopCode = stop.stop_code || stop.stop_id;
+            const agency = stop.agency?.toLowerCase() || "sf";
+            const isBart = agency === "bart" || agency === "ba";
+            const endpoint = isBart
+            ? `/bart-positions/by-stop?stopCode=${stopCode}`
+            : `/bus-positions/by-stop?stopCode=${stopCode}&agency=${agency}`;
 
-    const cached = getCachedSchedule(stopId);
-    if (cached) {
-      setStopSchedule(cached);
-      setLoading(false);
-      return;
-    }
+            try {
+                const res = await axios.get(`${API_BASE_URL}${endpoint}`);
+                const visits = res.data?.ServiceDelivery?.StopMonitoringDelivery?.MonitoredStopVisit ?? [];
 
-    try {
-      const predictionURL = agency === 'bart'
-        ? `/bart-positions/by-stop?stopCode=${stopId}&agency=${agency}`
-        : `/bus-positions/by-stop?stopCode=${stopId}&agency=${agency}`;
+                const markers = visits.map((visit, i) => {
+                    const vehicle = visit.MonitoredVehicleJourney;
+                    const loc = vehicle?.VehicleLocation;
+                    if (!loc?.Latitude || !loc?.Longitude) return null;
+                    return {
+                        position: {
+                            lat: parseFloat(loc.Latitude),
+                                           lng: parseFloat(loc.Longitude)
+                        },
+                        title: `${vehicle.PublishedLineName || "Transit"} → ${vehicle.MonitoredCall?.DestinationDisplay || "?"}`,
+                        stopId: `${stopCode}-${agency}-${i}`,
+                        icon: {
+                            url: '/images/live-bus-icon.svg',
+                            scaledSize: { width: 28, height: 28 }
+                        }
+                    };
+                }).filter(Boolean);
 
-      const res = await axios.get(`${API_BASE_URL}${predictionURL}`, { timeout: API_TIMEOUT });
-      const data = res.data?.realtime || res.data;
-      const visits = data?.ServiceDelivery?.StopMonitoringDelivery?.MonitoredStopVisit;
-      const schedule = Array.isArray(visits) ? normalizeSiriData(visits) : data;
+                setLiveVehicleMarkers(markers);
+            } catch (err) {
+                console.warn(`Failed to fetch vehicle positions for ${stopCode} (${agency}): ${err.message}`);
+            }
+        };
 
-      await fetchVehiclePositions(stop);
-      setCachedSchedule(stopId, schedule);
-      setStopSchedule(schedule);
+        const handleStopClick = useCallback(async (stop) => {
+            const stopId = normalizeId(stop);
+            const agency = stop.agency?.toLowerCase();
 
-    } catch (err) {
-      setError('Failed to fetch predictions. Try again.');
-      setStopSchedule({ inbound: [], outbound: [] });
-    } finally {
-      setLoading(false);
-    }
-  }, [selectedStopId, getCachedSchedule, setCachedSchedule]);
+            if (!stopId) return;
+            if (stopId === selectedStopId) {
+                setSelectedStopId(null);
+                setStopSchedule(null);
+                setError(null);
+                return;
+            }
 
-  const handleRefreshSchedule = useCallback(async () => {
-    const stop = stopsArray.find(s => normalizeId(s) === selectedStopId);
-    const agency = stop?.agency ?? 'muni';
-    const isBart = agency.toLowerCase() === 'bart' || agency.toLowerCase() === 'ba';
+            setSelectedStopId(stopId);
+            setStopSchedule(null);
+            setError(null);
+            setLoading(true);
 
-    const refreshURL = isBart
-      ? `/bart-positions/by-stop?stopCode=${selectedStopId}&agency=${agency}`
-      : `/bus-positions/by-stop?stopCode=${selectedStopId}&agency=${agency}`;
+            const cached = getCachedSchedule(stopId);
+            if (cached) {
+                setStopSchedule(cached);
+                setLoading(false);
+                return;
+            }
 
-    if (!selectedStopId) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await axios.get(`${API_BASE_URL}${refreshURL}`, {
-        timeout: API_TIMEOUT,
-        params: { _t: Date.now() }
-      });
-      const data = res.data?.realtime || res.data;
-      const visits = data?.ServiceDelivery?.StopMonitoringDelivery?.MonitoredStopVisit;
-      const schedule = Array.isArray(visits) ? normalizeSiriData(visits) : data;
+            try {
+                const predictionURL = agency === "bart"
+                ? `/bart-positions/stop-arrivals/${stopId}`
+                : `/stop-predictions/${stopId}`;
 
-      setCachedSchedule(selectedStopId, schedule);
-      setStopSchedule(schedule);
+                const res = await axios.get(`${API_BASE_URL}${predictionURL}`, { timeout: API_TIMEOUT });
+                const data = res.data?.realtime || res.data;
 
-    } catch {
-      setError('Failed to refresh schedule.');
-    } finally {
-      setLoading(false);
-    }
-  }, [selectedStopId, stopsArray, setCachedSchedule]);
+                await fetchVehiclePositions(stop);
+                setCachedSchedule(stopId, data);
+                setStopSchedule(data);
+            } catch (err) {
+                setError('Failed to fetch predictions. Try again.');
+                setStopSchedule({ inbound: [], outbound: [] });
+            } finally {
+                setLoading(false);
+            }
+        }, [selectedStopId, getCachedSchedule, setCachedSchedule]);
 
-  const renderRouteInfo = (route) => (
-    <Box sx={{ borderLeft: '3px solid', borderColor: 'primary.light', pl: 1.5, py: 0.5, mb: 1 }}>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
-        <Typography variant="body2" fontWeight="medium" color="primary.main">
-          {renderIcon(route.route_number)} {route.route_number || 'Route ?'} → {route.destination || 'Unknown'}
-        </Typography>
-        {route.status && <Chip size="small" label={route.status} color={getStatusColor(route.status)} />}
-      </Stack>
-      <Typography variant="body2" color="text.secondary">
-        Arrival: <b>{formatTime(route.arrival_time)}</b>
-      </Typography>
-      {route.vehicle?.lat && route.vehicle?.lon ? (
-        <Typography variant="caption" color="text.secondary">
-          Vehicle Location: ({route.vehicle.lat}, {route.vehicle.lon})
-        </Typography>
-      ) : (
-        <Typography variant="caption" color="text.disabled">
-          Vehicle location unavailable
-        </Typography>
-      )}
-    </Box>
-  );
+        const getNearestStopName = async (lat, lon) => {
+            try {
+                const res = await axios.get(`${API_BASE_URL}/nearby-stops`, {
+                    params: { lat, lon, radius: 0.15, agency: 'muni' },
+                });
 
-  return (
-    <Card elevation={2}>
-      <CardContent>
-        <Typography variant="h6" fontWeight="bold" color="primary.main" gutterBottom>
-          Nearby Stops ({stopsArray.length})
-        </Typography>
-        <List>
-          {stopsArray.map((stop, index) => {
-            const sid = normalizeId(stop);
-            if (!sid) return null;
-            const isSelected = sid === selectedStopId;
-            return (
-              <React.Fragment key={`${sid}-${index}`}>
-                <ListItemButton onClick={() => handleStopClick(stop)} selected={isSelected}>
-                  <Box sx={{ flex: 1 }}>
+                const stops = res.data;
+
+                // ✅ stop_id bazlı uniq filtreleme
+                const uniqueStops = [];
+                const seen = new Set();
+
+                for (const stop of stops) {
+                    if (!seen.has(stop.stop_id)) {
+                        seen.add(stop.stop_id);
+                        uniqueStops.push(stop);
+                    }
+                }
+
+                if (uniqueStops.length > 0) {
+                    return uniqueStops[0].stop_name?.trim() ?? 'Unknown stop';
+                }
+            } catch (err) {
+                console.warn('Error fetching nearest stop:', err.message);
+            }
+
+            return 'Unknown stop';
+        };
+
+        const handleRefreshSchedule = useCallback(async () => {
+            if (!selectedStopId) return;
+            setLoading(true);
+            setError(null);
+            try {
+                const res = await axios.get(`${API_BASE_URL}/stop-predictions/${selectedStopId}`, {
+                    timeout: API_TIMEOUT,
+                    params: { _t: Date.now() }
+                });
+                const data = res.data?.realtime || res.data;
+                setCachedSchedule(selectedStopId, data);
+                setStopSchedule(data);
+            } catch {
+                setError('Failed to refresh schedule.');
+            } finally {
+                setLoading(false);
+            }
+        }, [selectedStopId, setCachedSchedule]);
+
+        const renderRouteInfo = (route) => (
+            <Box sx={{ borderLeft: '3px solid', borderColor: 'primary.light', pl: 1.5, py: 0.5, mb: 1 }}>
+            <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
+            <Typography variant="body2" fontWeight="medium" color="primary.main">
+            {renderIcon(route.route_number)} {route.route_number || 'Route ?'} → {route.destination || 'Unknown'}
+            </Typography>
+            {route.status && <Chip size="small" label={route.status} color={getStatusColor(route.status)} />}
+            </Stack>
+            <Typography variant="body2" color="text.secondary">
+            Arrival: <b>{formatTime(route.arrival_time)}</b>
+            </Typography>
+            {route.vehicle?.lat && route.vehicle?.lon ? (
+                <>
+                <Typography variant="caption" color="text.secondary">
+                Vehicle Location: ({route.vehicle.lat}, {route.vehicle.lon})
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                Nearest Stop: {nearestStops[`${route.vehicle.lat},${route.vehicle.lon}`] || 'Loading...'}
+                </Typography>
+                </>
+            ) : (
+                <Typography variant="caption" color="text.disabled">
+                Vehicle location unavailable
+                </Typography>
+            )}
+            </Box>
+        );
+
+        return (
+            <Card elevation={2}>
+            <CardContent>
+            <Typography variant="h6" fontWeight="bold" color="primary.main" gutterBottom>
+            Nearby Stops ({stopsArray.length})
+            </Typography>
+            <List>
+            {stopsArray.map((stop, index) => {
+                const sid = normalizeId(stop);
+                if (!sid) return null;
+                const isSelected = sid === selectedStopId;
+                return (
+                    <React.Fragment key={`${sid}-${index}`}>
+                    <ListItemButton onClick={() => handleStopClick(stop)} selected={isSelected}>
+                    <Box sx={{ flex: 1 }}>
                     <Stack direction="row" alignItems="center" spacing={1} mb={0.5}>
-                      <LocationOnIcon color="primary" fontSize="small" />
-                      <Typography fontWeight={500} noWrap>{stop.stop_name || 'Unknown Stop'}</Typography>
+                    <LocationOnIcon color="primary" fontSize="small" />
+                    <Typography fontWeight={500} noWrap>{stop.stop_name || "Unknown Stop"}</Typography>
                     </Stack>
                     <Stack direction="row" justifyContent="space-between">
-                      <Typography variant="caption" color="text.secondary">
-                        Stop ID: {sid}
-                      </Typography>
-                      {stop.distance_miles !== undefined && (
+                    <Typography variant="caption" color="text.secondary">
+                    Stop ID: {sid}
+                    </Typography>
+                    {stop.distance_miles !== undefined && (
                         <Chip size="small" label={`${stop.distance_miles} mi`} />
-                      )}
+                    )}
                     </Stack>
-                  </Box>
-                  {isSelected ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-                </ListItemButton>
-                <Collapse in={isSelected} timeout="auto" unmountOnExit>
-                  <Box px={2} pb={2} pt={1}>
+                    </Box>
+                    {isSelected ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                    </ListItemButton>
+                    <Collapse in={isSelected} timeout="auto" unmountOnExit>
+                    <Box px={2} pb={2} pt={1}>
                     <Button size="small" variant="outlined" startIcon={<RefreshIcon />} onClick={handleRefreshSchedule} sx={{ mb: 1 }}>
-                      Refresh
+                    Refresh
                     </Button>
                     {loading ? (
-                      <Box py={3} display="flex" justifyContent="center"><CircularProgress size={28} /></Box>
+                        <Box py={3} display="flex" justifyContent="center"><CircularProgress size={28} /></Box>
                     ) : stopSchedule ? (
-                      <>
+                        <>
                         {error && <Alert severity="warning" sx={{ mb: 2 }}>{error}</Alert>}
-                        {['inbound', 'outbound'].map((dir) => (
-                          stopSchedule[dir]?.length > 0 && (
-                            <Box key={dir} mb={2}>
-                              <Typography variant="subtitle1" gutterBottom>{dir.charAt(0).toUpperCase() + dir.slice(1)}</Typography>
-                              <List dense disablePadding>
+                        {["inbound", "outbound"].map((dir) => (
+                            stopSchedule[dir]?.length > 0 && (
+                                <Box key={dir} mb={2}>
+                                <Typography variant="subtitle1" gutterBottom>{dir.charAt(0).toUpperCase() + dir.slice(1)}</Typography>
+                                <List dense disablePadding>
                                 {stopSchedule[dir].map((route, i) => (
-                                  <ListItem key={`${dir}-${i}`} disablePadding>
+                                    <ListItem key={`${dir}-${i}`} disablePadding>
                                     <ListItemText primary={renderRouteInfo(route)} disableTypography />
-                                  </ListItem>
+                                    </ListItem>
                                 ))}
-                              </List>
-                            </Box>
-                          )
+                                </List>
+                                </Box>
+                            )
                         ))}
                         {stopSchedule.inbound?.length === 0 && stopSchedule.outbound?.length === 0 && (
-                          <Typography variant="body2" color="text.secondary">No upcoming transit found.</Typography>
+                            <Typography variant="body2" color="text.secondary">No upcoming transit found.</Typography>
                         )}
-                      </>
+                        </>
                     ) : (
-                      <Typography variant="body2" color="text.secondary">No schedule available.</Typography>
+                        <Typography variant="body2" color="text.secondary">No schedule available.</Typography>
                     )}
-                  </Box>
-                </Collapse>
-              </React.Fragment>
-            );
-          })}
-        </List>
-      </CardContent>
-    </Card>
-  );
+                    </Box>
+                    </Collapse>
+                    </React.Fragment>
+                );
+            })}
+            </List>
+            </CardContent>
+            </Card>
+        );
 };
 
 export default TransitInfo;
