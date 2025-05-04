@@ -1,5 +1,5 @@
 // frontend/src/components/TransitInfo.jsx
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   Card, CardContent, Typography, List, ListItem, ListItemText, ListItemButton,
   Box, Collapse, CircularProgress, Stack, Chip, Button, Alert
@@ -19,14 +19,13 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE ?? 'https://munibuddy.live/ap
 
 const normalizeId = (stop) => stop?.gtfs_stop_id || stop?.stop_code || stop?.stop_id;
 
-const normalizeStopInfo = (stop) => {
-  const stopCode = stop?.stop_code || stop?.stop_id;
-  const agency = stop?.agency?.toLowerCase() ?? (String(stopCode).length <= 5 ? 'muni' : 'bart');
-  return { stopCode, agency };
-};
-
 const formatTime = (isoTime) => {
   if (!isoTime || isoTime === "Unknown") return "Unknown";
+  if (/\d{1,2}:\d{2}\s[AP]M/i.test(isoTime)) {
+    const [time, period] = isoTime.split(' ');
+    const [hours, minutes] = time.split(':');
+    return `${hours.padStart(2, '0')}:${minutes} ${period}`;
+  }
   try {
     const date = new Date(isoTime);
     return isNaN(date.getTime())
@@ -59,7 +58,6 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
   const [stopSchedule, setStopSchedule] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [nearestStops, setNearestStops] = useState({});
   const stopsArray = useMemo(() => Array.isArray(stops) ? stops : Object.values(stops), [stops]);
 
   const getCachedSchedule = useCallback((stopId) => {
@@ -72,9 +70,11 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
   }, []);
 
   const fetchVehiclePositions = async (stop) => {
-    const { stopCode, agency } = normalizeStopInfo(stop);
-    const endpoint = agency === 'bart'
-      ? `/bart-positions/by-stop?stopCode=${stopCode}&agency=${agency}`
+    const stopCode = stop.stop_code || stop.stop_id;
+    const agency = stop.agency?.toLowerCase() || "sf";
+    const isBart = agency === "bart" || agency === "ba";
+    const endpoint = isBart
+      ? `/bart-positions/by-stop?stopCode=${stopCode}`
       : `/bus-positions/by-stop?stopCode=${stopCode}&agency=${agency}`;
 
     try {
@@ -101,13 +101,13 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
 
       setLiveVehicleMarkers(markers);
     } catch (err) {
-      console.warn(`Failed to fetch vehicle positions for ${stopCode} (${agency}):`, err);
+      console.warn(`Failed to fetch vehicle positions for ${stopCode} (${agency}): ${err.message}`);
     }
   };
 
   const handleStopClick = useCallback(async (stop) => {
     const stopId = normalizeId(stop);
-    const { stopCode, agency } = normalizeStopInfo(stop);
+    const agency = stop.agency?.toLowerCase();
 
     if (!stopId) return;
     if (stopId === selectedStopId) {
@@ -131,8 +131,8 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
 
     try {
       const predictionURL = agency === "bart"
-        ? `/bart-positions/by-stop?stopCode=${stopCode}&agency=${agency}`
-        : `/bus-positions/by-stop?stopCode=${stopCode}&agency=${agency}`;
+        ? `/bart-positions/stop-arrivals/${stopId}`
+        : `/stop-predictions/${stopId}`;
 
       const res = await axios.get(`${API_BASE_URL}${predictionURL}`, { timeout: API_TIMEOUT });
       const data = res.data?.realtime || res.data;
@@ -141,7 +141,6 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
       setCachedSchedule(stopId, data);
       setStopSchedule(data);
     } catch (err) {
-      console.warn(`Error fetching predictions for ${stopId}:`, err);
       setError('Failed to fetch predictions. Try again.');
       setStopSchedule({ inbound: [], outbound: [] });
     } finally {
@@ -154,15 +153,14 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await axios.get(`${API_BASE_URL}/bus-positions/by-stop?stopCode=${selectedStopId}`, {
+      const res = await axios.get(`${API_BASE_URL}/stop-predictions/${selectedStopId}`, {
         timeout: API_TIMEOUT,
         params: { _t: Date.now() }
       });
       const data = res.data?.realtime || res.data;
       setCachedSchedule(selectedStopId, data);
       setStopSchedule(data);
-    } catch (err) {
-      console.warn(`Error refreshing schedule for ${selectedStopId}:`, err);
+    } catch {
       setError('Failed to refresh schedule.');
     } finally {
       setLoading(false);
@@ -180,6 +178,15 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
       <Typography variant="body2" color="text.secondary">
         Arrival: <b>{formatTime(route.arrival_time)}</b>
       </Typography>
+      {route.vehicle?.lat && route.vehicle?.lon ? (
+        <Typography variant="caption" color="text.secondary">
+          Vehicle Location: ({route.vehicle.lat}, {route.vehicle.lon})
+        </Typography>
+      ) : (
+        <Typography variant="caption" color="text.disabled">
+          Vehicle location unavailable
+        </Typography>
+      )}
     </Box>
   );
 
