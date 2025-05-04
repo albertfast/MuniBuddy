@@ -171,8 +171,8 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
             setLiveVehicleMarkers(markers);
         } catch (err) {
             console.warn(`Failed to fetch vehicle positions for ${stopCode} (${agency}): ${err.message}`);
+            console.error('[API Error]', err);
         }
-        console.error('[API Error]', err);
     };
 
     const handleStopClick = useCallback(async (stop) => {
