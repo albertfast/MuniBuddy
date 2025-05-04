@@ -12,6 +12,19 @@ import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import axios from 'axios';
 
+axios.interceptors.request.use((config) => {
+    console.log(`[API Request] ${config.method?.toUpperCase()} ${config.url}`, config.params || {});
+    return config;
+  });
+  
+  axios.interceptors.response.use((res) => {
+    console.log(`[API Response] ${res.config.url}`, res.status, res.data);
+    return res;
+  }, (error) => {
+    console.error(`[API Error] ${error.config?.url}`, error.message);
+    return Promise.reject(error);
+  });
+
 const SCHEDULE_CACHE = {};
 const CACHE_TTL = 5 * 60 * 1000;
 const API_TIMEOUT = 50000;
@@ -113,7 +126,30 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
     const [stopSchedule, setStopSchedule] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
-    const stopsArray = useMemo(() => Array.isArray(stops) ? stops : Object.values(stops), [stops]);
+    const stopsArray = useMemo(() => {
+        const input = Array.isArray(stops) ? stops : Object.values(stops);
+        const seen = new Set();
+        const filtered = [];
+    
+        for (const stop of input) {
+            const id = normalizeId(stop);
+            const agency = stop.agency?.toLowerCase();
+    
+            // Normalize BART stop IDs
+            let key = id;
+            if (agency === 'bart') {
+                if (key.includes('_')) key = key.split('_')[0];
+                if (key.startsWith('place_')) key = key.replace('place_', '');
+            }
+    
+            if (!seen.has(key)) {
+                seen.add(key);
+                filtered.push(stop);
+            }
+        }
+    
+        return filtered;
+    }, [stops]);
 
     const getCachedSchedule = useCallback((stopId) => {
         const item = SCHEDULE_CACHE[stopId];
@@ -125,6 +161,7 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
     }, []);
 
     const fetchVehiclePositions = async (stop) => {
+        console.log('[fetchVehiclePositions] Fetching for:', stop);
         const stopCode = stop.stop_code || stop.stop_id;
         const agency = stop.agency?.toLowerCase() || "sf";
         const isBart = agency === "bart" || agency === "ba";
@@ -161,10 +198,10 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
     };
 
     const handleStopClick = useCallback(async (stop) => {
+        console.log('[handleStopClick] Stop clicked:', stop);
         let stopId = normalizeId(stop);
         const agency = stop.agency?.toLowerCase();
 
-        // BART için girişleri normalize et: POWL_7 → POWL, place_POWL → POWL
         if (agency === 'bart' && stopId.includes('_')) {
             stopId = stopId.split('_')[0];
         }
