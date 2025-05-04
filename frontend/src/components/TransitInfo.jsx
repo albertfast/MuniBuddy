@@ -1,5 +1,5 @@
 // frontend/src/components/TransitInfo.jsx
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
     Card, CardContent, Typography, List, ListItem, ListItemText, ListItemButton,
     Box, Collapse, CircularProgress, Stack, Chip, Button, Alert
@@ -48,64 +48,40 @@ routeNumber?.toLowerCase().includes('to')
 ? <TrainIcon color="primary" fontSize="small" />
 : <DirectionsBusIcon color="secondary" fontSize="small" />;
 
-const getNearestStopName = async (lat, lon) => {
-  try {
-      const res = await axios.get(`${API_BASE_URL}/nearby-stops`, {
-          params: { lat, lon, radius: 0.15, agency: 'muni' },
-      });
-      const stops = res.data || [];
-      const seen = new Set();
-      const unique = stops.filter(s => {
-          if (seen.has(s.stop_id)) return false;
-          seen.add(s.stop_id);
-          return true;
-      });
-      return unique[0]?.stop_name?.trim() || 'Unknown stop';
-  } catch (err) {
-      console.warn('[nearestStopName] Error:', err.message);
-      return 'Unknown stop';
-  }
-};
+const normalizeSiriData = (visits = []) => {
+    const grouped = { inbound: [], outbound: [] };
 
-const normalizeSiriData = async (visits = []) => {
-  const grouped = { inbound: [], outbound: [] };
+    for (const visit of visits) {
+        const journey = visit?.MonitoredVehicleJourney;
+        const call = journey?.MonitoredCall || {};
+        const direction = (journey?.DirectionRef || "").toLowerCase();
 
-  for (const visit of visits) {
-      const journey = visit?.MonitoredVehicleJourney;
-      const call = journey?.MonitoredCall || {};
-      const direction = (journey?.DirectionRef || "").toLowerCase();
+        const arrivalTime = call?.ExpectedArrivalTime || call?.AimedArrivalTime;
+        const arrivalDate = arrivalTime ? new Date(arrivalTime) : null;
+        const now = new Date();
+        const minutesUntil = arrivalDate ? Math.round((arrivalDate - now) / 60000) : null;
 
-      const arrivalTime = call?.ExpectedArrivalTime || call?.AimedArrivalTime;
-      const arrivalDate = arrivalTime ? new Date(arrivalTime) : null;
-      const now = new Date();
-      const minutesUntil = arrivalDate ? Math.round((arrivalDate - now) / 60000) : null;
+        const entry = {
+            route_number: journey?.LineRef
+            ? `${journey.LineRef} ${journey?.PublishedLineName ?? ''}`.trim()
+            : journey?.PublishedLineName ?? "Unknown Line",
+            destination: call?.DestinationDisplay || journey?.DestinationName,
+            arrival_time: arrivalTime,
+            status: minutesUntil !== null ? `${minutesUntil} min` : "Unknown",
+            minutes_until: minutesUntil,
+            is_realtime: true,
+            vehicle: {
+                lat: journey?.VehicleLocation?.Latitude || "",
+                lon: journey?.VehicleLocation?.Longitude || ""
+            }
+        };
 
-      const lat = journey?.VehicleLocation?.Latitude || "";
-      const lon = journey?.VehicleLocation?.Longitude || "";
+        console.log("🚌 Parsed entry:", entry);
+        if (["ib", "inbound", "n"].includes(direction)) grouped.inbound.push(entry);
+        else grouped.outbound.push(entry);
+    }
 
-      const nearestStop = (lat && lon) ? await getNearestStopName(lat, lon) : "";
-
-      const entry = {
-          route_number: journey?.LineRef
-              ? `${journey.LineRef} ${journey?.PublishedLineName ?? ''}`.trim()
-              : journey?.PublishedLineName ?? "Unknown Line",
-          destination: call?.DestinationDisplay || journey?.DestinationName,
-          arrival_time: arrivalTime,
-          status: minutesUntil !== null ? `${minutesUntil} min` : "Unknown",
-          minutes_until: minutesUntil,
-          is_realtime: true,
-          vehicle: {
-              lat,
-              lon,
-              nearest_stop: nearestStop
-          }
-      };
-
-      if (["ib", "inbound", "n"].includes(direction)) grouped.inbound.push(entry);
-      else grouped.outbound.push(entry);
-  }
-
-  return grouped;
+    return grouped;
 };
 
 const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
@@ -245,38 +221,41 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
         <Typography variant="body2" color="text.secondary">
         Arrival: <b>{formatTime(route.arrival_time)}</b>
         </Typography>
-        {route.vehicle?.nearest_stop ? (
-          <Typography variant="caption" color="text.secondary">
-            Nearest Stop: {route.vehicle.nearest_stop}
-          </Typography>
+        {route.vehicle?.lat && route.vehicle?.lon ? (
+            <Typography variant="caption" color="text.secondary">
+            Vehicle Location: ({route.vehicle.lat}, {route.vehicle.lon})
+            </Typography>
         ) : (
-          <Typography variant="caption" color="text.disabled">
+            <Typography variant="caption" color="text.disabled">
             Vehicle location unavailable
-          </Typography>
+            </Typography>
         )}
-
         </Box>
     );
 
     return (
-        <Card elevation={3} sx={{ mt: 2 }}>
+        <Card elevation={2}>
         <CardContent>
-        <Typography variant="h6" gutterBottom>Transit Predictions</Typography>
-        <List disablePadding>
-        {stopsArray.map((stop) => {
+        <Typography variant="h6" fontWeight="bold" color="primary.main" gutterBottom>
+        Nearby Stops ({stopsArray.length})
+        </Typography>
+        <List>
+        {stopsArray.map((stop, index) => {
             const sid = normalizeId(stop);
+            if (!sid) return null;
             const isSelected = sid === selectedStopId;
-
             return (
                 <React.Fragment key={sid}>
-                <ListItemButton onClick={() => handleStopClick(stop)} selected={isSelected}>
-                <Box flex={1}>
+                <ListItemButton onClick={() => handleStopClick(stop)}>
+                <Box flexGrow={1}>
                 <Stack direction="row" spacing={1} alignItems="center" mb={0.5}>
                 <LocationOnIcon color="primary" fontSize="small" />
-                <Typography fontWeight={500} noWrap>{stop.stop_name || "Unknown Stop"}</Typography>
+                <Typography fontWeight={500} noWrap>{stop.stop_name || 'Unknown Stop'}</Typography>
                 </Stack>
                 <Stack direction="row" justifyContent="space-between">
-                <Typography variant="caption" color="text.secondary">Stop ID: {sid}</Typography>
+                <Typography variant="caption" color="text.secondary">
+                Stop ID: {sid}
+                </Typography>
                 {stop.distance_miles !== undefined && (
                     <Chip size="small" label={`${stop.distance_miles} mi`} />
                 )}
@@ -294,13 +273,17 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
                 ) : stopSchedule ? (
                     <>
                     {error && <Alert severity="warning" sx={{ mb: 2 }}>{error}</Alert>}
-                    {["inbound", "outbound"].map((dir) => (
+                    {['inbound', 'outbound'].map((dir) => (
                         stopSchedule[dir]?.length > 0 && (
                             <Box key={dir} mb={2}>
                             <Typography variant="subtitle1" gutterBottom>{dir.charAt(0).toUpperCase() + dir.slice(1)}</Typography>
+                            <List dense disablePadding>
                             {stopSchedule[dir].map((route, i) => (
-                                <Box key={`${dir}-${i}`}>{renderRoute(route)}</Box>
+                                <ListItem key={`${dir}-${i}`} disablePadding>
+                                <ListItemText primary={renderRouteInfo(route)} disableTypography />
+                                </ListItem>
                             ))}
+                            </List>
                             </Box>
                         )
                     ))}
