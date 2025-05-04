@@ -67,40 +67,45 @@ const getNearestStopName = async (lat, lon) => {
   }
 };
 
-const normalizeSiriData = (visits = []) => {
-    const grouped = { inbound: [], outbound: [] };
+const normalizeSiriData = async (visits = []) => {
+  const grouped = { inbound: [], outbound: [] };
 
-    for (const visit of visits) {
-        const journey = visit?.MonitoredVehicleJourney;
-        const call = journey?.MonitoredCall || {};
-        const direction = (journey?.DirectionRef || "").toLowerCase();
+  for (const visit of visits) {
+      const journey = visit?.MonitoredVehicleJourney;
+      const call = journey?.MonitoredCall || {};
+      const direction = (journey?.DirectionRef || "").toLowerCase();
 
-        const arrivalTime = call?.ExpectedArrivalTime || call?.AimedArrivalTime;
-        const arrivalDate = arrivalTime ? new Date(arrivalTime) : null;
-        const now = new Date();
-        const minutesUntil = arrivalDate ? Math.round((arrivalDate - now) / 60000) : null;
+      const arrivalTime = call?.ExpectedArrivalTime || call?.AimedArrivalTime;
+      const arrivalDate = arrivalTime ? new Date(arrivalTime) : null;
+      const now = new Date();
+      const minutesUntil = arrivalDate ? Math.round((arrivalDate - now) / 60000) : null;
 
-        const entry = {
-            route_number: journey?.LineRef
-            ? `${journey.LineRef} ${journey?.PublishedLineName ?? ''}`.trim()
-            : journey?.PublishedLineName ?? "Unknown Line",
-            destination: call?.DestinationDisplay || journey?.DestinationName,
-            arrival_time: arrivalTime,
-            status: minutesUntil !== null ? `${minutesUntil} min` : "Unknown",
-            minutes_until: minutesUntil,
-            is_realtime: true,
-            vehicle: {
-                lat: journey?.VehicleLocation?.Latitude || "",
-                lon: journey?.VehicleLocation?.Longitude || ""
-            }
-        };
+      const lat = journey?.VehicleLocation?.Latitude || "";
+      const lon = journey?.VehicleLocation?.Longitude || "";
 
-        console.log("🚌 Parsed entry:", entry);
-        if (["ib", "inbound", "n"].includes(direction)) grouped.inbound.push(entry);
-        else grouped.outbound.push(entry);
-    }
+      const nearestStop = (lat && lon) ? await getNearestStopName(lat, lon) : "";
 
-    return grouped;
+      const entry = {
+          route_number: journey?.LineRef
+              ? `${journey.LineRef} ${journey?.PublishedLineName ?? ''}`.trim()
+              : journey?.PublishedLineName ?? "Unknown Line",
+          destination: call?.DestinationDisplay || journey?.DestinationName,
+          arrival_time: arrivalTime,
+          status: minutesUntil !== null ? `${minutesUntil} min` : "Unknown",
+          minutes_until: minutesUntil,
+          is_realtime: true,
+          vehicle: {
+              lat,
+              lon,
+              nearest_stop: nearestStop
+          }
+      };
+
+      if (["ib", "inbound", "n"].includes(direction)) grouped.inbound.push(entry);
+      else grouped.outbound.push(entry);
+  }
+
+  return grouped;
 };
 
 const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
@@ -240,81 +245,81 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
         <Typography variant="body2" color="text.secondary">
         Arrival: <b>{formatTime(route.arrival_time)}</b>
         </Typography>
-        {route.vehicle?.lat && route.vehicle?.lon ? (
-            <Typography variant="caption" color="text.secondary">
-            Vehicle Location: ({route.vehicle.lat}, {route.vehicle.lon})
-            </Typography>
+        {route.vehicle?.nearest_stop ? (
+          <Typography variant="caption" color="text.secondary">
+            Nearest Stop: {route.vehicle.nearest_stop}
+          </Typography>
         ) : (
-            <Typography variant="caption" color="text.disabled">
+          <Typography variant="caption" color="text.disabled">
             Vehicle location unavailable
-            </Typography>
+          </Typography>
         )}
+
         </Box>
     );
 
+    return (
+        <Card elevation={3} sx={{ mt: 2 }}>
+        <CardContent>
+        <Typography variant="h6" gutterBottom>Transit Predictions</Typography>
+        <List disablePadding>
+        {stopsArray.map((stop) => {
+            const sid = normalizeId(stop);
+            const isSelected = sid === selectedStopId;
 
-        return (
-            <Card elevation={3} sx={{ mt: 2 }}>
-            <CardContent>
-            <Typography variant="h6" gutterBottom>Transit Predictions</Typography>
-            <List disablePadding>
-            {stopsArray.map((stop) => {
-                const sid = normalizeId(stop);
-                const isSelected = sid === selectedStopId;
-
-                return (
-                    <React.Fragment key={sid}>
-                    <ListItemButton onClick={() => handleStopClick(stop)} selected={isSelected}>
-                    <Box flex={1}>
-                    <Stack direction="row" spacing={1} alignItems="center" mb={0.5}>
-                    <LocationOnIcon color="primary" fontSize="small" />
-                    <Typography fontWeight={500} noWrap>{stop.stop_name || "Unknown Stop"}</Typography>
-                    </Stack>
-                    <Stack direction="row" justifyContent="space-between">
-                    <Typography variant="caption" color="text.secondary">Stop ID: {sid}</Typography>
-                    {stop.distance_miles !== undefined && (
-                        <Chip size="small" label={`${stop.distance_miles} mi`} />
+            return (
+                <React.Fragment key={sid}>
+                <ListItemButton onClick={() => handleStopClick(stop)} selected={isSelected}>
+                <Box flex={1}>
+                <Stack direction="row" spacing={1} alignItems="center" mb={0.5}>
+                <LocationOnIcon color="primary" fontSize="small" />
+                <Typography fontWeight={500} noWrap>{stop.stop_name || "Unknown Stop"}</Typography>
+                </Stack>
+                <Stack direction="row" justifyContent="space-between">
+                <Typography variant="caption" color="text.secondary">Stop ID: {sid}</Typography>
+                {stop.distance_miles !== undefined && (
+                    <Chip size="small" label={`${stop.distance_miles} mi`} />
+                )}
+                </Stack>
+                </Box>
+                {isSelected ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                </ListItemButton>
+                <Collapse in={isSelected} timeout="auto" unmountOnExit>
+                <Box px={2} pb={2} pt={1}>
+                <Button size="small" variant="outlined" startIcon={<RefreshIcon />} onClick={handleRefreshSchedule} sx={{ mb: 1 }}>
+                Refresh
+                </Button>
+                {loading ? (
+                    <Box py={3} display="flex" justifyContent="center"><CircularProgress size={28} /></Box>
+                ) : stopSchedule ? (
+                    <>
+                    {error && <Alert severity="warning" sx={{ mb: 2 }}>{error}</Alert>}
+                    {["inbound", "outbound"].map((dir) => (
+                        stopSchedule[dir]?.length > 0 && (
+                            <Box key={dir} mb={2}>
+                            <Typography variant="subtitle1" gutterBottom>{dir.charAt(0).toUpperCase() + dir.slice(1)}</Typography>
+                            {stopSchedule[dir].map((route, i) => (
+                                <Box key={`${dir}-${i}`}>{renderRoute(route)}</Box>
+                            ))}
+                            </Box>
+                        )
+                    ))}
+                    {stopSchedule.inbound?.length === 0 && stopSchedule.outbound?.length === 0 && (
+                        <Typography variant="body2" color="text.secondary">No upcoming transit found.</Typography>
                     )}
-                    </Stack>
-                    </Box>
-                    {isSelected ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-                    </ListItemButton>
-                    <Collapse in={isSelected} timeout="auto" unmountOnExit>
-                    <Box px={2} pb={2} pt={1}>
-                    <Button size="small" variant="outlined" startIcon={<RefreshIcon />} onClick={handleRefreshSchedule} sx={{ mb: 1 }}>
-                    Refresh
-                    </Button>
-                    {loading ? (
-                        <Box py={3} display="flex" justifyContent="center"><CircularProgress size={28} /></Box>
-                    ) : stopSchedule ? (
-                        <>
-                        {error && <Alert severity="warning" sx={{ mb: 2 }}>{error}</Alert>}
-                        {["inbound", "outbound"].map((dir) => (
-                            stopSchedule[dir]?.length > 0 && (
-                                <Box key={dir} mb={2}>
-                                <Typography variant="subtitle1" gutterBottom>{dir.charAt(0).toUpperCase() + dir.slice(1)}</Typography>
-                                {stopSchedule[dir].map((route, i) => (
-                                    <Box key={`${dir}-${i}`}>{renderRoute(route)}</Box>
-                                ))}
-                                </Box>
-                            )
-                        ))}
-                        {stopSchedule.inbound?.length === 0 && stopSchedule.outbound?.length === 0 && (
-                            <Typography variant="body2" color="text.secondary">No upcoming transit found.</Typography>
-                        )}
-                        </>
-                    ) : (
-                        <Typography variant="body2" color="text.secondary">No schedule available.</Typography>
-                    )}
-                    </Box>
-                    </Collapse>
-                    </React.Fragment>
-                );
-            })}
-            </List>
-            </CardContent>
-            </Card>
-        );
+                    </>
+                ) : (
+                    <Typography variant="body2" color="text.secondary">No schedule available.</Typography>
+                )}
+                </Box>
+                </Collapse>
+                </React.Fragment>
+            );
+        })}
+        </List>
+        </CardContent>
+        </Card>
+    );
 };
 
 export default TransitInfo;
