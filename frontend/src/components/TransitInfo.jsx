@@ -1,5 +1,5 @@
 // frontend/src/components/TransitInfo.jsx
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
     Card, CardContent, Typography, List, ListItem, ListItemText, ListItemButton,
     Box, Collapse, CircularProgress, Stack, Chip, Button, Alert
@@ -47,6 +47,25 @@ const renderIcon = (routeNumber) =>
 routeNumber?.toLowerCase().includes('to')
 ? <TrainIcon color="primary" fontSize="small" />
 : <DirectionsBusIcon color="secondary" fontSize="small" />;
+
+const getNearestStopName = async (lat, lon) => {
+  try {
+      const res = await axios.get(`${API_BASE_URL}/nearby-stops`, {
+          params: { lat, lon, radius: 0.15, agency: 'muni' },
+      });
+      const stops = res.data || [];
+      const seen = new Set();
+      const unique = stops.filter(s => {
+          if (seen.has(s.stop_id)) return false;
+          seen.add(s.stop_id);
+          return true;
+      });
+      return unique[0]?.stop_name?.trim() || 'Unknown stop';
+  } catch (err) {
+      console.warn('[nearestStopName] Error:', err.message);
+      return 'Unknown stop';
+  }
+};
 
 const normalizeSiriData = (visits = []) => {
     const grouped = { inbound: [], outbound: [] };
