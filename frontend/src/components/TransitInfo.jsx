@@ -1,5 +1,5 @@
 // frontend/src/components/TransitInfo.jsx
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Card, CardContent, Typography, List, ListItem, ListItemText, ListItemButton,
   Box, Collapse, CircularProgress, Stack, Chip, Button, Alert
@@ -14,7 +14,6 @@ import axios from 'axios';
 
 const SCHEDULE_CACHE = {};
 const CACHE_TTL = 5 * 60 * 1000;
-const API_TIMEOUT = 50000;
 const API_BASE_URL = import.meta.env.VITE_API_BASE ?? 'https://munibuddy.live/api/v1';
 
 const normalizeId = (stop) => stop?.gtfs_stop_id || stop?.stop_code || stop?.stop_id;
@@ -48,14 +47,12 @@ const renderIcon = (routeNumber) =>
     ? <TrainIcon color="primary" fontSize="small" />
     : <DirectionsBusIcon color="secondary" fontSize="small" />;
 
-const normalizeSiriData = (visits = []) => {
+const parseScheduleData = (visits) => {
   const grouped = { inbound: [], outbound: [] };
-
   for (const visit of visits) {
     const journey = visit?.MonitoredVehicleJourney;
     const call = journey?.MonitoredCall || {};
     const direction = (journey?.DirectionRef || "").toLowerCase();
-
     const arrivalTime = call?.ExpectedArrivalTime || call?.AimedArrivalTime;
     const arrivalDate = arrivalTime ? new Date(arrivalTime) : null;
     const now = new Date();
@@ -77,10 +74,11 @@ const normalizeSiriData = (visits = []) => {
     };
 
     console.log("🚌 Parsed entry:", entry);
+    console.log("🧭 Direction:", direction);
+
     if (["ib", "inbound", "n"].includes(direction)) grouped.inbound.push(entry);
     else grouped.outbound.push(entry);
   }
-
   return grouped;
 };
 
@@ -89,7 +87,27 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
   const [stopSchedule, setStopSchedule] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [nearestStops, setNearestStops] = useState({});
   const stopsArray = useMemo(() => Array.isArray(stops) ? stops : Object.values(stops), [stops]);
+
+  useEffect(() => {
+    const updateNearestStops = async () => {
+      const updates = {};
+      for (const dir of ['inbound', 'outbound']) {
+        for (const route of stopSchedule?.[dir] || []) {
+          const key = `${route.vehicle.lat},${route.vehicle.lon}`;
+          if (route.vehicle?.lat && route.vehicle?.lon && !nearestStops[key]) {
+            const name = await getNearestStopName(route.vehicle.lat, route.vehicle.lon);
+            updates[key] = name;
+          }
+        }
+      }
+      if (Object.keys(updates).length > 0) {
+        setNearestStops(prev => ({ ...prev, ...updates }));
+      }
+    };
+    if (stopSchedule) updateNearestStops();
+  }, [stopSchedule]);
 
   const getCachedSchedule = useCallback((stopId) => {
     const item = SCHEDULE_CACHE[stopId];
@@ -100,13 +118,41 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
     SCHEDULE_CACHE[stopId] = { data, timestamp: Date.now() };
   }, []);
 
+  const getNearestStopName = async (lat, lon) => {
+    try {
+      const res = await axios.get(`${API_BASE_URL}/nearby-stops`, {
+        params: { lat, lon, radius: 0.15, agency: 'muni' }
+      });
+
+      const stops = res.data;
+      const uniqueStops = [];
+      const seen = new Set();
+
+      for (const stop of stops) {
+        if (!seen.has(stop.stop_id)) {
+          seen.add(stop.stop_id);
+          uniqueStops.push(stop);
+        }
+      }
+
+      return uniqueStops[0]?.stop_name?.trim() ?? 'Unknown stop';
+    } catch (err) {
+      console.warn("❌ Failed to get nearest stop name:", err.message);
+      return "Unknown stop";
+    }
+  };
+
   const fetchVehiclePositions = async (stop) => {
     const stopCode = stop.stop_code || stop.stop_id;
-    const agency = stop.agency?.toLowerCase() || "sf";
+    const agency = stop.agency?.toLowerCase();
+    if (!stopCode || !agency) return;
+
     const isBart = agency === "bart" || agency === "ba";
     const endpoint = isBart
       ? `/bart-positions/by-stop?stopCode=${stopCode}&agency=${agency}`
       : `/bus-positions/by-stop?stopCode=${stopCode}&agency=${agency}`;
+
+    console.log("[fetchVehiclePositions] calling:", endpoint);
 
     try {
       const res = await axios.get(`${API_BASE_URL}${endpoint}`);
@@ -130,17 +176,23 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
         };
       }).filter(Boolean);
 
+      console.log(`[fetchVehiclePositions] received ${markers.length} markers for stop ${stopCode}`);
       setLiveVehicleMarkers(markers);
     } catch (err) {
-      console.warn(`Failed to fetch vehicle positions for ${stopCode} (${agency}): ${err.message}`);
+      console.warn(`❌ Vehicle position error (${stopCode} - ${agency}):`, err.message);
     }
   };
 
   const handleStopClick = useCallback(async (stop) => {
     const stopId = normalizeId(stop);
     const agency = stop.agency?.toLowerCase();
+    const stopCode = stop.stop_code || stop.stop_id;
 
-    if (!stopId) return;
+    if (!stopId || !agency || !stopCode) {
+      console.warn("[handleStopClick] missing data:", { stop });
+      return;
+    }
+
     if (stopId === selectedStopId) {
       setSelectedStopId(null);
       setStopSchedule(null);
@@ -160,102 +212,53 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
       return;
     }
 
-    try {
-      const predictionURL = agency === "bart"
-        ? `/bart-positions/by-stop?stopCode=${stopId}&agency=${agency}`
-        : `/bus-positions/by-stop?stopCode=${stopId}&agency=${agency}`;
-      const res = await axios.get(`${API_BASE_URL}${predictionURL}`, { timeout: API_TIMEOUT });
-      const data = res.data?.realtime || res.data;
-      const visits = data?.ServiceDelivery?.StopMonitoringDelivery?.MonitoredStopVisit;
-      const schedule = Array.isArray(visits) ? normalizeSiriData(visits) : data;
+    const endpoint = agency === "bart"
+      ? `/bart-positions/by-stop?stopCode=${stopCode}&agency=${agency}`
+      : `/bus-positions/by-stop?stopCode=${stopCode}&agency=${agency}`;
 
-      await fetchVehiclePositions(stop);
-      setCachedSchedule(stopId, schedule);
-      setStopSchedule(schedule);
+    console.log("[handleStopClick] fetching from:", endpoint);
+
+    try {
+      const res = await axios.get(`${API_BASE_URL}${endpoint}`);
+      const visits = res.data?.ServiceDelivery?.StopMonitoringDelivery?.MonitoredStopVisit ?? [];
+      const parsed = parseScheduleData(visits);
+      setCachedSchedule(stopId, parsed);
+      setStopSchedule(parsed);
     } catch (err) {
-      setError('Failed to fetch predictions. Try again.');
-      setStopSchedule({ inbound: [], outbound: [] });
+      console.error("[handleStopClick] Error fetching schedule:", err);
+      setError("Unable to load schedule.");
     } finally {
       setLoading(false);
     }
-  }, [selectedStopId, getCachedSchedule, setCachedSchedule]);
 
-  const handleRefreshSchedule = useCallback(async () => {
-    const stop = stopsArray.find(s => normalizeId(s) === selectedStopId);
-    const agency = stop?.agency ?? 'muni';
-    const isBart = agency.toLowerCase() === 'bart' || agency.toLowerCase() === 'ba';
+    fetchVehiclePositions(stop);
+  }, [selectedStopId]);
 
-    const refreshURL = isBart
-      ? `/bart-positions/by-stop?stopCode=${selectedStopId}&agency=${agency}`
-      : `/bus-positions/by-stop?stopCode=${selectedStopId}&agency=${agency}`;
-
+  const handleRefreshSchedule = () => {
     if (!selectedStopId) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await axios.get(`${API_BASE_URL}${refreshURL}`, {
-        timeout: API_TIMEOUT,
-        params: { _t: Date.now() }
-      });
-      const data = res.data?.realtime || res.data;
-      const visits = data?.ServiceDelivery?.StopMonitoringDelivery?.MonitoredStopVisit;
-      const schedule = Array.isArray(visits) ? normalizeSiriData(visits) : data;
-
-      setCachedSchedule(selectedStopId, schedule);
-      setStopSchedule(schedule);
-    } catch {
-      setError('Failed to refresh schedule.');
-    } finally {
-      setLoading(false);
-    }
-  }, [selectedStopId, stopsArray, setCachedSchedule]);
-
-  const renderRouteInfo = (route) => (
-    <Box sx={{ borderLeft: '3px solid', borderColor: 'primary.light', pl: 1.5, py: 0.5, mb: 1 }}>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
-        <Typography variant="body2" fontWeight="medium" color="primary.main">
-          {renderIcon(route.route_number)} {route.route_number || 'Route ?'} → {route.destination || 'Unknown'}
-        </Typography>
-        {route.status && <Chip size="small" label={route.status} color={getStatusColor(route.status)} />}
-      </Stack>
-      <Typography variant="body2" color="text.secondary">
-        Arrival: <b>{formatTime(route.arrival_time)}</b>
-      </Typography>
-      {route.vehicle?.lat && route.vehicle?.lon ? (
-        <Typography variant="caption" color="text.secondary">
-          Vehicle Location: ({route.vehicle.lat}, {route.vehicle.lon})
-        </Typography>
-      ) : (
-        <Typography variant="caption" color="text.disabled">
-          Vehicle location unavailable
-        </Typography>
-      )}
-    </Box>
-  );
+    const stop = stopsArray.find(s => normalizeId(s) === selectedStopId);
+    if (stop) handleStopClick(stop);
+  };
 
   return (
-    <Card elevation={2}>
+    <Card elevation={3} sx={{ mt: 2 }}>
       <CardContent>
-        <Typography variant="h6" fontWeight="bold" color="primary.main" gutterBottom>
-          Nearby Stops ({stopsArray.length})
-        </Typography>
-        <List>
-          {stopsArray.map((stop, index) => {
+        <Typography variant="h6" gutterBottom>Nearby Stops ({stopsArray.length})</Typography>
+        <List disablePadding>
+          {stopsArray.map((stop) => {
             const sid = normalizeId(stop);
-            if (!sid) return null;
             const isSelected = sid === selectedStopId;
+
             return (
               <React.Fragment key={sid}>
-                <ListItemButton onClick={() => handleStopClick(stop)}>
-                  <Box flexGrow={1}>
+                <ListItemButton onClick={() => handleStopClick(stop)} selected={isSelected}>
+                  <Box flex={1}>
                     <Stack direction="row" spacing={1} alignItems="center" mb={0.5}>
                       <LocationOnIcon color="primary" fontSize="small" />
-                      <Typography fontWeight={500} noWrap>{stop.stop_name || 'Unknown Stop'}</Typography>
+                      <Typography fontWeight={500} noWrap>{stop.stop_name || "Unknown Stop"}</Typography>
                     </Stack>
                     <Stack direction="row" justifyContent="space-between">
-                      <Typography variant="caption" color="text.secondary">
-                        Stop ID: {sid}
-                      </Typography>
+                      <Typography variant="caption" color="text.secondary">Stop ID: {sid}</Typography>
                       {stop.distance_miles !== undefined && (
                         <Chip size="small" label={`${stop.distance_miles} mi`} />
                       )}
@@ -273,23 +276,39 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
                     ) : stopSchedule ? (
                       <>
                         {error && <Alert severity="warning" sx={{ mb: 2 }}>{error}</Alert>}
-                        {['inbound', 'outbound'].map((dir) => (
+                        {["inbound", "outbound"].map((dir) => (
                           stopSchedule[dir]?.length > 0 && (
                             <Box key={dir} mb={2}>
                               <Typography variant="subtitle1" gutterBottom>{dir.charAt(0).toUpperCase() + dir.slice(1)}</Typography>
                               <List dense disablePadding>
                                 {stopSchedule[dir].map((route, i) => (
                                   <ListItem key={`${dir}-${i}`} disablePadding>
-                                    <ListItemText primary={renderRouteInfo(route)} disableTypography />
+                                    <ListItemText
+                                      primary={
+                                        <>
+                                          {renderIcon(route.route_number)}
+                                          <strong style={{ marginLeft: 6 }}>{route.route_number}</strong> → {route.destination}
+                                          <Typography component="span" variant="body2" sx={{ float: "right" }} color={getStatusColor(route.status)}>
+                                            {formatTime(route.arrival_time)} ({route.status})
+                                          </Typography>
+                                          {route.vehicle?.lat && route.vehicle?.lon && (
+                                            <>
+                                              <br />
+                                              <Typography variant="caption" color="text.secondary">
+                                                Nearest Stop: {nearestStops[`${route.vehicle.lat},${route.vehicle.lon}`] || '...'}
+                                              </Typography>
+                                            </>
+                                          )}
+                                        </>
+                                      }
+                                      disableTypography
+                                    />
                                   </ListItem>
                                 ))}
                               </List>
                             </Box>
                           )
                         ))}
-                        {stopSchedule.inbound?.length === 0 && stopSchedule.outbound?.length === 0 && (
-                          <Typography variant="body2" color="text.secondary">No upcoming transit found.</Typography>
-                        )}
                       </>
                     ) : (
                       <Typography variant="body2" color="text.secondary">No schedule available.</Typography>
