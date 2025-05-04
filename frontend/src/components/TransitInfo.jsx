@@ -139,7 +139,7 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
 
     const fetchVehiclePositions = async (stop) => {
         console.log('[fetchVehiclePositions] Fetching for:', stop);
-        const stopCode = stop.stop_code || stop.stop_id;
+        const stopCode = stop.stop_code
         const agency = stop.agency?.toLowerCase() || "sf";
         const isBart = agency === "bart" || agency === "ba";
         const endpoint = isBart
@@ -218,7 +218,7 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
             const visits = data?.ServiceDelivery?.StopMonitoringDelivery?.MonitoredStopVisit;
             const schedule = Array.isArray(visits) ? await normalizeSiriData(visits) : data;
 
-            await fetchVehiclePositions(stop);
+            await fetchVehiclePositions({ stop_code: stopId, agency });
             setCachedSchedule(stopId, schedule);
             setStopSchedule(schedule);
         } catch (err) {
