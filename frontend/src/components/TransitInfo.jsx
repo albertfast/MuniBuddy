@@ -161,8 +161,16 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
     };
 
     const handleStopClick = useCallback(async (stop) => {
-        const stopId = normalizeId(stop);
+        let stopId = normalizeId(stop);
         const agency = stop.agency?.toLowerCase();
+
+        // BART için girişleri normalize et: POWL_7 → POWL, place_POWL → POWL
+        if (agency === 'bart' && stopId.includes('_')) {
+            stopId = stopId.split('_')[0];
+        }
+        if (agency === 'bart' && stopId.startsWith('place_')) {
+            stopId = stopId.replace('place_', '');
+        }
 
         if (!stopId) return;
         if (stopId === selectedStopId) {
