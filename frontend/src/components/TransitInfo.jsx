@@ -253,75 +253,67 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
     );
 
     return (
-        <Card elevation={2}>
-        <CardContent>
-        <Typography variant="h6" fontWeight="bold" color="primary.main" gutterBottom>
-        Nearby Stops ({stopsArray.length})
-        </Typography>
-        <List>
-        {stopsArray.map((stop, index) => {
-            const sid = normalizeId(stop);
-            if (!sid) return null;
-            const isSelected = sid === selectedStopId;
-            return (
-                <React.Fragment key={sid}>
-                <ListItemButton onClick={() => handleStopClick(stop)}>
-                <Box flexGrow={1}>
-                <Stack direction="row" spacing={1} alignItems="center" mb={0.5}>
-                <LocationOnIcon color="primary" fontSize="small" />
-                <Typography fontWeight={500} noWrap>{stop.stop_name || 'Unknown Stop'}</Typography>
-                </Stack>
-                <Stack direction="row" justifyContent="space-between">
-                <Typography variant="caption" color="text.secondary">
-                Stop ID: {sid}
-                </Typography>
-                {stop.distance_miles !== undefined && (
-                    <Chip size="small" label={`${stop.distance_miles} mi`} />
-                )}
-                </Stack>
-                </Box>
-                {isSelected ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-                </ListItemButton>
-                <Collapse in={isSelected} timeout="auto" unmountOnExit>
-                <Box px={2} pb={2} pt={1}>
-                <Button size="small" variant="outlined" startIcon={<RefreshIcon />} onClick={handleRefreshSchedule} sx={{ mb: 1 }}>
-                Refresh
-                </Button>
-                {loading ? (
-                    <Box py={3} display="flex" justifyContent="center"><CircularProgress size={28} /></Box>
-                ) : stopSchedule ? (
-                    <>
-                    {error && <Alert severity="warning" sx={{ mb: 2 }}>{error}</Alert>}
-                    {['inbound', 'outbound'].map((dir) => (
-                        stopSchedule[dir]?.length > 0 && (
-                            <Box key={dir} mb={2}>
-                            <Typography variant="subtitle1" gutterBottom>{dir.charAt(0).toUpperCase() + dir.slice(1)}</Typography>
-                            <List dense disablePadding>
-                            {stopSchedule[dir].map((route, i) => (
-                                <ListItem key={`${dir}-${i}`} disablePadding>
-                                <ListItemText primary={renderRouteInfo(route)} disableTypography />
-                                </ListItem>
-                            ))}
-                            </List>
-                            </Box>
-                        )
-                    ))}
-                    {stopSchedule.inbound?.length === 0 && stopSchedule.outbound?.length === 0 && (
-                        <Typography variant="body2" color="text.secondary">No upcoming transit found.</Typography>
-                    )}
-                    </>
-                ) : (
-                    <Typography variant="body2" color="text.secondary">No schedule available.</Typography>
-                )}
-                </Box>
-                </Collapse>
-                </React.Fragment>
-            );
-        })}
-        </List>
-        </CardContent>
-        </Card>
-    );
+      <Card elevation={3} sx={{ mt: 2 }}>
+      <CardContent>
+      <Typography variant="h6" gutterBottom>Transit Predictions</Typography>
+      <List disablePadding>
+      {stopsArray.map((stop) => {
+          const sid = normalizeId(stop);
+          const isSelected = sid === selectedStopId;
+
+          return (
+              <React.Fragment key={sid}>
+              <ListItemButton onClick={() => handleStopClick(stop)} selected={isSelected}>
+              <Box flex={1}>
+              <Stack direction="row" spacing={1} alignItems="center" mb={0.5}>
+              <LocationOnIcon color="primary" fontSize="small" />
+              <Typography fontWeight={500} noWrap>{stop.stop_name || "Unknown Stop"}</Typography>
+              </Stack>
+              <Stack direction="row" justifyContent="space-between">
+              <Typography variant="caption" color="text.secondary">Stop ID: {sid}</Typography>
+              {stop.distance_miles !== undefined && (
+                  <Chip size="small" label={`${stop.distance_miles} mi`} />
+              )}
+              </Stack>
+              </Box>
+              {isSelected ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+              </ListItemButton>
+              <Collapse in={isSelected} timeout="auto" unmountOnExit>
+              <Box px={2} pb={2} pt={1}>
+              <Button size="small" variant="outlined" startIcon={<RefreshIcon />} onClick={handleRefreshSchedule} sx={{ mb: 1 }}>
+              Refresh
+              </Button>
+              {loading ? (
+                  <Box py={3} display="flex" justifyContent="center"><CircularProgress size={28} /></Box>
+              ) : stopSchedule ? (
+                  <>
+                  {error && <Alert severity="warning" sx={{ mb: 2 }}>{error}</Alert>}
+                  {["inbound", "outbound"].map((dir) => (
+                      stopSchedule[dir]?.length > 0 && (
+                          <Box key={dir} mb={2}>
+                          <Typography variant="subtitle1" gutterBottom>{dir.charAt(0).toUpperCase() + dir.slice(1)}</Typography>
+                          {stopSchedule[dir].map((route, i) => (
+                              <Box key={`${dir}-${i}`}>{renderRoute(route)}</Box>
+                          ))}
+                          </Box>
+                      )
+                  ))}
+                  {stopSchedule.inbound?.length === 0 && stopSchedule.outbound?.length === 0 && (
+                      <Typography variant="body2" color="text.secondary">No upcoming transit found.</Typography>
+                  )}
+                  </>
+              ) : (
+                  <Typography variant="body2" color="text.secondary">No schedule available.</Typography>
+              )}
+              </Box>
+              </Collapse>
+              </React.Fragment>
+          );
+      })}
+      </List>
+      </CardContent>
+      </Card>
+  );
 };
 
 export default TransitInfo;
