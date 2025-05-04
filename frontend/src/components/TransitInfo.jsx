@@ -48,7 +48,26 @@ routeNumber?.toLowerCase().includes('to')
 ? <TrainIcon color="primary" fontSize="small" />
 : <DirectionsBusIcon color="secondary" fontSize="small" />;
 
-const normalizeSiriData = (visits = []) => {
+const getNearestStopName = async (lat, lon) => {
+    try {
+        const res = await axios.get(`${API_BASE_URL}/nearby-stops`, {
+            params: { lat, lon, radius: 0.15, agency: 'muni' },
+        });
+        const stops = res.data || [];
+        const seen = new Set();
+        const unique = stops.filter(s => {
+            if (seen.has(s.stop_id)) return false;
+            seen.add(s.stop_id);
+            return true;
+        });
+        return unique[0]?.stop_name?.trim() || 'Unknown stop';
+    } catch (err) {
+        console.warn('[nearestStopName] Error:', err.message);
+        return 'Unknown stop';
+    }
+};
+
+const normalizeSiriData = async (visits = []) => {
     const grouped = { inbound: [], outbound: [] };
 
     for (const visit of visits) {
@@ -61,22 +80,27 @@ const normalizeSiriData = (visits = []) => {
         const now = new Date();
         const minutesUntil = arrivalDate ? Math.round((arrivalDate - now) / 60000) : null;
 
+        const lat = journey?.VehicleLocation?.Latitude || "";
+        const lon = journey?.VehicleLocation?.Longitude || "";
+
+        const nearestStop = (lat && lon) ? await getNearestStopName(lat, lon) : "";
+
         const entry = {
             route_number: journey?.LineRef
-            ? `${journey.LineRef} ${journey?.PublishedLineName ?? ''}`.trim()
-            : journey?.PublishedLineName ?? "Unknown Line",
+                ? `${journey.LineRef} ${journey?.PublishedLineName ?? ''}`.trim()
+                : journey?.PublishedLineName ?? "Unknown Line",
             destination: call?.DestinationDisplay || journey?.DestinationName,
             arrival_time: arrivalTime,
             status: minutesUntil !== null ? `${minutesUntil} min` : "Unknown",
             minutes_until: minutesUntil,
             is_realtime: true,
             vehicle: {
-                lat: journey?.VehicleLocation?.Latitude || "",
-                lon: journey?.VehicleLocation?.Longitude || ""
+                lat,
+                lon,
+                nearest_stop: nearestStop
             }
         };
 
-        console.log("🚌 Parsed entry:", entry);
         if (["ib", "inbound", "n"].includes(direction)) grouped.inbound.push(entry);
         else grouped.outbound.push(entry);
     }
@@ -167,7 +191,7 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
             const res = await axios.get(`${API_BASE_URL}${predictionURL}`, { timeout: API_TIMEOUT });
             const data = res.data?.realtime || res.data;
             const visits = data?.ServiceDelivery?.StopMonitoringDelivery?.MonitoredStopVisit;
-            const schedule = Array.isArray(visits) ? normalizeSiriData(visits) : data;
+            const schedule = Array.isArray(visits) ? await normalizeSiriData(visits) : data;
 
             await fetchVehiclePositions(stop);
             setCachedSchedule(stopId, schedule);
@@ -199,7 +223,7 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
             });
             const data = res.data?.realtime || res.data;
             const visits = data?.ServiceDelivery?.StopMonitoringDelivery?.MonitoredStopVisit;
-            const schedule = Array.isArray(visits) ? normalizeSiriData(visits) : data;
+            const schedule = Array.isArray(visits) ? await normalizeSiriData(visits) : data;
 
             setCachedSchedule(selectedStopId, schedule);
             setStopSchedule(schedule);
@@ -221,14 +245,14 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
         <Typography variant="body2" color="text.secondary">
         Arrival: <b>{formatTime(route.arrival_time)}</b>
         </Typography>
-        {route.vehicle?.lat && route.vehicle?.lon ? (
-            <Typography variant="caption" color="text.secondary">
-            Vehicle Location: ({route.vehicle.lat}, {route.vehicle.lon})
-            </Typography>
+        {route.vehicle?.nearest_stop ? (
+        <Typography variant="caption" color="text.secondary">
+            Nearest Stop: {route.vehicle.nearest_stop}
+        </Typography>
         ) : (
-            <Typography variant="caption" color="text.disabled">
+        <Typography variant="caption" color="text.disabled">
             Vehicle location unavailable
-            </Typography>
+        </Typography>
         )}
         </Box>
     );
