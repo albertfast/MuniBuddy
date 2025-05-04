@@ -216,12 +216,21 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
             console.log('[API Response]', res.data);
             const data = res.data?.realtime || res.data;
             const visits = data?.ServiceDelivery?.StopMonitoringDelivery?.MonitoredStopVisit;
+            console.log('[visits]', visits);
+
+            if (!visits || visits.length === 0) {
+                throw new Error("No prediction data returned");
+            }
+
             const schedule = Array.isArray(visits) ? await normalizeSiriData(visits) : data;
+            console.log('[schedule]', schedule);
 
             await fetchVehiclePositions({ stop_code: stopId, agency });
             setCachedSchedule(stopId, schedule);
             setStopSchedule(schedule);
         } catch (err) {
+            console.warn('[handleStopClick] Error:', err.message);
+            console.error('[handleStopClick]', err);
             setError('Failed to fetch predictions. Try again.');
             setStopSchedule({ inbound: [], outbound: [] });
         } finally {
