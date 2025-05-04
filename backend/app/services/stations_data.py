@@ -1,3 +1,5 @@
+from app.routers.routers import routes
+
 stations = {
     "ANTC": {"lat": 37.995368, "lng": -121.780374, "name": "Antioch", "iconAbbreviation": "A"},
     "12TH": {"lat": 37.803066, "lng": -122.271588, "name": "12th St. Oakland City Center", "iconAbbreviation": "12"},
