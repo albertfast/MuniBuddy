@@ -95,8 +95,8 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
             const agency = stop.agency?.toLowerCase() || "muni";
             const isBart = agency === "bart" || agency === "bart";
             const endpoint = isBart
-            ? `/bart-positions/by-stop?stopCode=${stopCode}`
-            : `/bus-positions/by-stop?stopCode=${stopCode}&agency=${agency}`;
+            ? `/bart-positions/by-stop?stopCode=${stop_id}&agency=${agency}`
+            : `/bus-positions/by-stop?stopCode=${stop_id}&agency=${agency}`;
 
             try {
                 const res = await axios.get(`${API_BASE_URL}${endpoint}`);
@@ -151,7 +151,7 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
             }
 
             try {
-                const predictionURL = agency === "bart"
+                const predictionURL = agency === "muni"
                 ? `/bart-positions/by-stop?stopCode=${stopId}&agency=bart`
                 : `/bus-positions/by-stop?stopCode=${stopId}&agency=muni`;
 
@@ -202,7 +202,7 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
             setLoading(true);
             setError(null);
             try {
-                const res = await axios.get(`${API_BASE_URL}/bart-positions/${selectedStopId}`, {
+                const res = await axios.get(`${API_BASE_URL}/bus-positions/by-stop${selectedStopId}`, {
                     timeout: API_TIMEOUT,
                     params: { _t: Date.now() }
                 });
