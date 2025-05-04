@@ -38,7 +38,7 @@ def import_gtfs_to_postgres():
             print(f"⚠️ No GTFS data found for: {agency}")
             continue
 
-        data_dict = settings._gtfs_data[agency]
+        data_dict = settings.gtfs_data[agency]
         loaded_tables = []
         skipped_tables = []
         failed_tables = []
