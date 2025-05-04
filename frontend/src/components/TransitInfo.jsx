@@ -272,7 +272,7 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
         </Typography>
         {route.vehicle?.nearest_stop ? (
         <Typography variant="caption" color="text.secondary">
-            Nearest Stop: {route.vehicle.nearest_stop}
+            Vehicle near: {route.vehicle.nearest_stop}
         </Typography>
         ) : (
         <Typography variant="caption" color="text.disabled">
