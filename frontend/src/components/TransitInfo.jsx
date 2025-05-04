@@ -304,11 +304,10 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
             const isSelected = sid === selectedStopId;
             return (
                 <React.Fragment key={sid}>
-                <ListItemButton onClick={() => handleStopClick(stop)}>
                 <ListItemButton onClick={() => {
                     setClicked(true);
                     handleStopClick(stop);
-                }}></ListItemButton>
+                }}>
                 <Box flexGrow={1}>
                 <Stack direction="row" spacing={1} alignItems="center" mb={0.5}>
                 <LocationOnIcon color="primary" fontSize="small" />
