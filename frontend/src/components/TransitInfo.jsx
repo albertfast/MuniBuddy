@@ -92,8 +92,8 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
 
         const fetchVehiclePositions = async (stop) => {
             const stopCode = stop.stop_code || stop.stop_id;
-            const agency = stop.agency?.toLowerCase() || "sf";
-            const isBart = agency === "bart" || agency === "ba";
+            const agency = stop.agency?.toLowerCase() || "muni";
+            const isBart = agency === "bart" || agency === "bart";
             const endpoint = isBart
             ? `/bart-positions/by-stop?stopCode=${stopCode}`
             : `/bus-positions/by-stop?stopCode=${stopCode}&agency=${agency}`;
