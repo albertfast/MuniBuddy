@@ -141,6 +141,12 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
         console.log('[fetchVehiclePositions] Fetching for:', stop);
         const stopCode = stop.stop_code
         const agency = stop.agency?.toLowerCase() || "sf";
+
+        if (agency === 'bart') {
+            if (stopCode.includes('_')) stopCode = stopCode.split('_')[0];
+            if (stopCode.startsWith('place_')) stopCode = stopCode.replace('place_', '');
+        }
+
         const isBart = agency === "bart" || agency === "ba";
         const endpoint = isBart
         ? `/bart-positions/by-stop?stopCode=${stopCode}&agency=${agency}`
@@ -218,7 +224,7 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
             const visits = data?.ServiceDelivery?.StopMonitoringDelivery?.MonitoredStopVisit;
             const schedule = Array.isArray(visits) ? await normalizeSiriData(visits) : data;
 
-            await fetchVehiclePositions({ stop_code: stopId, agency });
+            await fetchVehiclePositions({ stop_code: stopId, agency: stop.agency });
             setCachedSchedule(stopId, schedule);
             setStopSchedule(schedule);
         } catch (err) {
