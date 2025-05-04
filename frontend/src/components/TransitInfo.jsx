@@ -126,6 +126,7 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
     const [stopSchedule, setStopSchedule] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
+    const [clicked, setClicked] = useState(false);
     const stopsArray = useMemo(() => Array.isArray(stops) ? stops : Object.values(stops), [stops]);
 
     const getCachedSchedule = useCallback((stopId) => {
@@ -182,7 +183,9 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
     };
 
     const handleStopClick = useCallback(async (stop) => {
+        if (!clicked) return;
         console.log('[handleStopClick] Stop clicked:', stop);
+        console.trace('[handleStopClick] Called with:', stop);
         let stopId = normalizeId(stop);
         const agency = stop.agency?.toLowerCase();
 
@@ -233,7 +236,7 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
         } finally {
             setLoading(false);
         }
-    }, [selectedStopId, getCachedSchedule, setCachedSchedule]);
+    }, [selectedStopId, getCachedSchedule, setCachedSchedule, clicked]);
 
     const handleRefreshSchedule = useCallback(async () => {
         const stop = stopsArray.find(s => normalizeId(s) === selectedStopId);
@@ -302,6 +305,10 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
             return (
                 <React.Fragment key={sid}>
                 <ListItemButton onClick={() => handleStopClick(stop)}>
+                <ListItemButton onClick={() => {
+                    setClicked(true);
+                    handleStopClick(stop);
+                }}></ListItemButton>
                 <Box flexGrow={1}>
                 <Stack direction="row" spacing={1} alignItems="center" mb={0.5}>
                 <LocationOnIcon color="primary" fontSize="small" />
