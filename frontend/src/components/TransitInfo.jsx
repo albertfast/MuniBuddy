@@ -126,30 +126,7 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
     const [stopSchedule, setStopSchedule] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
-    const stopsArray = useMemo(() => {
-        const input = Array.isArray(stops) ? stops : Object.values(stops);
-        const seen = new Set();
-        const filtered = [];
-    
-        for (const stop of input) {
-            const id = normalizeId(stop);
-            const agency = stop.agency?.toLowerCase();
-    
-            // Normalize BART stop IDs
-            let key = id;
-            if (agency === 'bart') {
-                if (key.includes('_')) key = key.split('_')[0];
-                if (key.startsWith('place_')) key = key.replace('place_', '');
-            }
-    
-            if (!seen.has(key)) {
-                seen.add(key);
-                filtered.push(stop);
-            }
-        }
-    
-        return filtered;
-    }, [stops]);
+    const stopsArray = useMemo(() => Array.isArray(stops) ? stops : Object.values(stops), [stops]);
 
     const getCachedSchedule = useCallback((stopId) => {
         const item = SCHEDULE_CACHE[stopId];
@@ -195,6 +172,7 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
         } catch (err) {
             console.warn(`Failed to fetch vehicle positions for ${stopCode} (${agency}): ${err.message}`);
         }
+        console.error('[API Error]', err);
     };
 
     const handleStopClick = useCallback(async (stop) => {
@@ -234,6 +212,8 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
             ? `/bart-positions/by-stop?stopCode=${stopId}&agency=${agency}`
             : `/bus-positions/by-stop?stopCode=${stopId}&agency=${agency}`;
             const res = await axios.get(`${API_BASE_URL}${predictionURL}`, { timeout: API_TIMEOUT });
+            console.log('[API Request]', `${API_BASE_URL}${predictionURL}`);
+            console.log('[API Response]', res.data);
             const data = res.data?.realtime || res.data;
             const visits = data?.ServiceDelivery?.StopMonitoringDelivery?.MonitoredStopVisit;
             const schedule = Array.isArray(visits) ? await normalizeSiriData(visits) : data;
