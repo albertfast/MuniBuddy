@@ -183,7 +183,11 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
     };
 
     const handleStopClick = useCallback(async (stop) => {
-        if (!clicked) return;
+        if (!clicked) {
+            console.warn('[handleStopClick] Blocked because not clicked');
+            return;
+        }
+        
         console.log('[handleStopClick] Stop clicked:', stop);
         console.trace('[handleStopClick] Called with:', stop);
         let stopId = normalizeId(stop);
@@ -304,12 +308,7 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
             const isSelected = sid === selectedStopId;
             return (
                 <React.Fragment key={sid}>
-                <ListItemButton 
-                    onClick={() => {
-                        setClicked(true);
-                        handleStopClick(stop);
-                    }}
-                >
+                <ListItemButton onClick={() => handleStopClick(stop)}>
                 <Box flexGrow={1}>
                 <Stack direction="row" spacing={1} alignItems="center" mb={0.5}>
                 <LocationOnIcon color="primary" fontSize="small" />
