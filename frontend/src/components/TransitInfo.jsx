@@ -12,8 +12,6 @@ import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import axios from 'axios';
 
-const [clicked, setClicked] = useState(false);
-
 axios.interceptors.request.use((config) => {
     console.log(`[API Request] ${config.method?.toUpperCase()} ${config.url}`, config.params || {});
     return config;
