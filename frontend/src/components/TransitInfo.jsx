@@ -183,11 +183,7 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
     };
 
     const handleStopClick = useCallback(async (stop) => {
-        if (!clicked) {
-            console.warn('[handleStopClick] Blocked because not clicked');
-            return;
-        }
-        
+        if (!clicked) return;
         console.log('[handleStopClick] Stop clicked:', stop);
         console.trace('[handleStopClick] Called with:', stop);
         let stopId = normalizeId(stop);
