@@ -16,7 +16,7 @@ axios.interceptors.request.use((config) => {
     console.log(`[API Request] ${config.method?.toUpperCase()} ${config.url}`, config.params || {});
     return config;
   });
-  
+
   axios.interceptors.response.use((res) => {
     console.log(`[API Response] ${res.config.url}`, res.status, res.data);
     return res;
@@ -126,7 +126,6 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
     const [stopSchedule, setStopSchedule] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
-    const [clicked, setClicked] = useState(false);
     const stopsArray = useMemo(() => Array.isArray(stops) ? stops : Object.values(stops), [stops]);
 
     const getCachedSchedule = useCallback((stopId) => {
@@ -142,12 +141,6 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
         console.log('[fetchVehiclePositions] Fetching for:', stop);
         const stopCode = stop.stop_code
         const agency = stop.agency?.toLowerCase() || "sf";
-
-        if (agency === 'bart') {
-            if (stopCode.includes('_')) stopCode = stopCode.split('_')[0];
-            if (stopCode.startsWith('place_')) stopCode = stopCode.replace('place_', '');
-        }
-
         const isBart = agency === "bart" || agency === "ba";
         const endpoint = isBart
         ? `/bart-positions/by-stop?stopCode=${stopCode}&agency=${agency}`
@@ -183,9 +176,7 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
     };
 
     const handleStopClick = useCallback(async (stop) => {
-        if (!clicked) return;
         console.log('[handleStopClick] Stop clicked:', stop);
-        console.trace('[handleStopClick] Called with:', stop);
         let stopId = normalizeId(stop);
         const agency = stop.agency?.toLowerCase();
 
@@ -227,7 +218,7 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
             const visits = data?.ServiceDelivery?.StopMonitoringDelivery?.MonitoredStopVisit;
             const schedule = Array.isArray(visits) ? await normalizeSiriData(visits) : data;
 
-            await fetchVehiclePositions({ stop_code: stopId, agency: stop.agency });
+            await fetchVehiclePositions({ stop_code: stopId, agency });
             setCachedSchedule(stopId, schedule);
             setStopSchedule(schedule);
         } catch (err) {
@@ -236,7 +227,7 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
         } finally {
             setLoading(false);
         }
-    }, [selectedStopId, getCachedSchedule, setCachedSchedule, clicked]);
+    }, [selectedStopId, getCachedSchedule, setCachedSchedule]);
 
     const handleRefreshSchedule = useCallback(async () => {
         const stop = stopsArray.find(s => normalizeId(s) === selectedStopId);
