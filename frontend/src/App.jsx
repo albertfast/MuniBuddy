@@ -10,7 +10,7 @@ import MyLocationIcon from '@mui/icons-material/MyLocation';
 import Map from './components/Map';
 import TransitInfo from './components/TransitInfo';
 import { geocodeAddress, parseCoordinates, formatCoordinates } from './utility/geocode';
-import './index.css';
+import './assets/style.css';
 
 const BASE_URL = import.meta.env.VITE_API_BASE;
 

@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>MuniBuddy - San Francisco Transit Finder</title>
+        <link rel="icon" type="image/x-icon" href="images/favicon.ico">
+        <meta name="title" content="MuniBuddy - San Francico Transit Finder">
+        <meta name="description" content="Find nearby bus and train stops in San Francisco. Get real-time arrivals and departures for MUNI and BART.">
+        <meta name="keywords" content="san francisco, muni, bart, transit, bus, train, transportation, real-time arrivals">
+        <meta name="author" content="MuniBuddy Team">
+        <!--Not sure about this theme color-->
+        <meta name="theme-color" content="#1976d2">
+        <!--icon import--><link href="https://fonts.googleapis.com/icon?family=Material+Icons"
+      rel="stylesheet">
+        <link rel="stylesheet" href="style.css">
+
+    </head>
+    <body>
+
+    <div id="outer-frame">
+
+        <div class="frame-col frame-map">
+
+            <header>
+                <!--Logo-->
+                <img src="images/mb-logo-inline.svg" alt="MuniBuddy" height="30" width="184" id="logo"/>
+
+            </header>
+
+            <!--Map-->
+            <!--Input map here, below is filler-->
+            <div id="map">
+                <img src="https://media.wired.com/photos/59269cd37034dc5f91bec0f1/master/w_1600,c_limit/GoogleMapTA.jpg" alt="Google Maps Filler" >
+            </div><!--/map-->
+
+            </div><!--/frame-map-->
+
+        <div class="frame-col frame-main panel">
+
+            <!--Search-->
+            <div id="searchbar">
+                <div id="searchbar_inner">
+                    <button class="btn-icon btn-secondary"><span class="material-icons">my_location</span></button>
+                    <input type="text" id="location" placeholder="Starting Location">
+                    <button class="btn-icon btn-primary"><span class="material-icons">search</span></button>
+                </div>
+                <div id="radius">
+                    <h3>Search Radius</h3>
+                    <div class="slider">(Slider)</div>
+                </div>
+            </div>
+
+            <!--Nearby Stops-->
+            <h2 id="nearbyStops">Nearby Stops (2)</h2>
+            <div id="businfo">
+                <div class="stop">
+                    <h3 class="stop-header"><span class="material-icons">location_on</span> Street & Street</h3>
+                    <div class="stop-details">
+                        <span class="caption small">#17725</span>
+                        <span class="chip small"><span class="material-icons">
+                            directions_walk
+                            </span>.1 mi</span>
+                    </div>
+                    <!--route-->
+                    <div class="route">
+                        <div class="route-header">
+                            <div class="route-name">
+                                <h4>5R <span class="route-descrip">Fulton</span></h4>
+                            </div>
+                            <div class="route-direction">
+                                <span class="route-destination">Transit Center</span>
+                                <span class="route-bound">Inbound</span>
+                            </div>
+                            <!--<div class="route-info">
+                                <button class="btn-icon btn-primary"><span class="material-icons">arrow_circle_right</span></button>
+                            </div>-->
+                        </div><!--end route-header-->
+                        <div class="route-times">
+                            <span class="chip chip-green small">Due</span>
+                            <span class="chip chip-green small">5 <span class="min">min</span></span>
+                            <span class="chip chip-green small">10 <span class="min">min</span></span>
+                        </div>
+                    </div>
+                    <!--/route-->
+                    <!--route-->
+                    <div class="route">
+                        <div class="route-header">
+                            <div class="route-name">
+                                <h4>5R <span class="route-descrip">Fulton</span></h4>
+                            </div>
+                            <div class="route-direction">
+                                <span class="route-destination">Ocean Beach</span>
+                                <span class="route-bound">Outbound</span>
+                            </div>
+                            <!--<div class="route-info">
+                                <button class="btn-icon btn-primary"><span class="material-icons">arrow_circle_right</span></button>
+                            </div>-->
+                        </div><!--end route-header-->
+                        <div class="route-times">
+                            <span class="chip chip-green small">Due</span>
+                            <span class="chip chip-green small">5 <span class="min">min</span></span>
+                            <span class="chip chip-green small">10 <span class="min">min</span></span>
+                        </div>
+                    </div>
+                    <!--/route-->
+                </div><!--end stop-->
+                <div class="stop">
+                    <h3 class="stop-header"><span class="material-icons">location_on</span> Street & Street</h3>
+                    <div class="stop-details">
+                        <span class="caption small">#17725</span>
+                        <span class="chip small"><span class="material-icons">
+                            directions_walk
+                            </span>.1 mi</span>
+                    </div>
+                    <!--route-->
+                    <div class="route">
+                        <div class="route-header">
+                            <div class="route-name">
+                                <h4>5R <span class="route-descrip">Fulton</span></h4>
+                            </div>
+                            <div class="route-direction">
+                                <span class="route-destination">Transit Center</span>
+                                <span class="route-bound">Inbound</span>
+                            </div>
+                            <!--<div class="route-info">
+                                <button class="btn-icon btn-primary"><span class="material-icons">arrow_circle_right</span></button>
+                            </div>-->
+                        </div><!--end route-header-->
+                        <div class="route-times">
+                            <span class="chip chip-green small">Due</span>
+                            <span class="chip chip-green small">5 <span class="min">min</span></span>
+                            <span class="chip chip-green small">10 <span class="min">min</span></span>
+                        </div>
+                    </div>
+                    <!--/route-->
+                    <!--route-->
+                    <div class="route">
+                        <div class="route-header">
+                            <div class="route-name">
+                                <h4>5R <span class="route-descrip">Fulton</span></h4>
+                            </div>
+                            <div class="route-direction">
+                                <span class="route-destination">Ocean Beach</span>
+                                <span class="route-bound">Outbound</span>
+                            </div>
+                            <!--<div class="route-info">
+                                <button class="btn-icon btn-primary"><span class="material-icons">arrow_circle_right</span></button>
+                            </div>-->
+                        </div><!--end route-header-->
+                        <div class="route-times">
+                            <span class="chip chip-green small">Due</span>
+                            <span class="chip chip-green small">5 <span class="min">min</span></span>
+                            <span class="chip chip-green small">10 <span class="min">min</span></span>
+                        </div>
+                    </div>
+                    <!--/route-->
+                </div><!--/stop-->
+            </div><!--/businfo Nearby Stops-->
+
+        </div><!--/frame-main-->
+
+    </div><!--/outer-frame-->
+
+    </body>
+</html>
