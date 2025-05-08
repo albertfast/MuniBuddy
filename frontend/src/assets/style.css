@@ -201,9 +201,8 @@ h1, h2, h3, h4, h5, h6 {
 /* Desktop Layout (Side-by-side Map & Transit Info) */
 @media screen and (min-width: 900px) { /* MUI 'md' breakpoint */
   .main-content-scrollable-area > .MuiContainer-root > .MuiGrid-container {
-    /* Make grid container fill the scrollable area height */
-    /* This might require explicit height or flex setup on the container */
-    /* display: flex; height: 100%; */ /* Uncomment if needed */
+    display: flex;
+    height: 100%;
   }
   .map-grid-item-dynamic-height,
   .transit-info-panel-dynamic-height {
