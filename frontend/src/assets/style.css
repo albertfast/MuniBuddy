@@ -127,7 +127,7 @@ html, body {
 
 #root {
     height: 100%;
-    display: flex; /* Added to help .overall-layout fill height */
+    display: flex;
 }
 
 /* ==== Headings ==== */
@@ -149,9 +149,9 @@ h1, h2, h3, h4, h5, h6 {
 .overall-layout {
   display: flex;
   flex-direction: column;
-  height: 100%; /* Fill height of #root */
-  width: 100%; /* Fill width */
-  overflow: hidden; /* Prevent this from scrolling */
+  height: 100%;
+  width: 100%; 
+  overflow: hidden; 
   background-color: var(--current-bg-color);
 }
 
@@ -160,7 +160,7 @@ h1, h2, h3, h4, h5, h6 {
   background-color: var(--current-bg-color);
   box-shadow: 0 2px 5px var(--current-box-shadow);
   z-index: 1050;
-  position: sticky; /* Stick to the top of .overall-layout */
+  position: sticky;
   top: 0;
   left: 0;
   right: 0;
@@ -172,18 +172,14 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Main Content Area (Scrollable) */
 .main-content-scrollable-area {
-  flex-grow: 1; /* Take remaining vertical space */
-  overflow-y: auto; /* Enable vertical scrolling */
+  flex-grow: 1; 
+  overflow-y: auto; 
   background-color: var(--current-bg-color);
-  /* Add padding for the MUI container inside */
+ 
 }
 .main-content-scrollable-area > .MuiContainer-root {
     padding-top: 1rem !important;
     padding-bottom: 1rem !important;
-    /* If using flex on grid container inside, ensure container allows it */
-    /* display: flex; */
-    /* flex-direction: column; */ /* Or row depending on breakpoints */
-    /* height: 100%; */ /* Might be needed for grid item heights */
 }
 
 /* Map and Transit Info Grid Items */
@@ -194,7 +190,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* Map Container within the grid item */
-.map-grid-item-dynamic-height > .MuiBox-root { /* Targets the Box wrapping Map */
+.map-grid-item-dynamic-height > .MuiBox-root { 
     flex-grow: 1;
     min-height: 280px;
     border-radius: 8px;
@@ -204,19 +200,17 @@ h1, h2, h3, h4, h5, h6 {
 /* Desktop Layout (Side-by-side) */
 @media screen and (min-width: 900px) {
    .main-content-scrollable-area > .MuiContainer-root > .MuiGrid-container {
-       /* This might need flex properties to allow percentage heights on children */
-       /* display: flex; */
-       /* align-items: stretch; */ /* Make items same height */
-       /* height: 100%; */ /* Or a calculated height */
+       display: flex;
+       align-items: stretch; 
+       height: 100%; 
    }
   .map-grid-item-dynamic-height,
   .transit-info-panel-dynamic-height {
-    /* Calculate max height based on observed top panel height */
-    /* Adjust the subtraction value (e.g., 160px) based on dev tools measurement */
+ 
     max-height: calc(100vh - 160px);
   }
   .transit-info-panel-dynamic-height {
-    overflow-y: auto; /* Allow transit info to scroll independently */
+    overflow-y: auto; 
   }
 }
 
@@ -226,12 +220,12 @@ h1, h2, h3, h4, h5, h6 {
         flex-direction: column;
     }
     .map-grid-item-dynamic-height > .MuiBox-root {
-        height: 300px; /* Fixed map height */
+        height: 300px; 
         margin-bottom: 1rem;
     }
     .transit-info-panel-dynamic-height {
-        height: auto; /* Content determines height */
-        overflow-y: visible; /* Don't scroll independently */
+        height: auto; 
+        overflow-y: visible; 
     }
 }
 
