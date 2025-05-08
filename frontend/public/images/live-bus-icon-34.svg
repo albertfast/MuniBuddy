@@ -1,3 +1,21 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="34" height="34">
-  <image href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACIAAAAiCAYAAAA6RwvCAAAFNUlEQVR4nO2XWWxVVRSG/7X2Oeee215aWgaRYCQ8IdJBjb5ojPPw4hCV3rZiNDExxDQRRSREHg2YGB/UmBg1BrUXFKMYjBGHRDQafVG4t2hJ9EEtCrSlDHc8Z++1fLhFSrmlk76of7Jzkn3WXuvbw1lrH+B//RdF/5DttFTX2fdAZJLd7KJdzbaUObTj0sG/BYQANHX3rSiSuQSiSwBVEP3mCX9f2La8X8fZh125Ky0Fa0XlZgKfSCB6qJhp+WBWIPVduWsr6m1wKlerCULQ6DBVsEQlJtoTQjfnMxd/MdYxAZh3T9+ikcB7zind6bvy3dFbbe/XisGTQQTp3PqierstezcpUQiJARdVm8QQcNKSf0sB5pOgo2/DqZn5XbnnqfvnXN64K1zv8lUsccay/3pjx49Lpw0SpLOPxSbxtBL5UAGJK8DZITg7BKk+SWyBIFAgiP3E5kR635MAYEh6Se2BCoc7w67sPe0NTWsALeRhn6gVa8KtaejOXX5SzJdKnCCVowFkow/ZU46o2ZrqOI+gITAixlxVVt0iZJpJ1daTvSafafmKAJh07jVR3LpsYeLCXwYrGx2wZp6jZYM7VuYnXRECUHLYqCZIQFU9iXsq21a+VG/kqPr8MDH1EFOPEvc0JJEvZla8HEAeJqiq8b2yYB0AKIA5AT8DpvMGjlQuC+D2ADq/HPLiKW3N3I7cBRa4HmLBYo8sCPzd3qrsY4ejxCYnbkStDKnIkBM3/HvRW+915NadF6Q+Imf/gDg4xXXN3fuWAIATrYAMFJwkNhWQISEOx8f0aoGUGe2gYA4gAGlenKaEaRP8sBEybggbSGzzlbi4A4QTgCyG8RsKEl8MYCAJ+0ckuL/Rt98ct3QboFHS0WBhKiAwWKIwgAhUyRZZfXUguAqgcqatOihgYrIhlGOAADIwZBcBwOE32wsAtpYBpDr7PzES3zzUe9GhKa2IOBWY0RRFJIYQETCgzi0EXPWAK0aPulEAw8KmBJK/KEVgx/vNb1s+BODzWjFrghiY30gcFASo6MiyloF5B/pvHC7EDp6MS6J1aPJO+kffuOQgOrIKECAxDOvBWr4nUk0QP+AfypW4oCZRr4K46Yf9S4579HliDj1VybS/OtY2TPd1HqPElsau7LXHLVkQgyQaqfOof/w5OJdqfjWPLN3+KxO+BfsAAAqCY0z4zFfz03hbIvzsse7mOBquevTBhK+Htq486xycSxMmtLCrr6vMyV625cFQ7C3Ft9u+Q2f/fJSkGYhGrQLA2ePY1Xq4Pp1tLYI/gheeH0rprlKm5d3pgEyY4ptSTTs5LuwXv35BCfQiAfA0egF1JosEV1udyVKIVxhAGXhZ/dT5ZIt7F/qpD6cDAUxSfZOde+8qc907cFHRQDJO6Q413vzTnzCDxI4YxntOKQ32k6FGt5e2tez6W0GqtSK71Xqp+6AOkOjsPEIMcACwgRfnX7XbWx+cLgQwSfVVAIscr2VXzAJ6NgQw2qcwcSG3mBsfnwkEMMWL0dx0tvUEe58KeAEkPvMl+2CVI0mKbyhk2nIzBZn0YgQAx7a3ZkNy9xKQB41JPeyBoPkk2e7ZQEwZBACKvS0f11PlASYqgbxRCBR9G68uZFo/nQ0EMINbfJjOrqqw/wYUNiS7err5YtaiMa0hnb0x1bXvahrXP1v/59Tcew+05cU9Kyo+qmUQSqhAlEAUnHLDZKKEFz9aeL01OxOQ2veRMVJ1holDJg1wuu4mwWPmUP298NTppP4m0pRWdCpLr6Ptf/3r9CchpV0MM+kNlAAAAABJRU5ErkJggg==" width="34" height="34"/>
+<svg width="34" height="34" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+  <!-- Purple map pin background -->
+  <path d="M32 0C20 0 10 10 10 22C10 36 32 64 32 64C32 64 54 36 54 22C54 10 44 0 32 0Z" fill="#7A00B5"/>
+
+  <!-- Bus body with rounded corners and "smiling" bottom edge -->
+  <rect x="22" y="16" width="20" height="20" rx="4" fill="white"/>
+
+  <!-- Bus window (the "eyes") -->
+  <rect x="26" y="18" width="12" height="5" rx="1" fill="#7A00B5"/>
+
+  <!-- Bus headlights (eyes) -->
+  <circle cx="27" cy="30" r="2" fill="#7A00B5"/>
+  <circle cx="37" cy="30" r="2" fill="#7A00B5"/>
+
+  <!-- Smile below the headlights -->
+  <path d="M27 33C28 35 36 35 37 33" stroke="#7A00B5" stroke-width="2" stroke-linecap="round"/>
+
+  <!-- Live signal lines (indicating the bus is active or live) -->
+  <path d="M16 8C18 5 20 3 23 2" stroke="#AB34D3" stroke-width="2" stroke-linecap="round"/>
+  <path d="M48 8C46 5 44 3 41 2" stroke="#AB34D3" stroke-width="2" stroke-linecap="round"/>
 </svg>

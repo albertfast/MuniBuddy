@@ -80,12 +80,12 @@ const App = () => {
 
             vehicleMarkers.push({
               position: { lat: parseFloat(loc.Latitude), lng: parseFloat(loc.Longitude) },
-              title: `${vehicle?.PublishedLineName || agency.toUpperCase()} → ${vehicle?.MonitoredCall?.DestinationDisplay || '?'}`,
-              stopId: `${stopCode}-${agency}-${i}`,
-              icon: {
-                url: agency === 'bart' ? '/images/live-train-icon.svg' : '/images/live-bus-icon.svg',
-                scaledSize: { width: 28, height: 28 }
-              }
+                                title: `${vehicle?.PublishedLineName || agency.toUpperCase()} → ${vehicle?.MonitoredCall?.DestinationDisplay || '?'}`,
+                                stopId: `${stopCode}-${agency}-${i}`,
+                                icon: {
+                                  url: agency === 'bart' ? '/images/live-train-icon.svg' : '/images/live-bus-icon.svg',
+                                  scaledSize: { width: 28, height: 28 }
+                                }
             });
           });
         } catch (err) {
@@ -95,9 +95,9 @@ const App = () => {
 
       const stopMarkers = Object.values(stopsFound).map(stop => ({
         position: { lat: parseFloat(stop.stop_lat), lng: parseFloat(stop.stop_lon) },
-        title: stop.stop_name,
-        stopId: stop.stop_id,
-        icon: { url: '/images/bus-stop-icon.svg', scaledSize: { width: 32, height: 32 } }
+                                                                 title: stop.stop_name,
+                                                                 stopId: stop.stop_id,
+                                                                 icon: { url: '/images/bus-stop-icon.svg', scaledSize: { width: 32, height: 32 } }
       }));
 
       if (userLocation) {
@@ -148,85 +148,85 @@ const App = () => {
 
   return (
     <Container maxWidth="lg">
-      <Box sx={{ my: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Typography variant="h4">MuniBuddy</Typography>
-        <button onClick={toggleTheme}>{theme === 'light' ? 'Switch to Dark Theme' : 'Switch to Light Theme'}</button>
+    <Box sx={{ my: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+    <Typography variant="h4">MuniBuddy</Typography>
+    <button onClick={toggleTheme}>{theme === 'light' ? 'Switch to Dark Theme' : 'Switch to Light Theme'}</button>
+    </Box>
+    {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+    <Grid container spacing={2} alignItems="center" sx={{ mb: 2 }}>
+    <Grid item xs={12} sm={8}>
+    <TextField
+    fullWidth
+    placeholder="Enter address or coordinates"
+    value={searchAddress}
+    onChange={(e) => setSearchAddress(e.target.value)}
+    onKeyDown={(e) => e.key === 'Enter' && handleManualLocationSearch()}
+    InputProps={{
+      startAdornment: (
+        <InputAdornment position="start">
+        <SearchIcon />
+        </InputAdornment>
+      ),
+      style: { color: theme === 'dark' ? '#fff' : '#000' },
+    }}
+    />
+    </Grid>
+    <Grid item xs={6} sm={2}>
+    <Button fullWidth variant="contained" onClick={handleManualLocationSearch}>Search</Button>
+    </Grid>
+    <Grid item xs={6} sm={2}>
+    <Button fullWidth variant="outlined" onClick={requestLocation} startIcon={<MyLocationIcon />}>Locate Me</Button>
+    </Grid>
+    <Grid item xs={12}>
+    <Typography gutterBottom>Radius: {radius.toFixed(2)} mi</Typography>
+    <Slider value={radius} min={0.1} max={1.0} step={0.05} onChange={(e, v) => setRadius(v)} valueLabelDisplay="auto" />
+    </Grid>
+    </Grid>
+
+    <Grid container spacing={2}>
+    <Grid item xs={12} md={8}>
+    <Box className="map-container" sx={{ position: 'relative', height: '450px', mb: { xs: 3, md: 0 } }}>
+    <Map
+    center={userLocation || { lat: 37.7749, lng: -122.4194 }}
+    markers={markers}
+    liveVehicleMarkers={liveVehicleMarkers}
+    onMapClick={(e) => {
+      const location = { lat: e.latLng.lat(), lng: e.latLng.lng() };
+      setUserLocation(location);
+      setSearchAddress(formatCoordinates(location.lat, location.lng));
+      fetchNearbyStops(location);
+    }}
+    />
+    {isLoading && (
+      <Box sx={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(255,255,255,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+      <CircularProgress />
       </Box>
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-      <Grid container spacing={2} alignItems="center" sx={{ mb: 2 }}>
-        <Grid item xs={12} sm={8}>
-          <TextField
-            fullWidth
-            placeholder="Enter address or coordinates"
-            value={searchAddress}
-            onChange={(e) => setSearchAddress(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleManualLocationSearch()}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon />
-                </InputAdornment>
-              ),
-              style: { color: theme === 'dark' ? '#fff' : '#000' },
-            }}
-          />
-        </Grid>
-        <Grid item xs={6} sm={2}>
-          <Button fullWidth variant="contained" onClick={handleManualLocationSearch}>Search</Button>
-        </Grid>
-        <Grid item xs={6} sm={2}>
-          <Button fullWidth variant="outlined" onClick={requestLocation} startIcon={<MyLocationIcon />}>Locate Me</Button>
-        </Grid>
-        <Grid item xs={12}>
-          <Typography gutterBottom>Radius: {radius.toFixed(2)} mi</Typography>
-          <Slider value={radius} min={0.1} max={1.0} step={0.05} onChange={(e, v) => setRadius(v)} valueLabelDisplay="auto" />
-        </Grid>
-      </Grid>
+    )}
+    </Box>
+    </Grid>
+    <Grid item xs={12} md={4} className="transit-info-panel">
+    {!isLoading && Object.keys(nearbyStops).length > 0 ? (
+      <TransitInfo stops={nearbyStops} setLiveVehicleMarkers={setLiveVehicleMarkers} />
+    ) : (
+      !isLoading && (
+        <Typography align="center" color="text.secondary" sx={{ py: 3 }}>
+        {userLocation ? 'No nearby stops found.' : 'Enter or select a location to see stops.'}
+        </Typography>
+      )
+    )}
+    </Grid>
+    </Grid>
 
-      <Grid container spacing={2}>
-        <Grid item xs={12} md={8}>
-          <Box className="map-container" sx={{ position: 'relative', height: '450px', mb: { xs: 3, md: 0 } }}>
-            <Map
-              center={userLocation || { lat: 37.7749, lng: -122.4194 }}
-              markers={markers}
-              liveVehicleMarkers={liveVehicleMarkers}
-              onMapClick={(e) => {
-                const location = { lat: e.latLng.lat(), lng: e.latLng.lng() };
-                setUserLocation(location);
-                setSearchAddress(formatCoordinates(location.lat, location.lng));
-                fetchNearbyStops(location);
-              }}
-            />
-            {isLoading && (
-              <Box sx={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(255,255,255,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                <CircularProgress />
-              </Box>
-            )}
-          </Box>
-        </Grid>
-        <Grid item xs={12} md={4} className="transit-info-panel">
-          {!isLoading && Object.keys(nearbyStops).length > 0 ? (
-            <TransitInfo stops={nearbyStops} setLiveVehicleMarkers={setLiveVehicleMarkers} />
-          ) : (
-            !isLoading && (
-              <Typography align="center" color="text.secondary" sx={{ py: 3 }}>
-                {userLocation ? 'No nearby stops found.' : 'Enter or select a location to see stops.'}
-              </Typography>
-            )
-          )}
-        </Grid>
-      </Grid>
-
-      <Dialog open={showLocationDialog} onClose={() => setShowLocationDialog(false)}>
-        <DialogTitle>Use Your Location?</DialogTitle>
-        <DialogContent>
-          <Typography>Allow MuniBuddy to use your current location to find nearby transit stops?</Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setShowLocationDialog(false)}>No Thanks</Button>
-          <Button onClick={requestLocation} variant="contained">Use Location</Button>
-        </DialogActions>
-      </Dialog>
+    <Dialog open={showLocationDialog} onClose={() => setShowLocationDialog(false)}>
+    <DialogTitle>Use Your Location?</DialogTitle>
+    <DialogContent>
+    <Typography>Allow MuniBuddy to use your current location to find nearby transit stops?</Typography>
+    </DialogContent>
+    <DialogActions>
+    <Button onClick={() => setShowLocationDialog(false)}>No Thanks</Button>
+    <Button onClick={requestLocation} variant="contained">Use Location</Button>
+    </DialogActions>
+    </Dialog>
     </Container>
   );
 };

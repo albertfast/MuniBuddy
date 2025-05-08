@@ -8,6 +8,8 @@ RUN npm install
 
 COPY . .
 
+RUN npm run build
+
 # Add both build-time variables
 ARG VITE_API_BASE
 ARG VITE_GOOGLE_MAPS_API_KEY

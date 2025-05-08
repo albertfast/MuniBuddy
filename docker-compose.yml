@@ -1,3 +1,4 @@
+#docker-compose.yml
 version: '3.9'
 
 services:
@@ -61,6 +62,9 @@ services:
   redis_cache:
     image: redis:7.4.2
     command: redis-server /etc/redis/redis.conf
+    container_name: munibuddy-redis_cache-1
+    ports:
+      - "6380:6379"
     volumes:
       - ./backend/redis.conf:/etc/redis/redis.conf
       - redis_data:/data

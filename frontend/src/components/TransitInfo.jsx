@@ -11,6 +11,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import axios from 'axios';
+import '../assets/style.css';
 
 axios.interceptors.request.use((config) => {
     console.log(`[API Request] ${config.method?.toUpperCase()} ${config.url}`, config.params || {});
@@ -283,9 +284,9 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
     );
 
     return (
-        <Card elevation={2}>
+        <Card elevation={2} className="transit-card">
         <CardContent>
-        <Typography variant="h6" fontWeight="bold" color="primary.main" gutterBottom>
+        <Typography className="transit-section-header">
         Nearby Stops ({stopsArray.length})
         </Typography>
         <List>
@@ -314,21 +315,21 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
                 </ListItemButton>
                 <Collapse in={isSelected} timeout="auto" unmountOnExit>
                 <Box px={2} pb={2} pt={1}>
-                <Button size="small" variant="outlined" startIcon={<RefreshIcon />} onClick={handleRefreshSchedule} sx={{ mb: 1 }}>
+                <Button className="refresh-section" startIcon={<RefreshIcon />} onClick={handleRefreshSchedule} sx={{ mb: 1 }}>
                 Refresh
                 </Button>
                 {loading ? (
                     <Box py={3} display="flex" justifyContent="center"><CircularProgress size={28} /></Box>
                 ) : stopSchedule ? (
                     <>
-                    {error && <Alert severity="warning" sx={{ mb: 2 }}>{error}</Alert>}
+                    {error && <div className="transit-error">{error}</div>}
                     {['inbound', 'outbound'].map((dir) => (
                         stopSchedule[dir]?.length > 0 && (
                             <Box key={dir} mb={2}>
                             <Typography variant="subtitle1" gutterBottom>{dir.charAt(0).toUpperCase() + dir.slice(1)}</Typography>
                             <List dense disablePadding>
                             {stopSchedule[dir].map((route, i) => (
-                                <ListItem key={`${dir}-${i}`} disablePadding>
+                                <ListItem key={`${dir}-${i}`} disablePadding className="transit-list-item">
                                 <ListItemText primary={renderRouteInfo(route)} disableTypography />
                                 </ListItem>
                             ))}
@@ -337,7 +338,7 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers }) => {
                         )
                     ))}
                     {stopSchedule.inbound?.length === 0 && stopSchedule.outbound?.length === 0 && (
-                        <Typography variant="body2" color="text.secondary">No upcoming transit found.</Typography>
+                        <Typography className="transit-empty">No upcoming transit found.</Typography>
                     )}
                     </>
                 ) : (

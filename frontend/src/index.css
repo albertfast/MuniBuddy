@@ -204,7 +204,7 @@ html[data-theme="dark"] .card {
 }
 
 .gm-style .gm-style-iw-t::after {
-  background: linear-gradient(45deg, rgba(255,255,255,1) 50%, rgba(255,255,255,0) 51%);
+  background: linear-gradient(45deg, rgb(168, 10, 142) 50%, rgba(228, 202, 202, 0.856) 51%);
 }
 
 .read-the-docs {
