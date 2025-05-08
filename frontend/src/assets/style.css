@@ -118,28 +118,27 @@ html, body {
   font-family: var(--font-main);
   background-color: var(--current-bg-color);
   color: var(--current-text-color);
-  line-height: 1.6; /* Slightly increased line height */
+  line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   height: 100%;
-  overflow: hidden; /* Prevent body scroll, rely on inner scroll containers */
+  /* overflow: hidden; */ /* Allow body to scroll if needed, let inner containers manage their overflow */
 }
 
-#root { /* Assuming React mounts here */
+#root {
     height: 100%;
+    display: flex; /* Added to help .overall-layout fill height */
 }
 
 /* ==== Headings ==== */
 h1, h2, h3, h4, h5, h6 {
   margin: 0;
   font-weight: 600;
-  color: var(--purpleDark); /* Default heading color */
+  color: var(--purpleDark);
 }
-/* Dark theme headings */
 :root[data-theme="dark"] h1, :root[data-theme="dark"] h2, :root[data-theme="dark"] h3, :root[data-theme="dark"] h4, :root[data-theme="dark"] h5, :root[data-theme="dark"] h6 {
   color: var(--purpleLight);
 }
-/* System dark theme headings */
 @media (prefers-color-scheme: dark) {
   :root[data-theme="system"] h1, :root[data-theme="system"] h2, :root[data-theme="system"] h3, :root[data-theme="system"] h4, :root[data-theme="system"] h5, :root[data-theme="system"] h6 {
     color: var(--purpleLight);
@@ -150,8 +149,9 @@ h1, h2, h3, h4, h5, h6 {
 .overall-layout {
   display: flex;
   flex-direction: column;
-  height: 100%; /* Full viewport height */
-  overflow: hidden; /* Prevent this container from scrolling */
+  height: 100%; /* Fill height of #root */
+  width: 100%; /* Fill width */
+  overflow: hidden; /* Prevent this from scrolling */
   background-color: var(--current-bg-color);
 }
 
@@ -159,13 +159,12 @@ h1, h2, h3, h4, h5, h6 {
 .top-fixed-panel {
   background-color: var(--current-bg-color);
   box-shadow: 0 2px 5px var(--current-box-shadow);
-  z-index: 1050; /* Ensure it's above map controls/markers */
+  z-index: 1050;
   position: sticky; /* Stick to the top of .overall-layout */
   top: 0;
   left: 0;
   right: 0;
 }
-/* Ensure padding inside the MUI Container within the panel */
 .top-fixed-panel .MuiContainer-root {
     padding-top: 0.75rem !important;
     padding-bottom: 0.75rem !important;
@@ -174,60 +173,65 @@ h1, h2, h3, h4, h5, h6 {
 /* Main Content Area (Scrollable) */
 .main-content-scrollable-area {
   flex-grow: 1; /* Take remaining vertical space */
-  overflow-y: auto; /* Enable vertical scrolling ONLY for this area */
-  background-color: var(--current-bg-color); /* Match overall background */
+  overflow-y: auto; /* Enable vertical scrolling */
+  background-color: var(--current-bg-color);
+  /* Add padding for the MUI container inside */
 }
-/* Ensure padding inside the MUI Container within the scrollable area */
 .main-content-scrollable-area > .MuiContainer-root {
     padding-top: 1rem !important;
     padding-bottom: 1rem !important;
+    /* If using flex on grid container inside, ensure container allows it */
+    /* display: flex; */
+    /* flex-direction: column; */ /* Or row depending on breakpoints */
+    /* height: 100%; */ /* Might be needed for grid item heights */
 }
 
 /* Map and Transit Info Grid Items */
 .map-grid-item-dynamic-height,
 .transit-info-panel-dynamic-height {
   display: flex;
-  flex-direction: column; /* Allow content to grow vertically */
+  flex-direction: column;
 }
 
 /* Map Container within the grid item */
 .map-grid-item-dynamic-height > .MuiBox-root { /* Targets the Box wrapping Map */
-    flex-grow: 1; /* Allows map to fill vertical space in its grid item */
-    min-height: 280px; /* Ensure minimum map height */
+    flex-grow: 1;
+    min-height: 280px;
     border-radius: 8px;
-    overflow: hidden; /* Clip map corners */
+    overflow: hidden;
 }
 
-/* Desktop Layout (Side-by-side Map & Transit Info) */
-@media screen and (min-width: 900px) { /* MUI 'md' breakpoint */
-  .main-content-scrollable-area > .MuiContainer-root > .MuiGrid-container {
-    display: flex;
-    height: 100%;
-  }
+/* Desktop Layout (Side-by-side) */
+@media screen and (min-width: 900px) {
+   .main-content-scrollable-area > .MuiContainer-root > .MuiGrid-container {
+       /* This might need flex properties to allow percentage heights on children */
+       /* display: flex; */
+       /* align-items: stretch; */ /* Make items same height */
+       /* height: 100%; */ /* Or a calculated height */
+   }
   .map-grid-item-dynamic-height,
   .transit-info-panel-dynamic-height {
-    /* On desktop, set a max height to prevent them from becoming too tall */
-    /* Adjust 160px based on the ACTUAL measured height of your top-fixed-panel + desired padding */
-    height: calc(100vh - 160px);
-    max-height: 70vh; /* Example max height constraint */
+    /* Calculate max height based on observed top panel height */
+    /* Adjust the subtraction value (e.g., 160px) based on dev tools measurement */
+    max-height: calc(100vh - 160px);
   }
   .transit-info-panel-dynamic-height {
-    overflow-y: auto; /* Allow transit info panel to scroll independently */
+    overflow-y: auto; /* Allow transit info to scroll independently */
   }
 }
 
-/* Mobile Layout (Stacked Map & Transit Info) */
-@media screen and (max-width: 899px) { /* Below 'md' */
+/* Mobile Layout (Stacked) */
+@media screen and (max-width: 899px) {
     .main-content-scrollable-area .MuiGrid-container {
-        flex-direction: column; /* Stack items vertically */
+        flex-direction: column;
     }
     .map-grid-item-dynamic-height > .MuiBox-root {
-        height: 300px; /* Fixed map height on smaller screens */
-        margin-bottom: 1rem; /* Space between map and transit info */
+        height: 300px; /* Fixed map height */
+        margin-bottom: 1rem;
     }
     .transit-info-panel-dynamic-height {
-        height: auto; /* Let content determine height */
-        overflow-y: visible; /* Don't scroll independently, let the main area scroll */
+        height: auto; /* Content determines height */
+        overflow-y: visible; /* Don't scroll independently */
     }
 }
 
@@ -240,12 +244,10 @@ h1, h2, h3, h4, h5, h6 {
 .top-fixed-panel .MuiTextField-root .MuiOutlinedInput-notchedOutline {
   border: 1px solid var(--current-inputBorder) !important;
 }
-/* Style placeholder text */
 .top-fixed-panel .MuiTextField-root .MuiInputBase-input::placeholder {
-  color: var(--current-grayMid-val) !important; /* Use -val suffixed var */
+  color: var(--current-grayMid-val) !important;
   opacity: 0.8;
 }
-/* General button styles in top panel */
 .top-fixed-panel .MuiButton-root {
   font-family: var(--font-main) !important;
   font-weight: 600 !important;
@@ -255,7 +257,6 @@ h1, h2, h3, h4, h5, h6 {
   font-size: 0.875rem;
   box-shadow: none !important;
 }
-/* Contained (primary) button style */
 .top-fixed-panel .MuiButton-containedPrimary {
   background-color: var(--purple) !important;
   color: var(--white) !important;
@@ -263,7 +264,6 @@ h1, h2, h3, h4, h5, h6 {
 .top-fixed-panel .MuiButton-containedPrimary:hover {
   background-color: var(--purpleDark) !important;
 }
-/* Outlined button style */
 .top-fixed-panel .MuiButton-outlined {
   color: var(--purple) !important;
   border-color: var(--purple) !important;
@@ -272,199 +272,74 @@ h1, h2, h3, h4, h5, h6 {
   background-color: var(--purpleLight) !important;
   color: var(--purpleDark) !important;
 }
-/* Slider styles */
-.top-fixed-panel .MuiSlider-root {
-    color: var(--purple) !important;
-}
-.top-fixed-panel .MuiSlider-rail {
-    color: var(--purpleLight) !important;
-    opacity: 0.7;
-}
+.top-fixed-panel .MuiSlider-root { color: var(--purple) !important; }
+.top-fixed-panel .MuiSlider-rail { color: var(--purpleLight) !important; opacity: 0.7; }
 
 /* ==== TransitInfo Panel Specific Styles ==== */
-.transit-card-custom { /* The Card component wrapping TransitInfo */
+.transit-card-custom {
   background-color: var(--current-card-bg) !important;
   border: 1px solid var(--current-border-color) !important;
   border-radius: 8px !important;
   box-shadow: 0 1px 3px var(--current-box-shadow) !important;
 }
-.transit-card-custom .MuiCardContent-root {
-    padding: 0.75rem !important;
-}
-
-/* "Nearby Stops (X)" header */
+.transit-card-custom .MuiCardContent-root { padding: 0.75rem !important; }
 .transit-section-header {
-  font-size: 0.8rem !important;
-  color: var(--current-grayMid-val) !important; /* Use -val suffix */
-  padding-left: 0.25rem !important;
-  font-weight: 700 !important;
-  margin-bottom: 0.75rem !important;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  font-size: 0.8rem !important; color: var(--current-grayMid-val) !important; padding-left: 0.25rem !important;
+  font-weight: 700 !important; margin-bottom: 0.75rem !important; text-transform: uppercase; letter-spacing: 0.5px;
 }
-
-/* Individual Stop Item in the List */
 .transit-card-custom .MuiListItemButton-root {
-  padding-top: 0.6rem !important;
-  padding-bottom: 0.6rem !important;
-  border-radius: 6px !important;
-  margin-bottom: 4px; /* Add small space between stop items */
+  padding-top: 0.6rem !important; padding-bottom: 0.6rem !important; border-radius: 6px !important; margin-bottom: 4px;
 }
-.transit-card-custom .MuiListItemButton-root:hover {
-  background-color: var(--current-input-bg) !important;
+.transit-card-custom .MuiListItemButton-root:hover { background-color: var(--current-input-bg) !important; }
+.transit-card-custom .MuiListItemButton-root .MuiTypography-fontWeightMedium { /* Stop Name */
+  font-size: 0.9rem !important; color: var(--current-text-color) !important; font-weight: 500 !important;
 }
-/* Stop Name */
-.transit-card-custom .MuiListItemButton-root .MuiTypography-fontWeightMedium {
-  font-size: 0.9rem !important;
-  color: var(--current-text-color) !important;
-  font-weight: 500 !important;
+.transit-card-custom .MuiListItemButton-root .MuiChip-root { /* Distance Chip */
+  background-color: var(--current-grayLight2-val) !important; color: var(--current-grayDark-val) !important;
+  font-size: 0.7rem !important; height: 20px !important; padding: 2px 5px !important;
 }
-/* Distance Chip */
-.transit-card-custom .MuiListItemButton-root .MuiChip-root {
-  background-color: var(--current-grayLight2-val) !important; /* Use -val suffix */
-  color: var(--current-grayDark-val) !important; /* Use -val suffix */
-  font-size: 0.7rem !important;
-  height: 20px !important;
-  padding: 2px 5px !important;
-}
-/* Dark theme override for distance chip background */
-:root[data-theme="dark"] .transit-card-custom .MuiListItemButton-root .MuiChip-root {
-  background-color: #383838 !important;
-  color: var(--current-grayDark-val) !important;
-}
-
-/* Collapsed Section Styles (where schedule appears) */
+:root[data-theme="dark"] .transit-card-custom .MuiListItemButton-root .MuiChip-root { background-color: #383838 !important; color: var(--current-grayDark-val) !important; }
 .transit-card-custom .MuiCollapse-root .MuiBox-root[role="region"] {
-  padding-top: 0.5rem !important;
-  padding-left: 0.8rem !important; /* Increased padding to align text after border */
-  padding-right: 0.25rem !important;
-  padding-bottom: 0.1rem !important; /* Reduce bottom padding */
-  border-left: 3px solid var(--purpleLight) !important;
-  margin-left: 0.5rem !important;
-  margin-bottom: 0.5rem !important;
+  padding: 0.5rem 0.25rem 0.1rem 0.8rem !important; border-left: 3px solid var(--purpleLight) !important;
+  margin-left: 0.5rem !important; margin-bottom: 0.5rem !important;
 }
-/* Refresh button inside collapse */
-.transit-card-custom .MuiCollapse-root .MuiButton-root { /* Targeting button inside collapse */
-  margin-bottom: 0.75rem !important;
-  font-size: 0.8rem !important;
-  padding: 3px 10px !important; /* Adjust padding */
+.transit-card-custom .MuiCollapse-root .MuiButton-root { margin-bottom: 0.75rem !important; font-size: 0.8rem !important; padding: 3px 10px !important; }
+.transit-card-custom .MuiCollapse-root .MuiTypography-overline { /* Inbound/Outbound */
+  font-size: 0.65rem !important; color: var(--current-grayMid-val) !important; font-weight: 700 !important;
+  margin-bottom: 0.25rem !important; line-height: 1.4;
 }
-
-/* Inbound/Outbound Headers */
-.transit-card-custom .MuiCollapse-root .MuiTypography-overline {
-  font-size: 0.65rem !important;
-  color: var(--current-grayMid-val) !important; /* Use -val suffix */
-  font-weight: 700 !important;
-  margin-bottom: 0.25rem !important;
-  line-height: 1.4; /* Adjust line height */
-}
-
-/* Individual Route Info Box */
 .transit-list-item-custom .route-info-box {
-  background-color: var(--purpleDark) !important;
-  color: var(--white) !important;
-  padding: 0.6rem 0.75rem !important;
-  margin-bottom: 0.5rem !important;
-  border-radius: 6px !important;
+  background-color: var(--purpleDark) !important; color: var(--white) !important; padding: 0.6rem 0.75rem !important;
+  margin-bottom: 0.5rem !important; border-radius: 6px !important;
 }
-/* Dark theme adjustment for route box */
-:root[data-theme="dark"] .transit-list-item-custom .route-info-box {
-  background-color: var(--purple) !important;
-}
-
-/* Route Title (Number + Destination) */
+:root[data-theme="dark"] .transit-list-item-custom .route-info-box { background-color: var(--purple) !important; }
 .route-info-box .route-title {
-  font-size: 0.95rem !important;
-  font-weight: 600 !important;
-  color: var(--white) !important;
-  display: flex;
-  align-items: center;
-  white-space: nowrap; /* Prevent wrapping */
-  overflow: hidden; /* Hide overflow */
-  text-overflow: ellipsis; /* Add ellipsis if too long */
+  font-size: 0.95rem !important; font-weight: 600 !important; color: var(--white) !important; display: flex; align-items: center;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .route-info-box .route-title .route-destination {
-  font-weight: 400;
-  font-size: 0.9em;
-  opacity: 0.85;
-  margin-left: 4px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  font-weight: 400; font-size: 0.9em; opacity: 0.85; margin-left: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-/* Prediction Times Chip */
-.route-info-box .MuiChip-root {
-  font-size: 0.7rem !important;
-  padding: 2px 6px !important;
-  height: 20px !important;
-  /* Colors are handled by JS */
+.route-info-box .MuiChip-root { font-size: 0.7rem !important; padding: 2px 6px !important; height: 20px !important; }
+.route-info-box .route-arrival-detail, .route-info-box .route-vehicle-location, .route-info-box .route-vehicle-location-unavailable {
+  font-size: 0.75rem !important; margin-top: 0.25rem !important; color: var(--purpleLight) !important; opacity: 0.9;
 }
-/* Arrival/Vehicle Text */
-.route-info-box .route-arrival-detail,
-.route-info-box .route-vehicle-location,
-.route-info-box .route-vehicle-location-unavailable {
-  font-size: 0.75rem !important;
-  margin-top: 0.25rem !important;
-  color: var(--purpleLight) !important;
-  opacity: 0.9;
-}
-/* Dark theme adjustment for text on purple */
-:root[data-theme="dark"] .route-info-box .route-arrival-detail,
-:root[data-theme="dark"] .route-info-box .route-vehicle-location,
-:root[data-theme="dark"] .route-info-box .route-vehicle-location-unavailable {
-  color: #d1c4e9 !important;
-}
-
-/* "No upcoming transit" text */
-.transit-empty {
-  color: var(--current-grayMid-val) !important; /* Use -val suffix */
-  font-size: 0.85rem !important;
-  text-align: center;
-  padding: 1rem 0;
-}
-/* Error Alert styling */
-.transit-card-custom .MuiAlert-root {
-  font-size: 0.8rem !important;
-  padding: 4px 10px !important;
-}
+:root[data-theme="dark"] .route-info-box .route-arrival-detail, :root[data-theme="dark"] .route-info-box .route-vehicle-location, :root[data-theme="dark"] .route-info-box .route-vehicle-location-unavailable { color: #d1c4e9 !important; }
+.transit-empty { color: var(--current-grayMid-val) !important; font-size: 0.85rem !important; text-align: center; padding: 1rem 0; }
+.transit-card-custom .MuiAlert-root { font-size: 0.8rem !important; padding: 4px 10px !important; }
 
 /* ==== Map Marker & InfoWindow Styles ==== */
-.custom-map-marker img {
-  transition: transform 0.1s ease-in-out;
+.custom-map-marker img { transition: transform 0.1s ease-in-out; }
+.custom-map-marker:hover img { transform: scale(1.15); }
+.gm-style .gm-style-iw-c { /* InfoWindow container */
+  padding: 8px !important; border-radius: 6px !important; max-width: 240px !important; background-color: var(--current-card-bg) !important;
+  box-shadow: 0 2px 8px var(--current-box-shadow) !important; border: 1px solid var(--current-border-color);
 }
-.custom-map-marker:hover img {
-  transform: scale(1.15);
+.gm-style .gm-style-iw-d { /* InfoWindow content */
+  overflow: visible !important; font-size: 0.8rem !important; color: var(--current-text-color) !important; padding-right: 0 !important;
 }
-
-/* Google Maps InfoWindow */
-.gm-style .gm-style-iw-c { /* Container */
-  padding: 8px !important;
-  border-radius: 6px !important;
-  max-width: 240px !important;
-  background-color: var(--current-card-bg) !important;
-  box-shadow: 0 2px 8px var(--current-box-shadow) !important;
-  border: 1px solid var(--current-border-color);
+.gm-style .gm-style-iw-d strong, .gm-style .gm-style-iw-d .MuiTypography-subtitle2 { /* InfoWindow Title */
+  color: var(--purple) !important; font-weight: 600;
 }
-.gm-style .gm-style-iw-d { /* Content */
-  overflow: visible !important;
-  font-size: 0.8rem !important;
-  color: var(--current-text-color) !important;
-  padding-right: 0 !important;
-}
-/* InfoWindow Title */
-.gm-style .gm-style-iw-d strong,
-.gm-style .gm-style-iw-d .MuiTypography-subtitle2 {
-  color: var(--purple) !important;
-  font-weight: 600;
-}
-/* Dark theme InfoWindow Title */
-:root[data-theme="dark"] .gm-style .gm-style-iw-d strong,
-:root[data-theme="dark"] .gm-style .gm-style-iw-d .MuiTypography-subtitle2 {
-  color: var(--purpleLight) !important;
-}
-
-/* Hide Google's default InfoWindow close button */
-.gm-style button[title="Close"] {
-  visibility: hidden !important; /* Hide it cleanly */
-  /* display: none !important; */ /* Alternative */
-}
+:root[data-theme="dark"] .gm-style .gm-style-iw-d strong, :root[data-theme="dark"] .gm-style .gm-style-iw-d .MuiTypography-subtitle2 { color: var(--purpleLight) !important; }
+.gm-style button[title="Close"] { visibility: hidden !important; } /* Hide Google's X button */
