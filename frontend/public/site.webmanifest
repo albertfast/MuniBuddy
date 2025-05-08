@@ -33,6 +33,16 @@
       "src": "/images/bus-stop-icon.svg",
       "sizes": "32x32",
       "type": "image/svg+xml"
+    },
+    {
+      "src": "/images/munibuddy-logo.png",
+      "sizes": "32x32",
+      "type": "image/png"
+    },
+    {
+      "src": "/images/bart-station-icon.svg",
+      "sizes": "32x32",
+      "type": "image/svg+xml"
     }        
   ],
   "theme_color": "#1976d2",
