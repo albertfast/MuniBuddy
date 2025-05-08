@@ -322,18 +322,43 @@ h1, h2, h3, h4, h5, h6 {
 .transit-empty { color: var(--current-grayMid-val) !important; font-size: 0.85rem !important; text-align: center; padding: 1rem 0; }
 .transit-card-custom .MuiAlert-root { font-size: 0.8rem !important; padding: 4px 10px !important; }
 
-/* ==== Map Marker & InfoWindow Styles ==== */
-.custom-map-marker img { transition: transform 0.1s ease-in-out; }
-.custom-map-marker:hover img { transform: scale(1.15); }
-.gm-style .gm-style-iw-c { /* InfoWindow container */
-  padding: 8px !important; border-radius: 6px !important; max-width: 240px !important; background-color: var(--current-card-bg) !important;
-  box-shadow: 0 2px 8px var(--current-box-shadow) !important; border: 1px solid var(--current-border-color);
+.custom-map-marker img {
+  transition: transform 0.1s ease-in-out;
 }
-.gm-style .gm-style-iw-d { /* InfoWindow content */
-  overflow: visible !important; font-size: 0.8rem !important; color: var(--current-text-color) !important; padding-right: 0 !important;
+.custom-map-marker:hover img {
+  transform: scale(1.15);
 }
-.gm-style .gm-style-iw-d strong, .gm-style .gm-style-iw-d .MuiTypography-subtitle2 { /* InfoWindow Title */
-  color: var(--purple) !important; font-weight: 600;
+
+/* InfoWindow Container */
+.gm-style .gm-style-iw-c {
+  padding: 8px !important;
+  border-radius: 6px !important;
+  max-width: 240px !important;
+  background-color: var(--current-card-bg) !important;
+  box-shadow: 0 2px 8px var(--current-box-shadow) !important;
+  border: 1px solid var(--current-border-color);
 }
-:root[data-theme="dark"] .gm-style .gm-style-iw-d strong, :root[data-theme="dark"] .gm-style .gm-style-iw-d .MuiTypography-subtitle2 { color: var(--purpleLight) !important; }
-.gm-style button[title="Close"] { visibility: hidden !important; } /* Hide Google's X button */
+
+/* InfoWindow Content Area */
+.gm-style .gm-style-iw-d {
+  overflow: visible !important;
+  font-size: 0.8rem !important;
+  color: var(--current-text-color) !important;
+  padding-right: 0 !important;
+}
+
+/* InfoWindow Title Styling (Added) */
+.gm-style .gm-style-iw-d strong,
+.gm-style .gm-style-iw-d .MuiTypography-subtitle2 { /* Target both strong and MUI Typography if used for title */
+  color: var(--purple) !important;
+  font-weight: 600;
+}
+:root[data-theme="dark"] .gm-style .gm-style-iw-d strong,
+:root[data-theme="dark"] .gm-style .gm-style-iw-d .MuiTypography-subtitle2 {
+  color: var(--purpleLight) !important;
+}
+
+/* Hide Google's Default InfoWindow Close Button (Added) */
+.gm-style button[title="Close"] {
+  visibility: hidden !important;
+}
