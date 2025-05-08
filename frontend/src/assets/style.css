@@ -1,193 +1,345 @@
-/* Font Import */
+/* ==== Font Import ==== */
 @import url('https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,100..900;1,100..900&display=swap');
 
-/* Global Styles */
-body {
-    font-family: "Public Sans", sans-serif;
-    font-size: 1rem;
-    margin: 0;
-    background-color: var(--bg-light);
-    color: var(--fg-light);
-    transition: background-color 0.3s ease, color 0.3s ease;
-}
-
-h1, h2, h3, h4, h5, h6 {
-    margin: 0;
-    color: var(--purpleDark);
-}
-
-button {
-    font-family: inherit;
-    font-size: 1rem;
-    font-weight: bold;
-    padding: 0.5rem 1rem;
-    border-radius: 2rem;
-    cursor: pointer;
-    border: none;
-    transition: background-color 0.3s ease;
-}
-
-button:hover {
-    background-color: var(--purpleDark);
-    color: white;
-}
-
-input, textarea {
-    font-family: var(--fontDefault);
-    font-size: 1rem;
-    color: var(--inputText);
-    border: 2px solid var(--inputBorder);
-    border-radius: 2rem;
-    padding: 0.75rem 1rem;
-}
-
-/* Theme Variables */
+/* ==== Theme Variables ==== */
 :root {
-    --purpleDark: #580074;
-    --purple: #7A00A3;
-    --purpleMid: #AB34D3;
-    --purpleLight: #EAAAFF;
-    --greenDark: #00553B;
-    --greenLight: #A8F2DC;
-    --grayDark: #333;
-    --grayMid: #666;
-    --grayLight1: #CCC;
-    --grayLight2: #EDEDED;
+  /* Color Palette */
+  --purpleDark: #580074;
+  --purple: #7A00A3;
+  --purpleMid: #AB34D3;
+  --purpleLight: #EAAAFF;
+  --greenDark: #00553B;
+  --greenLight: #A8F2DC;
+  --grayDark: #333;
+  --grayMid: #666;
+  --grayLight1: #CCC;
+  --grayLight2: #EDEDED;
+  --white: #ffffff;
+  --black: #000000;
 
-    --bg-light: #ffffff;
-    --fg-light: #000000b0;
-    --bg-dark: #121212;
-    --fg-dark: #ffffff;
-    --accent: #c361cc;
-    --fontDefault: "Public Sans", sans-serif;
+  /* Font */
+  --font-main: "Public Sans", system-ui, sans-serif;
+
+  /* Default (Light Theme) Effective Variables */
+  --current-text-color: var(--grayDark);
+  --current-bg-color: var(--white);
+  --current-bg-color-rgb: 255,255,255; /* RGB for opacity */
+  --current-card-bg: var(--white);
+  --current-inputBorder: var(--grayLight1);
+  --current-inputText: var(--grayDark);
+  --current-input-bg: var(--grayLight2);
+  --current-grayLight1-val: var(--grayLight1);
+  --current-grayLight2-val: var(--grayLight2);
+  --current-grayDark-val: var(--grayDark);
+  --current-grayMid-val: var(--grayMid);
+  --current-box-shadow: rgba(0,0,0,0.05);
+  --current-border-color: var(--grayLight1);
+
+  /* Base transition for theme changes */
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-/* Theme Modes */
+/* ==== Dark Theme Mode Variables ==== */
 :root[data-theme="dark"] {
-    --bg-light: var(--bg-dark);
-    --fg-light: var(--fg-dark);
+  --current-text-color: #e0e0e0;
+  --current-bg-color: #121212;
+  --current-bg-color-rgb: 18,18,18; /* RGB for opacity */
+  --current-card-bg: #1e1e1e;
+  --current-inputBorder: #555;
+  --current-inputText: #e0e0e0;
+  --current-input-bg: #2c2c2c;
+  --current-grayLight1-val: #424242;
+  --current-grayLight2-val: #333333;
+  --current-grayDark-val: #bdbdbd;
+  --current-grayMid-val: #757575;
+  --current-box-shadow: rgba(255,255,255,0.05);
+  --current-border-color: #424242;
 }
 
+/* ==== Light Theme Mode Variables (Explicit) ==== */
 :root[data-theme="light"] {
-    --bg-light: #ffffff;
-    --fg-light: #000000b0;
+  --current-text-color: var(--grayDark);
+  --current-bg-color: var(--white);
+  --current-bg-color-rgb: 255,255,255;
+  --current-card-bg: var(--white);
+  --current-inputBorder: var(--grayLight1);
+  --current-inputText: var(--grayDark);
+  --current-input-bg: var(--grayLight2);
+  --current-grayLight1-val: var(--grayLight1);
+  --current-grayLight2-val: var(--grayLight2);
+  --current-grayDark-val: var(--grayDark);
+  --current-grayMid-val: var(--grayMid);
+  --current-box-shadow: rgba(0,0,0,0.05);
+  --current-border-color: var(--grayLight1);
 }
 
-/* Header */
-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 1rem;
-    background-color: var(--purple);
-    color: white;
-    border-radius: 0 0 12px 12px;
+/* ==== System Preference Handling ==== */
+/* System Dark */
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="system"] {
+    --current-text-color: #e0e0e0;
+    --current-bg-color: #121212;
+    --current-bg-color-rgb: 18,18,18;
+    --current-card-bg: #1e1e1e;
+    --current-inputBorder: #555;
+    --current-inputText: #e0e0e0;
+    --current-input-bg: #2c2c2c;
+    --current-grayLight1-val: #424242;
+    --current-grayLight2-val: #333333;
+    --current-grayDark-val: #bdbdbd;
+    --current-grayMid-val: #757575;
+    --current-box-shadow: rgba(255,255,255,0.05);
+    --current-border-color: #424242;
+  }
+}
+/* System Light */
+@media (prefers-color-scheme: light) {
+  :root[data-theme="system"] {
+    --current-text-color: var(--grayDark);
+    --current-bg-color: var(--white);
+    --current-bg-color-rgb: 255,255,255;
+    --current-card-bg: var(--white);
+    --current-inputBorder: var(--grayLight1);
+    --current-inputText: var(--grayDark);
+    --current-input-bg: var(--grayLight2);
+    --current-grayLight1-val: var(--grayLight1);
+    --current-grayLight2-val: var(--grayLight2);
+    --current-grayDark-val: var(--grayDark);
+    --current-grayMid-val: var(--grayMid);
+    --current-box-shadow: rgba(0,0,0,0.05);
+    --current-border-color: var(--grayLight1);
+  }
 }
 
-header button {
-    background-color: var(--purpleLight);
-    color: var(--purpleDark);
+/* ==== Base HTML/Body/Root Styles ==== */
+html, body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-main);
+  background-color: var(--current-bg-color);
+  color: var(--current-text-color);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  height: 100%;
+  /* overflow: hidden; */ /* Allow body to scroll if needed, let inner containers manage their overflow */
 }
 
-/* Map Container */
-.map-container {
-    position: relative;
-    height: 450px;
-    background-color: var(--grayLight2);
-    border-radius: 12px;
+#root {
+    height: 100%;
+    display: flex; /* Added to help .overall-layout fill height */
+}
+
+/* ==== Headings ==== */
+h1, h2, h3, h4, h5, h6 {
+  margin: 0;
+  font-weight: 600;
+  color: var(--purpleDark);
+}
+:root[data-theme="dark"] h1, :root[data-theme="dark"] h2, :root[data-theme="dark"] h3, :root[data-theme="dark"] h4, :root[data-theme="dark"] h5, :root[data-theme="dark"] h6 {
+  color: var(--purpleLight);
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="system"] h1, :root[data-theme="system"] h2, :root[data-theme="system"] h3, :root[data-theme="system"] h4, :root[data-theme="system"] h5, :root[data-theme="system"] h6 {
+    color: var(--purpleLight);
+  }
+}
+
+/* ==== Overall Layout Structure ==== */
+.overall-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100%; /* Fill height of #root */
+  width: 100%; /* Fill width */
+  overflow: hidden; /* Prevent this from scrolling */
+  background-color: var(--current-bg-color);
+}
+
+/* Top Sticky Panel */
+.top-fixed-panel {
+  background-color: var(--current-bg-color);
+  box-shadow: 0 2px 5px var(--current-box-shadow);
+  z-index: 1050;
+  position: sticky; /* Stick to the top of .overall-layout */
+  top: 0;
+  left: 0;
+  right: 0;
+}
+.top-fixed-panel .MuiContainer-root {
+    padding-top: 0.75rem !important;
+    padding-bottom: 0.75rem !important;
+}
+
+/* Main Content Area (Scrollable) */
+.main-content-scrollable-area {
+  flex-grow: 1; /* Take remaining vertical space */
+  overflow-y: auto; /* Enable vertical scrolling */
+  background-color: var(--current-bg-color);
+  /* Add padding for the MUI container inside */
+}
+.main-content-scrollable-area > .MuiContainer-root {
+    padding-top: 1rem !important;
+    padding-bottom: 1rem !important;
+    /* If using flex on grid container inside, ensure container allows it */
+    /* display: flex; */
+    /* flex-direction: column; */ /* Or row depending on breakpoints */
+    /* height: 100%; */ /* Might be needed for grid item heights */
+}
+
+/* Map and Transit Info Grid Items */
+.map-grid-item-dynamic-height,
+.transit-info-panel-dynamic-height {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Map Container within the grid item */
+.map-grid-item-dynamic-height > .MuiBox-root { /* Targets the Box wrapping Map */
+    flex-grow: 1;
+    min-height: 280px;
+    border-radius: 8px;
     overflow: hidden;
 }
 
-.map-container .loading-overlay {
-    position: absolute;
-    inset: 0;
-    background-color: rgba(255, 255, 255, 0.5);
-    display: flex;
-    justify-content: center;
-    align-items: center;
+/* Desktop Layout (Side-by-side) */
+@media screen and (min-width: 900px) {
+   .main-content-scrollable-area > .MuiContainer-root > .MuiGrid-container {
+       /* This might need flex properties to allow percentage heights on children */
+       /* display: flex; */
+       /* align-items: stretch; */ /* Make items same height */
+       /* height: 100%; */ /* Or a calculated height */
+   }
+  .map-grid-item-dynamic-height,
+  .transit-info-panel-dynamic-height {
+    /* Calculate max height based on observed top panel height */
+    /* Adjust the subtraction value (e.g., 160px) based on dev tools measurement */
+    max-height: calc(100vh - 160px);
+  }
+  .transit-info-panel-dynamic-height {
+    overflow-y: auto; /* Allow transit info to scroll independently */
+  }
 }
 
-/* Transit Info Panel */
-.transit-info-panel {
-    background-color: var(--bg-light);
-    border-radius: 12px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-    padding: 1rem;
-    overflow-y: auto;
-    max-height: calc(100vh - 260px);
-}
-
-.transit-info-panel h4 {
-    color: var(--purpleDark);
-    font-weight: bold;
-    margin-bottom: 1rem;
-}
-
-.transit-info-panel .transit-empty {
-    font-size: 0.95rem;
-    color: var(--grayMid);
-    font-style: italic;
-    text-align: center;
-}
-
-/* Buttons */
-.btn-primary {
-    background-color: var(--purple);
-    color: white;
-}
-
-.btn-primary:hover {
-    background-color: var(--purpleDark);
-}
-
-.btn-secondary {
-    background-color: var(--grayLight2);
-    color: var(--purple);
-}
-
-.btn-secondary:hover {
-    background-color: var(--purpleLight);
-}
-
-/* Search Bar */
-#searchbar {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    margin-bottom: 1rem;
-}
-
-#searchbar input {
-    flex-grow: 1;
-    border: 2px solid var(--inputBorder);
-    border-radius: 2rem;
-    padding: 0.75rem 1rem;
-}
-
-#searchbar button {
-    padding: 0.5rem 1rem;
-    border-radius: 2rem;
-}
-
-/* Dialog */
-.dialog {
-    background-color: var(--bg-light);
-    color: var(--fg-light);
-    border-radius: 12px;
-    padding: 1rem;
-}
-
-.dialog button {
-    margin: 0.5rem;
-}
-
-/* Responsive Design */
-@media screen and (max-width: 768px) {
-    .map-container {
-        height: 300px;
+/* Mobile Layout (Stacked) */
+@media screen and (max-width: 899px) {
+    .main-content-scrollable-area .MuiGrid-container {
+        flex-direction: column;
     }
-
-    .transit-info-panel {
-        max-height: calc(100vh - 200px);
+    .map-grid-item-dynamic-height > .MuiBox-root {
+        height: 300px; /* Fixed map height */
+        margin-bottom: 1rem;
+    }
+    .transit-info-panel-dynamic-height {
+        height: auto; /* Content determines height */
+        overflow-y: visible; /* Don't scroll independently */
     }
 }
+
+/* ==== Styles for Controls in Top Panel ==== */
+.top-fixed-panel .MuiTextField-root .MuiOutlinedInput-root {
+  border-radius: 2rem !important;
+  background-color: var(--current-input-bg) !important;
+  font-size: 0.9rem;
+}
+.top-fixed-panel .MuiTextField-root .MuiOutlinedInput-notchedOutline {
+  border: 1px solid var(--current-inputBorder) !important;
+}
+.top-fixed-panel .MuiTextField-root .MuiInputBase-input::placeholder {
+  color: var(--current-grayMid-val) !important;
+  opacity: 0.8;
+}
+.top-fixed-panel .MuiButton-root {
+  font-family: var(--font-main) !important;
+  font-weight: 600 !important;
+  border-radius: 2rem !important;
+  text-transform: none !important;
+  padding: 6px 16px !important;
+  font-size: 0.875rem;
+  box-shadow: none !important;
+}
+.top-fixed-panel .MuiButton-containedPrimary {
+  background-color: var(--purple) !important;
+  color: var(--white) !important;
+}
+.top-fixed-panel .MuiButton-containedPrimary:hover {
+  background-color: var(--purpleDark) !important;
+}
+.top-fixed-panel .MuiButton-outlined {
+  color: var(--purple) !important;
+  border-color: var(--purple) !important;
+}
+.top-fixed-panel .MuiButton-outlined:hover {
+  background-color: var(--purpleLight) !important;
+  color: var(--purpleDark) !important;
+}
+.top-fixed-panel .MuiSlider-root { color: var(--purple) !important; }
+.top-fixed-panel .MuiSlider-rail { color: var(--purpleLight) !important; opacity: 0.7; }
+
+/* ==== TransitInfo Panel Specific Styles ==== */
+.transit-card-custom {
+  background-color: var(--current-card-bg) !important;
+  border: 1px solid var(--current-border-color) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 1px 3px var(--current-box-shadow) !important;
+}
+.transit-card-custom .MuiCardContent-root { padding: 0.75rem !important; }
+.transit-section-header {
+  font-size: 0.8rem !important; color: var(--current-grayMid-val) !important; padding-left: 0.25rem !important;
+  font-weight: 700 !important; margin-bottom: 0.75rem !important; text-transform: uppercase; letter-spacing: 0.5px;
+}
+.transit-card-custom .MuiListItemButton-root {
+  padding-top: 0.6rem !important; padding-bottom: 0.6rem !important; border-radius: 6px !important; margin-bottom: 4px;
+}
+.transit-card-custom .MuiListItemButton-root:hover { background-color: var(--current-input-bg) !important; }
+.transit-card-custom .MuiListItemButton-root .MuiTypography-fontWeightMedium { /* Stop Name */
+  font-size: 0.9rem !important; color: var(--current-text-color) !important; font-weight: 500 !important;
+}
+.transit-card-custom .MuiListItemButton-root .MuiChip-root { /* Distance Chip */
+  background-color: var(--current-grayLight2-val) !important; color: var(--current-grayDark-val) !important;
+  font-size: 0.7rem !important; height: 20px !important; padding: 2px 5px !important;
+}
+:root[data-theme="dark"] .transit-card-custom .MuiListItemButton-root .MuiChip-root { background-color: #383838 !important; color: var(--current-grayDark-val) !important; }
+.transit-card-custom .MuiCollapse-root .MuiBox-root[role="region"] {
+  padding: 0.5rem 0.25rem 0.1rem 0.8rem !important; border-left: 3px solid var(--purpleLight) !important;
+  margin-left: 0.5rem !important; margin-bottom: 0.5rem !important;
+}
+.transit-card-custom .MuiCollapse-root .MuiButton-root { margin-bottom: 0.75rem !important; font-size: 0.8rem !important; padding: 3px 10px !important; }
+.transit-card-custom .MuiCollapse-root .MuiTypography-overline { /* Inbound/Outbound */
+  font-size: 0.65rem !important; color: var(--current-grayMid-val) !important; font-weight: 700 !important;
+  margin-bottom: 0.25rem !important; line-height: 1.4;
+}
+.transit-list-item-custom .route-info-box {
+  background-color: var(--purpleDark) !important; color: var(--white) !important; padding: 0.6rem 0.75rem !important;
+  margin-bottom: 0.5rem !important; border-radius: 6px !important;
+}
+:root[data-theme="dark"] .transit-list-item-custom .route-info-box { background-color: var(--purple) !important; }
+.route-info-box .route-title {
+  font-size: 0.95rem !important; font-weight: 600 !important; color: var(--white) !important; display: flex; align-items: center;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.route-info-box .route-title .route-destination {
+  font-weight: 400; font-size: 0.9em; opacity: 0.85; margin-left: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.route-info-box .MuiChip-root { font-size: 0.7rem !important; padding: 2px 6px !important; height: 20px !important; }
+.route-info-box .route-arrival-detail, .route-info-box .route-vehicle-location, .route-info-box .route-vehicle-location-unavailable {
+  font-size: 0.75rem !important; margin-top: 0.25rem !important; color: var(--purpleLight) !important; opacity: 0.9;
+}
+:root[data-theme="dark"] .route-info-box .route-arrival-detail, :root[data-theme="dark"] .route-info-box .route-vehicle-location, :root[data-theme="dark"] .route-info-box .route-vehicle-location-unavailable { color: #d1c4e9 !important; }
+.transit-empty { color: var(--current-grayMid-val) !important; font-size: 0.85rem !important; text-align: center; padding: 1rem 0; }
+.transit-card-custom .MuiAlert-root { font-size: 0.8rem !important; padding: 4px 10px !important; }
+
+/* ==== Map Marker & InfoWindow Styles ==== */
+.custom-map-marker img { transition: transform 0.1s ease-in-out; }
+.custom-map-marker:hover img { transform: scale(1.15); }
+.gm-style .gm-style-iw-c { /* InfoWindow container */
+  padding: 8px !important; border-radius: 6px !important; max-width: 240px !important; background-color: var(--current-card-bg) !important;
+  box-shadow: 0 2px 8px var(--current-box-shadow) !important; border: 1px solid var(--current-border-color);
+}
+.gm-style .gm-style-iw-d { /* InfoWindow content */
+  overflow: visible !important; font-size: 0.8rem !important; color: var(--current-text-color) !important; padding-right: 0 !important;
+}
+.gm-style .gm-style-iw-d strong, .gm-style .gm-style-iw-d .MuiTypography-subtitle2 { /* InfoWindow Title */
+  color: var(--purple) !important; font-weight: 600;
+}
+:root[data-theme="dark"] .gm-style .gm-style-iw-d strong, :root[data-theme="dark"] .gm-style .gm-style-iw-d .MuiTypography-subtitle2 { color: var(--purpleLight) !important; }
+.gm-style button[title="Close"] { visibility: hidden !important; } /* Hide Google's X button */
