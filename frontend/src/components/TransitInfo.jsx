@@ -156,7 +156,14 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers, baseApiUrl, setBartVisualiz
     const [scheduleError, setScheduleError] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
-    const stopsArray = useMemo(() => Array.isArray(stops) ? stops : Object.values(stops), [stops]);
+    const stopsArray = useMemo(() => {
+        const raw = Array.isArray(stops) ? stops : Object.values(stops || {});
+        return raw.filter(s => {
+            const id = s.stop_code || s.stop_id || s.gtfs_stop_id;
+            return typeof id === 'string' && !id.startsWith("place_");
+          });
+      }, [stops]);      
+    console.log("⏳ Raw stops:", stops);
     const listRef = useRef(null);
     const selectedItemRef = useRef(null);
 
@@ -164,7 +171,7 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers, baseApiUrl, setBartVisualiz
     const setCachedSchedule = useCallback((stopId, data) => { /* ... */ }, []);
 
     // --- Scroll Effect ---
-    useEffect(() => { /* ... (same as before) ... */ }, [selectedStopId]);
+    // useEffect(() => { /* ... (same as before) ... */ }, [selectedStopId]);
 
     // --- BART Visualization Calculation ---
     // This effect runs when the schedule for a selected stop is loaded
@@ -401,7 +408,7 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers, baseApiUrl, setBartVisualiz
                                 </ListItemButton>
                                 <Collapse in={isSelected} timeout="auto" unmountOnExit>
                                     <Box px={{ xs: 1, sm: 1.5 }} pb={1.5} pt={1} sx={{ borderLeft: '3px solid var(--purpleLight)', ml: { xs: 0.5, sm: 1 }, mr: { xs: 0.5, sm: 1 }, mb: 1, minHeight: '150px', display: 'flex', flexDirection: 'column' }} className="stop-details-collapse">
-                                        <Button startIcon={<RefreshIcon />} onClick={handleRefreshSchedule} disabled={loadingSchedule} size="small" sx={{ mb: 1.5, textTransform: 'none', color: 'var(--purple)', '&:hover': { backgroundColor: 'var(--purpleLight)' }, alignSelf: 'flex-start' }}> {loadingSchedule && isSelected ? "Refreshing..." : "Refresh"} </Button>
+                                        <Button startIcon={<RefreshIcon />} onClick={handleRefreshSchedule} disabled={loadingSchedule} size="small" sx={{ mb: 1.5, textTransform: 'none', color: 'var(--purple)', '&:hover': { backgroundColor: 'var(--purpleLight)' }, alignSelf: 'flex-start' }}> {loadingSchedule ? "Refreshing..." : "Refresh"} </Button>
                                         {/* Original Loading/Error/Schedule rendering logic */}
                                         {loadingSchedule && isSelected ? ( <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><CircularProgress size={28} /></Box> )
                                         : scheduleError && isSelected ? ( <Alert severity="error" sx={{ fontSize: '0.85rem' }}>{scheduleError}</Alert> )
