@@ -1,7 +1,6 @@
 // frontend/src/components/TransitInfo.jsx
-// BASED ON YOUR ORIGINAL STABLE CODE + MINIMAL FIXES & STYLING
 
-import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react'; // Added useRef, useEffect
+import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react'; 
 import {
     Card, CardContent, Typography, List, ListItem, ListItemText, ListItemButton,
     Box, Collapse, CircularProgress, Stack, Chip, Button, Alert
@@ -13,16 +12,13 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import axios from 'axios';
-// Assuming style.css is imported in App.jsx
 
-// --- Constants and Utilities (From your original code) ---
 const SCHEDULE_CACHE = {};
 const CACHE_TTL = 5 * 60 * 1000;
 const API_TIMEOUT = 50000;
 // Use baseApiUrl prop passed from App.jsx
 // const API_BASE_URL = import.meta.env.VITE_API_BASE ?? 'https://munibuddy.live/api/v1';
 
-// Original normalizeId - used for selection state and legacy API calls
 const normalizeId = (stop) => stop?.gtfs_stop_id || stop?.stop_code || stop?.stop_id;
 
 // Original formatTime
@@ -59,25 +55,43 @@ const renderRouteTypeIconOriginal = (routeNumber, agency) => {
     return <IconComponent color="inherit" fontSize="small" sx={{ verticalAlign: 'middle', mr: 0.5 }} />;
 };
 
-
-// --- Original Data Fetching and Processing ---
-
+const groupScheduleEntries = (entries = []) => {
+    const groupedMap = new Map();
+  
+    for (const entry of entries) {
+      const key = `${entry.route_number}__${entry.destination}`;
+      if (!groupedMap.has(key)) {
+        groupedMap.set(key, {
+          route_number: entry.route_number,
+          destination: entry.destination,
+          arrivals: [],
+          is_realtime: entry.is_realtime,
+          vehicle: entry.vehicle,
+        });
+      }
+      const label = entry.status === 'Due' ? 'Due' : entry.status;
+      groupedMap.get(key).arrivals.push(label);
+    }
+  
+    return Array.from(groupedMap.values());
+  };
+  
 // Original getNearestStopName
 const getNearestStopName = async (lat, lon, baseApiUrl) => {
-    if (!lat || !lon || !baseApiUrl) return ""; // Added baseApiUrl check
+    if (!lat || !lon || !baseApiUrl) return ""; 
     try {
-        const res = await axios.get(`${baseApiUrl}/nearby-stops`, { // Use baseApiUrl
+        const res = await axios.get(`${baseApiUrl}/nearby-stops`, { 
             params: { lat, lon, radius: 0.15, agency: 'muni' },
-            timeout: 4000 // Added timeout
+            timeout: 4000 
         });
         const stops = res.data || [];
         const seen = new Set();
         // Find first unique stop name
         const firstUnique = stops.find(s => { if (s.stop_name && !seen.has(s.stop_name)) { seen.add(s.stop_name); return true; } return false; });
-        return firstUnique?.stop_name?.trim() || ""; // Return empty if none found
+        return firstUnique?.stop_name?.trim() || "";
     } catch (err) {
         console.warn('[nearestStopName] Error:', err.message);
-        return ""; // Return empty on error
+        return ""; 
     }
 };
 
@@ -134,10 +148,8 @@ const adaptBartDataSimply = (bartData) => {
      return adapted;
 };
 
-
 // --- TransitInfo Component ---
 const TransitInfo = ({ stops, setLiveVehicleMarkers, baseApiUrl }) => {
-    // Original State Management
     const [selectedStopId, setSelectedStopId] = useState(null); // Uses original normalizeId result
     const [selectedStopObject, setSelectedStopObject] = useState(null); // Store full stop object for context
     const [stopSchedule, setStopSchedule] = useState(null);
@@ -161,27 +173,6 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers, baseApiUrl }) => {
         }
     }, [selectedStopId]);
 
-    // Original fetchVehiclePositions - uncomment if `setLiveVehicleMarkers` prop is used
-    /*
-    const fetchVehiclePositions = async (stop) => {
-        if (!setLiveVehicleMarkers || !stop) return;
-        const stopCode = stop.stop_code || normalizeId(stop);
-        const agency = stop.agency?.toLowerCase() || "muni";
-        const isBart = agency === "bart" || agency === "ba";
-        // *** IMPORTANT: Ensure API_BASE_URL is defined if using this ***
-        const endpoint = `${baseApiUrl}${isBart ? `/bart-positions/by-stop?stopCode=${stopCode}&agency=${agency}` : `/bus-positions/by-stop?stopCode=${stopCode}&agency=${agency}`}`;
-        try {
-            const res = await axios.get(endpoint);
-            const visits = res.data?.ServiceDelivery?.StopMonitoringDelivery?.MonitoredStopVisit ?? [];
-            const markers = visits.map((visit, i) => {
-                 const vehicle = visit.MonitoredVehicleJourney; const loc = vehicle?.VehicleLocation; if (!loc?.Latitude || !loc?.Longitude) return null;
-                 return { position: { lat: parseFloat(loc.Latitude), lng: parseFloat(loc.Longitude) }, title: `${vehicle.PublishedLineName || "Transit"} → ${vehicle.MonitoredCall?.DestinationDisplay || "?"}`, stopId: `${stopCode}-${agency}-${i}`, icon: { url: '/images/live-bus-icon.svg', scaledSize: { width: 28, height: 28 } } };
-             }).filter(Boolean);
-            setLiveVehicleMarkers(markers);
-        } catch (err) { console.warn(`Failed to fetch vehicle positions for ${stopCode} (${agency}): ${err.message}`); }
-    };
-    */
-
     // handleStopClick based on original logic
     const handleStopClick = useCallback(async (stopObject) => {
         // Use original normalizeId for selection state
@@ -194,8 +185,7 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers, baseApiUrl }) => {
              if (apiStopCode.toLowerCase().startsWith('place_') || apiStopCode.toLowerCase().startsWith('place-')) { apiStopCode = apiStopCode.substring(6); }
              apiStopCode = apiStopCode.toUpperCase();
         }
-        // ***************************************************
-
+      
         selectedItemRef.current = null;
 
         // Toggle selection
@@ -232,6 +222,8 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers, baseApiUrl }) => {
             if (Array.isArray(siriVisits)) {
                 console.log("[TransitInfo STABLE BASE] Processing SIRI data...");
                 schedule = await normalizeSiriData(siriVisits, baseApiUrl);
+                schedule.inbound = groupScheduleEntries(schedule.inbound);
+                schedule.outbound = groupScheduleEntries(schedule.outbound);
             }
             // ** MODIFICATION: Handle BART pre-grouped data simply **
             else if ((agency === "bart" || agency === "ba") && responseData && responseData.inbound && responseData.outbound) {
@@ -292,6 +284,9 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers, baseApiUrl }) => {
                         {renderRouteTypeIconOriginal(routeEntry.route_number, agency)} {/* Call original icon func */}
                         {routeEntry.route_number || 'Route ?'}
                         <Typography component="span" className="route-destination"> {' '}→ {routeEntry.destination || 'Unknown'} </Typography>
+                    </Typography>
+                    <Typography variant="body2" className="route-arrival-detail">
+                        Arrival times: <b>{routeEntry.arrivals?.join(', ') || 'Unknown'}</b>
                     </Typography>
                     {routeEntry.status && (
                         <Chip size="small" label={routeEntry.status} color={chipColor} sx={{ fontWeight: 'bold', fontSize: '0.75rem', flexShrink: 0 }}/>
