@@ -20,6 +20,7 @@ const API_TIMEOUT = 50000;
 // const API_BASE_URL = import.meta.env.VITE_API_BASE ?? 'https://munibuddy.live/api/v1';
 
 const normalizeId = (stop) => stop?.gtfs_stop_id || stop?.stop_code || stop?.stop_id;
+const cleanStopCode = (stopId) => stopId?.replace(/^place_/, '').replace(/_\d+$/, '').toUpperCase();
 
 // Original formatTime
 const formatTime = (isoTime) => {
@@ -178,7 +179,7 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers, baseApiUrl }) => {
         // Use original normalizeId for selection state
         const currentSelectedId = normalizeId(stopObject);
         // *** FIX: Clean BART ID specifically for API call ***
-        let apiStopCode = stopObject.stop_code || currentSelectedId;
+        let apiStopCode = cleanStopCode(stopObject.stop_code || currentSelectedId);
         const agency = stopObject.agency?.toLowerCase();
         if ((agency === 'bart' || agency === 'ba') && apiStopCode) {
              if (apiStopCode.includes('_')) { apiStopCode = apiStopCode.split('_')[0]; }
@@ -285,9 +286,30 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers, baseApiUrl }) => {
                         {routeEntry.route_number || 'Route ?'}
                         <Typography component="span" className="route-destination"> {' '}→ {routeEntry.destination || 'Unknown'} </Typography>
                     </Typography>
-                    <Typography variant="body2" className="route-arrival-detail">
-                        Arrival times: <b>{routeEntry.arrivals?.join(', ') || 'Unknown'}</b>
-                    </Typography>
+                    <Stack direction="row" spacing={0.5} alignItems="center" flexWrap="wrap" mt={0.5}>
+                        {routeEntry.arrivals?.map((a, i) => {
+                            let bg = '#9e9e9e';
+                            if (a === 'Due') bg = '#e53935';
+                            else if (parseInt(a) <= 5) bg = '#43a047';
+                            else if (parseInt(a) <= 15) bg = '#fb8c00';
+
+                            return (
+                            <Chip 
+                                key={i}
+                                size="small"
+                                label={a}
+                                sx={{
+                                backgroundColor: bg,
+                                color: 'white',
+                                fontWeight: 'bold',
+                                fontSize: '0.7rem',
+                                height: '20px',
+                                }}
+                            />
+                            );
+                        })}
+                    </Stack>
+
                     {routeEntry.status && (
                         <Chip size="small" label={routeEntry.status} color={chipColor} sx={{ fontWeight: 'bold', fontSize: '0.75rem', flexShrink: 0 }}/>
                     )}
