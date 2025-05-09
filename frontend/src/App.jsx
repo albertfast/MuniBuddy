@@ -230,23 +230,45 @@ const App = () => {
   // --- Render ---
   return (
     <Box className="overall-layout">
-      {/* Sticky Top Panel */}
-      <Paper elevation={2} square className="top-fixed-panel">
-        <Container maxWidth="lg" sx={{ display: 'flex', flexDirection: 'column', pt: 1, pb: 1 }}>
-          {/* Header Row */}
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
-            <Typography variant="h5" component="h1" sx={{ color: 'var(--purpleDark)', fontWeight: 'bold' }}>
-              MuniBuddy
-            </Typography>
-            <Button onClick={toggleTheme} variant="outlined" size="small" sx={{ textTransform: 'none', color: 'var(--purple)', borderColor: 'var(--purple)', '&:hover': { backgroundColor: 'var(--purpleLight)' } }}>
+
+      {/* Map Area */}
+      <Box maxWidth="lg" className="main-content-scrollable-area">
+            {/* Hide Theme Switch Button
+              <Button onClick={toggleTheme} variant="outlined" size="small" sx={{ textTransform: 'none', color: 'var(--purple)', borderColor: 'var(--purple)', '&:hover': { backgroundColor: 'var(--purpleLight)' } }}>
               {getThemeButtonText()}
-            </Button>
-          </Box>
+            </Button>*/}        
+        <Map
+            center={userLocation || DEFAULT_CENTER}
+            markers={markers}
+            onMapClick={(e) => {
+              const location = { lat: e.latLng.lat(), lng: e.latLng.lng() };
+              setUserLocation(location);
+              setSearchAddress(formatCoordinates(location.lat, location.lng));
+            }}
+          // showLogoOnMap={true} // Pass prop to Map if logo rendering is conditional
+          />
+          {/* Loading Overlay */}
+          {isLoading && (
+            <Box sx={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(var(--current-bg-color-rgb, 255,255,255),0.6)', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', zIndex: 10, borderRadius: 'inherit' }}>
+              <CircularProgress />
+              <Typography sx={{ mt: 1, color: 'var(--current-text-color)' }}>Loading map & stops...</Typography>
+            </Box>
+          )}
+      </Box>
+
+      {/* Right Panel */} 
+        <Container maxWidth="lg" className="right-panel" sx={{ display: 'flex', flexDirection: 'column', pt: 1, pb: 1 }}>
           {/* Controls Row */}
-          <Grid container spacing={1.5} alignItems="center">
+          <Grid container className="searchbar_inner">
+            {/* Locate Me Button */}
+            <Grid item>
+              <Button variant="outlined" onClick={requestLocation} startIcon={<MyLocationIcon />} disabled={isLoading && !userLocation && !searchAddress} size="medium">
+                <span class="hidden">Locate Me</span>
+              </Button>
+            </Grid>
             {/* Search Input */}
-            <Grid item xs={12} sm={7} md={8}>
-              <TextField fullWidth placeholder="Enter address or coordinates" value={searchAddress}
+            <Grid item className="searchbar_location">
+              <TextField fullWidth placeholder="Starting Location" value={searchAddress}
                 onChange={(e) => setSearchAddress(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleManualLocationSearch()}
                 InputProps={{ startAdornment: (<InputAdornment position="start"><SearchIcon sx={{ color: 'var(--current-grayMid-val)' }} /></InputAdornment>) }}
@@ -254,15 +276,9 @@ const App = () => {
               />
             </Grid>
             {/* Search Button */}
-            <Grid item xs={6} sm={2.5} md={2}>
-              <Button fullWidth variant="contained" onClick={handleManualLocationSearch} disabled={isLoading} size="medium">
+            <Grid item>
+              <Button variant="contained" onClick={handleManualLocationSearch} disabled={isLoading} size="medium">
                 {isLoading && searchAddress ? <CircularProgress size={20} color="inherit" /> : "Search"}
-              </Button>
-            </Grid>
-            {/* Locate Me Button */}
-            <Grid item xs={6} sm={2.5} md={2}>
-              <Button fullWidth variant="outlined" onClick={requestLocation} startIcon={<MyLocationIcon />} disabled={isLoading && !userLocation && !searchAddress} size="medium">
-                Locate Me
               </Button>
             </Grid>
             {/* Radius Slider */}
@@ -275,33 +291,7 @@ const App = () => {
               <Typography sx={{ ml: 1.5, fontSize: '0.85rem', color: 'var(--current-text-color)', minWidth: '45px', textAlign: 'right' }}>{radius.toFixed(2)} mi</Typography>
             </Grid>
           </Grid>
-        </Container>
-      </Paper>
-
-      {/* Scrollable Main Content Area */}
-      <Container maxWidth="lg" className="main-content-scrollable-area">
-        {error && <Alert severity="error" sx={{ mt: 1, mb: 1 }} onClose={() => setError(null)}>{error}</Alert>}
-        <Grid container spacing={2} sx={{ mt: 0 }}>
-          {/* Map Panel */}
-          <Grid item xs={12} md={7} lg={8} className="map-grid-item-dynamic-height" sx={{ position: 'relative' }}>
-            <Map
-              center={userLocation || DEFAULT_CENTER}
-              markers={markers}
-              onMapClick={(e) => {
-                const location = { lat: e.latLng.lat(), lng: e.latLng.lng() };
-                setUserLocation(location);
-                setSearchAddress(formatCoordinates(location.lat, location.lng));
-              }}
-            // showLogoOnMap={true} // Pass prop to Map if logo rendering is conditional
-            />
-            {/* Loading Overlay */}
-            {isLoading && (
-              <Box sx={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(var(--current-bg-color-rgb, 255,255,255),0.6)', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', zIndex: 10, borderRadius: 'inherit' }}>
-                <CircularProgress />
-                <Typography sx={{ mt: 1, color: 'var(--current-text-color)' }}>Loading map & stops...</Typography>
-              </Box>
-            )}
-          </Grid>
+          {error && <Alert severity="error" sx={{ mt: 1, mb: 1 }} onClose={() => setError(null)}>{error}</Alert>}
           {/* Transit Info Panel */}
           <Grid item xs={12} md={5} lg={4} className="transit-info-panel-dynamic-height">
             {(isLoading && Object.keys(nearbyStops).length === 0) ? (
@@ -318,8 +308,8 @@ const App = () => {
               )
             )}
           </Grid>
-        </Grid>
-      </Container>
+        </Container>
+      
 
       {/* Initial Location Dialog */}
       <Dialog open={showLocationDialog && !userLocation} onClose={() => setShowLocationDialog(false)}>
