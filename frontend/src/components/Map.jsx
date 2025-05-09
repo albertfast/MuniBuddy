@@ -152,7 +152,7 @@ const Map = ({ center = DEFAULT_CENTER, markers = [], onMapClick, zoom = DEFAULT
   }
 
   return (
-    <Box sx={{ height: '100%', width: '100%', position: 'relative', borderRadius: '8px', overflow: 'hidden' }}>
+    <Box sx={{ height: '100%', width: '100%', position: 'relative', overflow: 'hidden' }}>
       <GoogleMap
         mapContainerStyle={mapContainerStyle}
         zoom={zoom}
