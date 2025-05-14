@@ -3,11 +3,8 @@ version: '3.9'
 
 services:
   backend:
-    runtime: nvidia
     environment:
       - TZ=America/Los_Angeles
-      - NVIDIA_VISIBLE_DEVICES=all
-      - NVIDIA_DRIVER_CAPABILITIES=all
     build:
       context: ./backend
     env_file:
