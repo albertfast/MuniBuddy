@@ -337,7 +337,9 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers, baseApiUrl }) => {
                   const num = parseInt(clean);
                   if (a === "[Due]" || clean === "Due") bg = "#e53935";
                   else if (!isNaN(num) && num <= 5) bg = "#43a047";
-                  else if (!isNaN(num) && num <= 15) bg = "#fb8c00";
+                  else if (!isNaN(num) && num <= 15) bg = "#2f4875";
+                  else if (!isNaN(num) && num <= 30) bg = "#A8F2DC";
+                  
     
                   return (
                     <Chip
@@ -345,7 +347,7 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers, baseApiUrl }) => {
                       size="small"
                       label={clean + (i === routeEntry.arrivals.length - 1 && !isNaN(num) ? " min" : "")}
                       sx={{
-                        backgroundColor: "#bb229a",
+                        backgroundColor: bg,
                         color: "#white",
                         fontWeight: "bold",
                         fontSize: "0.7rem",
