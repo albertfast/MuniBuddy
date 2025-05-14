@@ -1,24 +1,14 @@
-# Use official Python image as base
-FROM python:3.11
+FROM nvidia/cuda:12.2.0-base-ubuntu22.04
 
-# Set working directory
+RUN apt-get update && apt-get install -y python3 python3-pip
+
 WORKDIR /app
 
-# Copy dependencies file and install
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip3 install --no-cache-dir -r requirements.txt
 
-# safer and clearer
-ARG VITE_GOOGLE_MAPS_API_KEY
-ENV VITE_GOOGLE_MAPS_API_KEY=$VITE_GOOGLE_MAPS_API_KEY
-
-# Copy entire backend app
 COPY . .
 COPY gtfs_data /app/app/gtfs_data
 
-
-# Expose port
 EXPOSE 8000
-
-# Run FastAPI server
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["python3", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

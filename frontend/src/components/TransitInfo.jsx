@@ -279,58 +279,84 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers, baseApiUrl }) => {
     }, [selectedStopId, selectedStopObject, handleStopClick]);
 
 
-    // Use original renderRouteInfo function signature
-    // Apply new CSS classes and updated icon/chip rendering
+// Use original renderRouteInfo function signature
+  // Apply new CSS classes and updated icon/chip rendering
     const renderRouteInfo = (routeEntry) => {
-        const chipColor = getStatusColorFromString(routeEntry.status); // Original color logic
-        const agency = selectedStopObject?.agency; // Get agency from selected stop
-        return (
-            <Box className="route-info-box"> {/* Apply new class */}
-                <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1} mb={0.5}>
-                    <Typography variant="h6" component="div" className="route-title" noWrap sx={{ flexGrow: 1, mr: 1 }}>
-                        {renderRouteTypeIconOriginal(routeEntry.route_number, agency)} {/* Call original icon func */}
-                        {routeEntry.route_number || 'Route ?'}
-                        <Typography component="span" className="route-destination"> {' '}→ {routeEntry.destination || 'Unknown'} </Typography>
-                    </Typography>
-                    <Stack direction="row" spacing={0.5} alignItems="center" flexWrap="wrap" mt={0.5}>
-                        {routeEntry.arrivals?.map((a, i) => {
-                            let bg = '#9e9e9e';
-                            if (a === 'Due') bg = '#e53935';
-                            else if (parseInt(a) <= 5) bg = '#43a047';
-                            else if (parseInt(a) <= 15) bg = '#fb8c00';
-
-                            return (
-                            <Chip 
-                                key={i}
-                                size="small"
-                                label={a}
-                                sx={{
-                                backgroundColor: bg,
-                                color: 'white',
-                                fontWeight: 'bold',
-                                fontSize: '0.7rem',
-                                height: '20px',
-                                }}
-                            />
-                            );
-                        })}
-                    </Stack>
-
-                    {routeEntry.status && (
-                        <Chip size="small" label={routeEntry.status} color={chipColor} sx={{ fontWeight: 'bold', fontSize: '0.75rem', flexShrink: 0 }}/>
-                    )}
-                </Stack>
-                <Typography variant="body2" className="route-arrival-detail"> {/* Apply new class */}
-                    Arrival: <b>{formatTime(routeEntry.arrival_time)}</b>
-                </Typography>
-                {/* Original vehicle location logic */}
-                {routeEntry.vehicle?.nearest_stop ? (
-                    <Typography variant="caption" className="route-vehicle-location"> Vehicle near: {routeEntry.vehicle.nearest_stop} </Typography>
-                ) : ( routeEntry.is_realtime && routeEntry.minutes_until != null && // Show if real-time expected
-                    <Typography variant="caption" className="route-vehicle-location-unavailable"> Vehicle location unavailable </Typography>
-                )}
-            </Box>
-        );
+      const agency = selectedStopObject?.agency; // Get agency from selected stop
+    
+      return (
+        <Box className="route-info-box">
+          <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1} mb={0.5}>
+            <Typography
+              variant="h6"
+              component="div"
+              className="route-title"
+              noWrap
+              sx={{ flexGrow: 1, mr: 1 }}
+            >
+              {renderRouteTypeIconOriginal(routeEntry.route_number, agency)}
+              {routeEntry.route_number || "Route ?"}
+              <Typography component="span" className="route-destination">
+                {" "}
+                → {routeEntry.destination || "Unknown"}
+              </Typography>
+            </Typography>
+          </Stack>
+    
+          {routeEntry.arrival_time && (
+            <Typography variant="body2" className="route-arrival-detail">
+              Arrival: <b>{formatTime(routeEntry.arrival_time)}</b>
+            </Typography>
+          )}
+    
+          <Typography
+            variant="body2"
+            className={
+              routeEntry.vehicle?.nearest_stop
+                ? "route-vehicle-location"
+                : "route-vehicle-location-unavailable"
+            }
+            sx={{
+              display: "flex",
+              flexWrap: "wrap",
+              alignItems: "center",
+              gap: "6px",
+              mt: 0.5,
+            }}
+          >
+            {routeEntry.vehicle?.nearest_stop ? (
+              <>
+                Vehicle near: {routeEntry.vehicle.nearest_stop}
+                {routeEntry.arrivals?.map((a, i) => {
+                  let bg = "#9e9e9e";
+                  if (a === "Due") bg = "#e53935";
+                  else if (parseInt(a) <= 5) bg = "#43a047";
+                  else if (parseInt(a) <= 15) bg = "#fb8c00";
+    
+                  return (
+                    <Chip
+                      key={i}
+                      size="small"
+                      label={a}
+                      sx={{
+                        backgroundColor: bg,
+                        color: "white",
+                        fontWeight: "bold",
+                        fontSize: "0.7rem",
+                        height: "20px",
+                      }}
+                    />
+                  );
+                })}
+              </>
+            ) : (
+              <Typography variant="body2" className="route-vehicle-location-unavailable">
+                Vehicle location unavailable
+              </Typography>
+            )}
+          </Typography>
+        </Box>
+      );
     };
 
     // --- Main Render ---
