@@ -190,8 +190,14 @@ h1, h2, h3, h4, h5, h6 {
   flex-grow: 1; 
   overflow-y: auto; 
   background-color: var(--current-bg-color);
- 
 }
+
+@media only screen and (max-width: 600px) {
+  .main-content-scrollable-area {
+    height: 40vh;
+  }
+}
+
 .main-content-scrollable-area > .MuiContainer-root {
     padding-top: 1rem !important;
     padding-bottom: 1rem !important;
@@ -290,11 +296,16 @@ h1, h2, h3, h4, h5, h6 {
 .right-panel .MuiButton-outlined {
   color: var(--purple) !important;
   border-color: var(--purple) !important;
+  
 }
 .right-panel .MuiButton-outlined:hover {
   background-color: var(--purpleLight) !important;
   color: var(--purpleDark) !important;
 }
+.right-panel .MuiButton-outlined .MuiButton-icon {
+  margin: 0 !important;
+}
+
 .right-panel .MuiSlider-root { color: var(--purple) !important; }
 .right-panel .MuiSlider-rail { color: var(--purpleLight) !important; opacity: 0.7; }
 
