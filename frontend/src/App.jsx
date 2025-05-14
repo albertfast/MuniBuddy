@@ -257,7 +257,7 @@ const App = () => {
       </Box>
 
       {/* Right Panel */} 
-        <Container maxWidth="lg" className="right-panel" sx={{ display: 'flex', flexDirection: 'column', pt: 1, pb: 1 }}>
+        <Container maxWidth="lg" className="right-panel" sx={{ display: 'flex', flexDirection: 'column', pt: 1, pb: 1, height: '100%' }}>
           {/* Controls Row */}
           <Grid container className="searchbar_inner">
             {/* Locate Me Button */}
