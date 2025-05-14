@@ -70,10 +70,11 @@ const groupScheduleEntries = (entries = []) => {
           vehicle: entry.vehicle,
         });
       }
-      const label = entry.status === 'Due' ? 'Due' : 
-                    entry.minutes_until !== null
-                        ? (entry.minutes_until <= 15 ? `${entry.minutes_until}` : `${entry.minutes_until} min`)
-                        : 'Unknown';
+      const label = entry.status === 'Due' 
+        ? '[Due]'
+        : entry.minutes_until !== null
+            ? (entry.minutes_until <= 15 ? `[${entry.minutes_until}]` : `[${entry.minutes_until} min]`)
+            : '[Unknown]';
       groupedMap.get(key).arrivals.push(label);
     }
     return Array.from(groupedMap.values());
@@ -116,7 +117,7 @@ const normalizeSiriData = async (visits = [], baseApiUrl) => {
         const entry = {
             route_number: journey?.LineRef ? `${journey.LineRef} ${journey?.PublishedLineName ?? ''}`.trim() : journey?.PublishedLineName ?? "Unknown Line",
             destination: call?.DestinationDisplay || journey?.DestinationName || "Unknown Dest.",
-            arrival_time: arrivalTimeISO,
+            arrival_time: arrivalTimeISO || "Unknown",
             status: minutesUntil !== null ? (minutesUntil === 0 ? "Due" : `${minutesUntil} min`) : "Unknown",
             minutes_until: minutesUntil,
             is_realtime: !!call?.ExpectedArrivalTime,
@@ -282,7 +283,7 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers, baseApiUrl }) => {
 
 
 // Use original renderRouteInfo function signature
-  // Apply new CSS classes and updated icon/chip rendering
+    // Apply new CSS classes and updated icon/chip rendering
     const renderRouteInfo = (routeEntry) => {
       const agency = selectedStopObject?.agency; // Get agency from selected stop
     
@@ -305,7 +306,8 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers, baseApiUrl }) => {
             </Typography>
           </Stack>
     
-          {routeEntry.arrival_time !== "Unknown" && (
+          {/* Keep Arrival time display if arrival_time exists and is not 'Unknown' */}
+          {routeEntry.arrival_time && routeEntry.arrival_time !== "Unknown" && (
             <Typography variant="body2" className="route-arrival-detail">
               Arrival: <b>{formatTime(routeEntry.arrival_time)}</b>
             </Typography>
@@ -331,15 +333,17 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers, baseApiUrl }) => {
                 Vehicle near: {routeEntry.vehicle.nearest_stop}
                 {routeEntry.arrivals?.map((a, i) => {
                   let bg = "#9e9e9e";
-                  if (a === "Due") bg = "#e53935";
-                  else if (parseInt(a) <= 5) bg = "#43a047";
-                  else if (parseInt(a) <= 15) bg = "#fb8c00";
+                  const clean = a.replace(/\[|\]/g, '').replace(' min', '');
+                  const num = parseInt(clean);
+                  if (a === "[Due]" || clean === "Due") bg = "#e53935";
+                  else if (!isNaN(num) && num <= 5) bg = "#43a047";
+                  else if (!isNaN(num) && num <= 15) bg = "#fb8c00";
     
                   return (
                     <Chip
                       key={i}
                       size="small"
-                      label={a}
+                      label={clean + (i === routeEntry.arrivals.length - 1 && !isNaN(num) ? " min" : "")}
                       sx={{
                         backgroundColor: bg,
                         color: "white",
@@ -352,9 +356,7 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers, baseApiUrl }) => {
                 })}
               </>
             ) : (
-              <Typography variant="body2" className="route-vehicle-location-unavailable">
-                Vehicle location unavailable
-              </Typography>
+              "Vehicle location unavailable"
             )}
           </Typography>
         </Box>
@@ -445,3 +447,4 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers, baseApiUrl }) => {
 };
 
 export default TransitInfo;
+
