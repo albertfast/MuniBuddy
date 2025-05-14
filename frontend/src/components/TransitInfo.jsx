@@ -345,8 +345,8 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers, baseApiUrl }) => {
                       size="small"
                       label={clean + (i === routeEntry.arrivals.length - 1 && !isNaN(num) ? " min" : "")}
                       sx={{
-                        backgroundColor: bg,
-                        color: "white",
+                        backgroundColor: "#bb229a",
+                        color: "#white",
                         fontWeight: "bold",
                         fontSize: "0.7rem",
                         height: "20px",
