@@ -70,10 +70,12 @@ const groupScheduleEntries = (entries = []) => {
           vehicle: entry.vehicle,
         });
       }
-      const label = entry.status === 'Due' ? 'Due' : entry.status;
+      const label = entry.status === 'Due' ? 'Due' : 
+                    entry.minutes_until !== null
+                        ? (entry.minutes_until <= 15 ? `${entry.minutes_until}` : `${entry.minutes_until} min`)
+                        : 'Unknown';
       groupedMap.get(key).arrivals.push(label);
     }
-  
     return Array.from(groupedMap.values());
   };
   
@@ -303,7 +305,7 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers, baseApiUrl }) => {
             </Typography>
           </Stack>
     
-          {routeEntry.arrival_time && (
+          {routeEntry.arrival_time !== "Unknown" && (
             <Typography variant="body2" className="route-arrival-detail">
               Arrival: <b>{formatTime(routeEntry.arrival_time)}</b>
             </Typography>
