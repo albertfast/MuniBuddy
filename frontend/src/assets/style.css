@@ -156,6 +156,13 @@ h1, h2, h3, h4, h5, h6 {
   background-color: var(--current-bg-color);
 }
 
+@media screen and (max-width: 600px) {
+  .map-grid-item-dynamic-height > .MuiBox-root {
+    height: 300px !important;
+    min-height: 300px !important;
+    display: block !important;
+  }
+}
 
 @media only screen and (max-width: 900px) {
   .overall-layout {

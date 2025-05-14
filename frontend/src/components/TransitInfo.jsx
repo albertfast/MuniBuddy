@@ -169,7 +169,13 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers, baseApiUrl }) => {
     // Scroll Effect
     useEffect(() => {
         if (selectedItemRef.current && listRef.current) {
-            const timer = setTimeout(() => { if (selectedItemRef.current) { selectedItemRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } }, 150);
+            const scrollOptions = {
+                behavior: 'smooth',
+                block: window.innerWidth < 600 ? 'start' : 'nearest'
+            };
+            const timer = setTimeout(() => {
+                selectedItemRef.current?.scrollIntoView(scrollOptions);
+            }, 100);
             return () => clearTimeout(timer);
         }
     }, [selectedStopId]);
