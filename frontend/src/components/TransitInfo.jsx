@@ -69,13 +69,12 @@ const groupScheduleEntries = (entries = []) => {
         arrivals: [],
         is_realtime: entry.is_realtime,
         vehicle: entry.vehicle,
-        arrival_time: entry.arrival_time, // İlk arrival_time
+        arrival_time: entry.arrival_time, 
       });
     }
 
     const current = groupedMap.get(key);
 
-    // En erken arrival_time'ı seç
     if (
       entry.arrival_time &&
       (!current.arrival_time || new Date(entry.arrival_time) < new Date(current.arrival_time))
@@ -350,13 +349,13 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers, baseApiUrl }) => {
               <>
                 Vehicle near: {routeEntry.vehicle.nearest_stop}
                 {routeEntry.arrivals?.map((a, i) => {
-                  let bg = "#9e9e9e";
+                  let bg = "#e25d11";
                   const clean = a.replace(/\[|\]/g, '').replace(' min', '');
                   const num = parseInt(clean);
                   if (a === "[Due]" || clean === "Due") bg = "#e53935";
-                  else if (!isNaN(num) && num <= 5) bg = "#43a047";
-                  else if (!isNaN(num) && num <= 15) bg = "#2f4875";
-                  else if (!isNaN(num) && num <= 30) bg = "#A8F2DC";
+                  else if (!isNaN(num) && num <= 5) bg = "#23ce1d";
+                  else if (!isNaN(num) && num <= 15) bg = "#2191d1";
+                  else if (!isNaN(num) && num <= 30) bg = "#f1f516";
     
                   return (
                     <Chip
