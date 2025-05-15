@@ -57,45 +57,28 @@ const renderRouteTypeIconOriginal = (routeNumber, agency) => {
 };
 
 const groupScheduleEntries = (entries = []) => {
-  const groupedMap = new Map();
-
-  for (const entry of entries) {
-    const key = `${entry.route_number}__${entry.destination}`;
-
-    if (!groupedMap.has(key)) {
-      groupedMap.set(key, {
-        route_number: entry.route_number,
-        destination: entry.destination,
-        arrivals: [],
-        is_realtime: entry.is_realtime,
-        vehicle: entry.vehicle,
-        arrival_time: entry.arrival_time, 
-      });
-    }
-
-    const current = groupedMap.get(key);
-
-    if (
-      entry.arrival_time &&
-      (!current.arrival_time || new Date(entry.arrival_time) < new Date(current.arrival_time))
-    ) {
-      current.arrival_time = entry.arrival_time;
-    }
-
-
-    const label =
-      entry.status === 'Due'
+    const groupedMap = new Map();
+  
+    for (const entry of entries) {
+      const key = `${entry.route_number}__${entry.destination}`;
+      if (!groupedMap.has(key)) {
+        groupedMap.set(key, {
+          route_number: entry.route_number,
+          destination: entry.destination,
+          arrivals: [],
+          is_realtime: entry.is_realtime,
+          vehicle: entry.vehicle,
+        });
+      }
+      const label = entry.status === 'Due' 
         ? '[Due]'
         : entry.minutes_until !== null
-        ? (entry.minutes_until <= 15 ? `[${entry.minutes_until}]` : `[${entry.minutes_until} min]`)
-        : '[Unknown]';
-
-    current.arrivals.push(label);
-  }
-
-  return Array.from(groupedMap.values());
-};
-
+            ? (entry.minutes_until <= 15 ? `[${entry.minutes_until}]` : `[${entry.minutes_until} min]`)
+            : '[Unknown]';
+      groupedMap.get(key).arrivals.push(label);
+    }
+    return Array.from(groupedMap.values());
+  };
   
 // Original getNearestStopName
 const getNearestStopName = async (lat, lon, baseApiUrl) => {
@@ -201,7 +184,7 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers, baseApiUrl }) => {
     }, [selectedStopId]);
 
     // handleStopClick based on original logic
-    const handleStopClick = useCallback(async (stopObject, forceRefresh = false) => {
+    const handleStopClick = useCallback(async (stopObject) => {
         // Use original normalizeId for selection state
         const currentSelectedId = normalizeId(stopObject);
         // *** FIX: Clean BART ID specifically for API call ***
@@ -216,11 +199,8 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers, baseApiUrl }) => {
         selectedItemRef.current = null;
 
         // Toggle selection
-        if (currentSelectedId === selectedStopId && !forceRefresh) {
-            setSelectedStopId(null); 
-            setSelectedStopObject(null); 
-            setStopSchedule(null); 
-            setScheduleError(null);
+        if (currentSelectedId === selectedStopId) {
+            setSelectedStopId(null); setSelectedStopObject(null); setStopSchedule(null); setScheduleError(null);
             return;
         }
 
@@ -298,12 +278,12 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers, baseApiUrl }) => {
     const handleRefreshSchedule = useCallback(async () => {
         if (!selectedStopId || !selectedStopObject) return;
         delete SCHEDULE_CACHE[selectedStopId];
-        await handleStopClick(selectedStopObject, true);
+        await handleStopClick(selectedStopObject);
     }, [selectedStopId, selectedStopObject, handleStopClick]);
 
 
 // Use original renderRouteInfo function signature
-  // Apply new CSS classes and updated icon/chip rendering
+    // Apply new CSS classes and updated icon/chip rendering
     const renderRouteInfo = (routeEntry) => {
       const agency = selectedStopObject?.agency; // Get agency from selected stop
     
@@ -343,42 +323,43 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers, baseApiUrl }) => {
             sx={{
               display: "flex",
               flexWrap: "wrap",
-              alignItems: "flex-end",
+              alignItems: "center",
               gap: "6px",
               mt: 0.5,
             }}
           >
-            {routeEntry.vehicle?.nearest_stop && (
+            {routeEntry.vehicle?.nearest_stop ? (
               <>
                 Vehicle near: {routeEntry.vehicle.nearest_stop}
+                {routeEntry.arrivals?.map((a, i) => {
+                  let bg = "#9e9e9e";
+                  const clean = a.replace(/\[|\]/g, '').replace(' min', '');
+                  const num = parseInt(clean);
+                  if (a === "[Due]" || clean === "Due") bg = "#e53935";
+                  else if (!isNaN(num) && num <= 5) bg = "#43a047";
+                  else if (!isNaN(num) && num <= 15) bg = "#2f4875";
+                  else if (!isNaN(num) && num <= 30) bg = "#A8F2DC";
+                  
+    
+                  return (
+                    <Chip
+                      key={i}
+                      size="small"
+                      label={clean + (i === routeEntry.arrivals.length - 1 && !isNaN(num) ? " min" : "")}
+                      sx={{
+                        backgroundColor: bg,
+                        color: "#white",
+                        fontWeight: "bold",
+                        fontSize: "0.7rem",
+                        height: "20px",
+                      }}
+                    />
+                  );
+                })}
               </>
+            ) : (
+              "Vehicle location unavailable"
             )}
-            {routeEntry.arrivals?.map((a, i) => {
-              let bg = "#2f22e7";
-              const clean = a.replace(/\[|\]/g, '').replace(' min', '').replace('Due', '0');
-              const num = parseInt(clean);
-              if (a.includes("Due")) bg = "#e53935";
-              else if (!isNaN(num) && num <= 5) bg = "#e76022";
-              else if (!isNaN(num) && num <= 15) bg = "#0fb80f";
-              else if (!isNaN(num) && num <= 30) bg = "#0b6ebe";
-    
-              const labelText = a.includes("Due") ? "Due" : clean + (i === routeEntry.arrivals.length - 1 && !isNaN(num) ? " min" : "");
-    
-              return (
-                <Chip
-                  key={i}
-                  size="small"
-                  label={labelText}
-                  sx={{
-                    backgroundColor: bg,
-                    color: "white",
-                    fontWeight: "bold",
-                    fontSize: "0.7rem",
-                    height: "20px",
-                  }}
-                />
-              );
-            })}
           </Typography>
         </Box>
       );
@@ -468,3 +449,4 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers, baseApiUrl }) => {
 };
 
 export default TransitInfo;
+
