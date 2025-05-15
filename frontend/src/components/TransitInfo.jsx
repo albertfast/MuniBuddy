@@ -465,4 +465,3 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers, baseApiUrl }) => {
 };
 
 export default TransitInfo;
-
