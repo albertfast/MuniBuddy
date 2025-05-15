@@ -355,7 +355,7 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers, baseApiUrl }) => {
                   if (a === "[Due]" || clean === "Due") bg = "#e53935";
                   else if (!isNaN(num) && num <= 5) bg = "#23ce1d";
                   else if (!isNaN(num) && num <= 15) bg = "#2191d1";
-                  else if (!isNaN(num) && num <= 30) bg = "#f1f516";
+                  else if (!isNaN(num) && num <= 30) bg = "#e04414";
     
                   return (
                     <Chip
