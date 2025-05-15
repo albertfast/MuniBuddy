@@ -304,44 +304,6 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers, baseApiUrl }) => {
 
 // Use original renderRouteInfo function signature
     // Apply new CSS classes and updated icon/chip rendering
-    const renderRouteTypeIconOriginal = (routeNumber, agency) => {
-      const isBart = agency?.toLowerCase() === 'bart' || agency?.toLowerCase() === 'ba';
-      const isLikelyTrain = isBart || routeNumber?.toLowerCase().includes('to') || (routeNumber && /[a-zA-Z]/.test(routeNumber));
-      const IconComponent = isLikelyTrain ? TrainIcon : DirectionsBusIcon;
-      return <IconComponent color="inherit" fontSize="small" sx={{ verticalAlign: 'middle', mr: 0.5 }} />;
-    };
-    
-    const adaptBartDataSimply = (bartData) => {
-      const adapted = { inbound: [], outbound: [] };
-      if (!bartData || !bartData.inbound || !bartData.outbound) return adapted;
-      for (const dir of ['inbound', 'outbound']) {
-        if (Array.isArray(bartData[dir])) {
-          adapted[dir] = bartData[dir].map(bartRoute => {
-            const minutesUntil = typeof bartRoute.minutes_until === 'number'
-              ? bartRoute.minutes_until
-              : parseInt(bartRoute.arrival_time, 10);
-            if (isNaN(minutesUntil)) return null;
-            const status = minutesUntil === 0 ? 'Due' : `${minutesUntil} min`;
-            const label = status === 'Due'
-              ? '[Due]'
-              : (minutesUntil <= 15 ? `[${minutesUntil}]` : `[${minutesUntil} min]`);
-            return {
-              route_number: bartRoute.route_number || "BART",
-              destination: bartRoute.destination || "Unknown",
-              arrival_time: null,
-              status,
-              minutes_until: minutesUntil,
-              is_realtime: true,
-              vehicle: { nearest_stop: "" },
-              arrivals: [label],
-            };
-          }).filter(Boolean);
-          adapted[dir].sort((a, b) => (a.minutes_until ?? Infinity) - (b.minutes_until ?? Infinity));
-        }
-      }
-      return adapted;
-    };
-    
     const renderRouteInfo = (routeEntry) => {
       const agency = selectedStopObject?.agency; // Get agency from selected stop
     
@@ -358,13 +320,14 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers, baseApiUrl }) => {
               {renderRouteTypeIconOriginal(routeEntry.route_number, agency)}
               {routeEntry.route_number || "Route ?"}
               <Typography component="span" className="route-destination">
-                {routeEntry.route_name ? ` (${routeEntry.route_name})` : ""} → {routeEntry.destination || "Unknown"}
+                {" "}
+                → {routeEntry.destination || "Unknown"}
               </Typography>
             </Typography>
           </Stack>
     
-          {/* Keep Arrival time display if arrival_time exists */}
-          {routeEntry.arrival_time && (
+          {/* Show Arrival time always if available */}
+          {routeEntry.arrival_time && routeEntry.arrival_time !== "Unknown" && (
             <Typography variant="body2" className="route-arrival-detail">
               Arrival: <b>{formatTime(routeEntry.arrival_time)}</b>
             </Typography>
@@ -388,9 +351,10 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers, baseApiUrl }) => {
             {routeEntry.vehicle?.nearest_stop && (
               <>Vehicle near: {routeEntry.vehicle.nearest_stop}</>
             )}
+    
             {routeEntry.arrivals?.map((a, i) => {
               let bg = "#9e9e9e";
-              const clean = a.replace(/\[|\]/g, "").replace(" min", "");
+              const clean = a.replace(/\[|\]/g, '').replace(' min', '').replace('Due', 'Due');
               const num = parseInt(clean);
               if (a === "[Due]" || clean === "Due") bg = "#e53935";
               else if (!isNaN(num) && num <= 5) bg = "#43a047";
@@ -501,3 +465,4 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers, baseApiUrl }) => {
 };
 
 export default TransitInfo;
+
