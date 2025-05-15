@@ -57,28 +57,45 @@ const renderRouteTypeIconOriginal = (routeNumber, agency) => {
 };
 
 const groupScheduleEntries = (entries = []) => {
-    const groupedMap = new Map();
-  
-    for (const entry of entries) {
-      const key = `${entry.route_number}__${entry.destination}`;
-      if (!groupedMap.has(key)) {
-        groupedMap.set(key, {
-          route_number: entry.route_number,
-          destination: entry.destination,
-          arrivals: [],
-          is_realtime: entry.is_realtime,
-          vehicle: entry.vehicle,
-        });
-      }
-      const label = entry.status === 'Due' 
+  const groupedMap = new Map();
+
+  for (const entry of entries) {
+    const key = `${entry.route_number}__${entry.destination}`;
+
+    if (!groupedMap.has(key)) {
+      groupedMap.set(key, {
+        route_number: entry.route_number,
+        destination: entry.destination,
+        arrivals: [],
+        is_realtime: entry.is_realtime,
+        vehicle: entry.vehicle,
+        arrival_time: entry.arrival_time, 
+      });
+    }
+
+    const current = groupedMap.get(key);
+
+    if (
+      entry.arrival_time &&
+      (!current.arrival_time || new Date(entry.arrival_time) < new Date(current.arrival_time))
+    ) {
+      current.arrival_time = entry.arrival_time;
+    }
+
+
+    const label =
+      entry.status === 'Due'
         ? '[Due]'
         : entry.minutes_until !== null
-            ? (entry.minutes_until <= 15 ? `[${entry.minutes_until}]` : `[${entry.minutes_until} min]`)
-            : '[Unknown]';
-      groupedMap.get(key).arrivals.push(label);
-    }
-    return Array.from(groupedMap.values());
-  };
+        ? (entry.minutes_until <= 15 ? `[${entry.minutes_until}]` : `[${entry.minutes_until} min]`)
+        : '[Unknown]';
+
+    current.arrivals.push(label);
+  }
+
+  return Array.from(groupedMap.values());
+};
+
   
 // Original getNearestStopName
 const getNearestStopName = async (lat, lon, baseApiUrl) => {
@@ -184,7 +201,7 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers, baseApiUrl }) => {
     }, [selectedStopId]);
 
     // handleStopClick based on original logic
-    const handleStopClick = useCallback(async (stopObject) => {
+    const handleStopClick = useCallback(async (stopObject, forceRefresh = false) => {
         // Use original normalizeId for selection state
         const currentSelectedId = normalizeId(stopObject);
         // *** FIX: Clean BART ID specifically for API call ***
@@ -199,8 +216,11 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers, baseApiUrl }) => {
         selectedItemRef.current = null;
 
         // Toggle selection
-        if (currentSelectedId === selectedStopId) {
-            setSelectedStopId(null); setSelectedStopObject(null); setStopSchedule(null); setScheduleError(null);
+        if (currentSelectedId === selectedStopId && !forceRefresh) {
+            setSelectedStopId(null); 
+            setSelectedStopObject(null); 
+            setStopSchedule(null); 
+            setScheduleError(null);
             return;
         }
 
@@ -278,7 +298,7 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers, baseApiUrl }) => {
     const handleRefreshSchedule = useCallback(async () => {
         if (!selectedStopId || !selectedStopObject) return;
         delete SCHEDULE_CACHE[selectedStopId];
-        await handleStopClick(selectedStopObject);
+        await handleStopClick(selectedStopObject, true);
     }, [selectedStopId, selectedStopObject, handleStopClick]);
 
 
@@ -306,7 +326,7 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers, baseApiUrl }) => {
             </Typography>
           </Stack>
     
-          {/* Keep Arrival time display if arrival_time exists and is not 'Unknown' */}
+          {/* Show Arrival time always if available */}
           {routeEntry.arrival_time && routeEntry.arrival_time !== "Unknown" && (
             <Typography variant="body2" className="route-arrival-detail">
               Arrival: <b>{formatTime(routeEntry.arrival_time)}</b>
@@ -328,38 +348,34 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers, baseApiUrl }) => {
               mt: 0.5,
             }}
           >
-            {routeEntry.vehicle?.nearest_stop ? (
-              <>
-                Vehicle near: {routeEntry.vehicle.nearest_stop}
-                {routeEntry.arrivals?.map((a, i) => {
-                  let bg = "#9e9e9e";
-                  const clean = a.replace(/\[|\]/g, '').replace(' min', '');
-                  const num = parseInt(clean);
-                  if (a === "[Due]" || clean === "Due") bg = "#e53935";
-                  else if (!isNaN(num) && num <= 5) bg = "#43a047";
-                  else if (!isNaN(num) && num <= 15) bg = "#2f4875";
-                  else if (!isNaN(num) && num <= 30) bg = "#A8F2DC";
-                  
-    
-                  return (
-                    <Chip
-                      key={i}
-                      size="small"
-                      label={clean + (i === routeEntry.arrivals.length - 1 && !isNaN(num) ? " min" : "")}
-                      sx={{
-                        backgroundColor: bg,
-                        color: "#white",
-                        fontWeight: "bold",
-                        fontSize: "0.7rem",
-                        height: "20px",
-                      }}
-                    />
-                  );
-                })}
-              </>
-            ) : (
-              "Vehicle location unavailable"
+            {routeEntry.vehicle?.nearest_stop && (
+              <>Vehicle near: {routeEntry.vehicle.nearest_stop}</>
             )}
+    
+            {routeEntry.arrivals?.map((a, i) => {
+              let bg = "#9e9e9e";
+              const clean = a.replace(/\[|\]/g, '').replace(' min', '').replace('Due', 'Due');
+              const num = parseInt(clean);
+              if (a === "[Due]" || clean === "Due") bg = "#e53935";
+              else if (!isNaN(num) && num <= 5) bg = "#43a047";
+              else if (!isNaN(num) && num <= 15) bg = "#2f4875";
+              else if (!isNaN(num) && num <= 30) bg = "#A8F2DC";
+    
+              return (
+                <Chip
+                  key={i}
+                  size="small"
+                  label={clean + (i === routeEntry.arrivals.length - 1 && !isNaN(num) ? " min" : "")}
+                  sx={{
+                    backgroundColor: bg,
+                    color: "white",
+                    fontWeight: "bold",
+                    fontSize: "0.7rem",
+                    height: "20px",
+                  }}
+                />
+              );
+            })}
           </Typography>
         </Box>
       );
@@ -410,7 +426,7 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers, baseApiUrl }) => {
                                         </Button>
                                         {/* Original Loading/Error/Schedule rendering */}
                                         {loadingSchedule ? (
-                                            <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><CircularProgress size={28} /></Box>
+                                            <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-start' }}><CircularProgress size={28} /></Box>
                                         ) : stopSchedule ? (
                                             <>
                                                 {scheduleError && <Alert severity="warning" sx={{ mb: 2, fontSize: '0.8rem' }}>{scheduleError}</Alert>}
