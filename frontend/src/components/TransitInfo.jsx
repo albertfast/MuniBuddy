@@ -1,6 +1,4 @@
-// frontend/src/components/TransitInfo.jsx
-
-import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react'; 
+import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import {
     Card, CardContent, Typography, List, ListItem, ListItemText, ListItemButton,
     Box, Collapse, CircularProgress, Stack, Chip, Button, Alert
@@ -14,15 +12,18 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import axios from 'axios';
 
 const SCHEDULE_CACHE = {};
-const CACHE_TTL = 5 * 60 * 1000;
-const API_TIMEOUT = 50000;
-// Use baseApiUrl prop passed from App.jsx
-// const API_BASE_URL = import.meta.env.VITE_API_BASE ?? 'https://munibuddy.live/api/v1';
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+const API_TIMEOUT = 15000; // 15 seconds timeout for API calls
 
-const normalizeId = (stop) => stop?.gtfs_stop_id || stop?.stop_code || stop?.stop_id;
-const cleanStopCode = (stopId) => stopId?.replace(/^place_/, '').replace(/_\d+$/, '').toUpperCase();
+// Helper to get a displayable stop ID (code, or part of gtfs_id)
+const getDisplayableStopId = (stop) => {
+    if (stop.stop_code_for_display) return stop.stop_code_for_display; // Preferred from App.jsx
+    if (stop.stop_code) return stop.stop_code;
+    if (stop.gtfs_stop_id) return stop.gtfs_stop_id.split('_').pop(); // Often the numerical part
+    return 'N/A';
+};
 
-// Original formatTime
+
 const formatTime = (isoTime) => {
     if (!isoTime || isoTime === "Unknown") return "Unknown";
     try {
@@ -31,105 +32,90 @@ const formatTime = (isoTime) => {
     } catch { return isoTime; }
 };
 
-// Original getStatusColor based on status string
-const getStatusColorFromString = (status = '') => {
-    const s = status.toLowerCase();
-    if (s === 'due') return 'error';
-    if (s.includes('min')) {
-        const mins = parseInt(s, 10);
-        if (!isNaN(mins)) {
-             if (mins <= 5) return 'success';
-             if (mins <= 15) return 'warning';
-        }
-    }
-    if (s.includes('late')) return 'error';
-    if (s.includes('early')) return 'warning';
-    return 'default';
-};
-
-// Original renderIcon, adapted for consistent color
-const renderRouteTypeIconOriginal = (routeNumber, agency) => {
+const renderRouteTypeIcon = (routeNumber, agency) => {
     const isBart = agency?.toLowerCase() === 'bart' || agency?.toLowerCase() === 'ba';
-    const isLikelyTrain = isBart || routeNumber?.toLowerCase().includes('to') || (routeNumber && /[a-zA-Z]/.test(routeNumber)); // Combine heuristics
+    // Heuristic: BART routes often are station names, Muni routes are numbers/letters
+    const isLikelyTrain = isBart || (routeNumber && typeof routeNumber === 'string' && routeNumber.length > 3 && !/^\d+[A-Za-z]?$/.test(routeNumber));
     const IconComponent = isLikelyTrain ? TrainIcon : DirectionsBusIcon;
-    // Use inherit to pick up color from context (Typography)
     return <IconComponent color="inherit" fontSize="small" sx={{ verticalAlign: 'middle', mr: 0.5 }} />;
 };
 
 const groupScheduleEntries = (entries = []) => {
   const groupedMap = new Map();
-
   for (const entry of entries) {
-    const key = `${entry.route_number}__${entry.destination}`;
-
+    const key = `${entry.route_number}__${entry.destination}`; // Group by route and destination
     if (!groupedMap.has(key)) {
       groupedMap.set(key, {
         route_number: entry.route_number,
         destination: entry.destination,
-        arrivals: [],
+        arrivals_info: [], // Store full arrival details for better sorting/display
         is_realtime: entry.is_realtime,
         vehicle: entry.vehicle,
-        arrival_time: entry.arrival_time, 
+        earliest_arrival_time: entry.arrival_time, 
+        earliest_minutes_until: entry.minutes_until,
       });
     }
-
-    const current = groupedMap.get(key);
-
-    if (
-      entry.arrival_time &&
-      (!current.arrival_time || new Date(entry.arrival_time) < new Date(current.arrival_time))
-    ) {
-      current.arrival_time = entry.arrival_time;
+    const currentGroup = groupedMap.get(key);
+    currentGroup.arrivals_info.push({
+        time: entry.arrival_time,
+        minutes: entry.minutes_until,
+        status: entry.status
+    });
+    // Update earliest arrival for the group
+    if (entry.minutes_until !== null && (currentGroup.earliest_minutes_until === null || entry.minutes_until < currentGroup.earliest_minutes_until)) {
+        currentGroup.earliest_minutes_until = entry.minutes_until;
+        currentGroup.earliest_arrival_time = entry.arrival_time;
     }
-
-
-    const label =
-      entry.status === 'Due'
-        ? '[Due]'
-        : entry.minutes_until !== null
-        ? (entry.minutes_until <= 15 ? `[${entry.minutes_until}]` : `[${entry.minutes_until} min]`)
-        : '[Unknown]';
-
-    current.arrivals.push(label);
+    // Ensure is_realtime is true if any entry for this group is realtime
+    if (entry.is_realtime) currentGroup.is_realtime = true;
   }
-
-  return Array.from(groupedMap.values());
-};
-
   
-// Original getNearestStopName
+  // Sort arrivals within each group and format labels
+  groupedMap.forEach(group => {
+      group.arrivals_info.sort((a,b) => (a.minutes ?? Infinity) - (b.minutes ?? Infinity));
+      group.arrival_labels = group.arrivals_info.map(arr => {
+          if (arr.status === 'Due') return '[Due]';
+          if (arr.minutes !== null) return `[${arr.minutes}${arr.minutes > 15 ? ' min' : ''}]`;
+          return '[Scheduled]'; // Fallback for non-realtime with no minutes
+      }).slice(0, 3); // Show up to 3 arrival times
+  });
+
+  return Array.from(groupedMap.values()).sort((a,b) => (a.earliest_minutes_until ?? Infinity) - (b.earliest_minutes_until ?? Infinity));
+};
+  
 const getNearestStopName = async (lat, lon, baseApiUrl) => {
     if (!lat || !lon || !baseApiUrl) return ""; 
     try {
         const res = await axios.get(`${baseApiUrl}/nearby-stops`, { 
-            params: { lat, lon, radius: 0.15, agency: 'muni' },
+            params: { lat, lon, radius: 0.1, agency: 'muni' }, // Smaller radius for precision
             timeout: 4000 
         });
         const stops = res.data || [];
-        const seen = new Set();
-        // Find first unique stop name
-        const firstUnique = stops.find(s => { if (s.stop_name && !seen.has(s.stop_name)) { seen.add(s.stop_name); return true; } return false; });
-        return firstUnique?.stop_name?.trim() || "";
+        // Prefer unique stop names, fall back to first if all are same
+        const uniqueNames = [...new Set(stops.map(s => s.stop_name?.trim()).filter(Boolean))];
+        return uniqueNames[0] || stops[0]?.stop_name?.trim() || "";
     } catch (err) {
-        console.warn('[nearestStopName] Error:', err.message);
+        // console.warn('[nearestStopName] Error:', err.message);
         return ""; 
     }
 };
 
-// Original normalizeSiriData
 const normalizeSiriData = async (visits = [], baseApiUrl) => {
-    const grouped = { inbound: [], outbound: [] };
+    const processedEntries = [];
     for (const visit of visits) {
         const journey = visit?.MonitoredVehicleJourney; if (!journey) continue;
         const call = journey?.MonitoredCall || {};
-        const directionRef = (journey?.DirectionRef || "0").toLowerCase(); // Default to 0
+        const directionRef = (journey?.DirectionRef || "0").toLowerCase();
         const arrivalTimeISO = call?.ExpectedArrivalTime || call?.AimedArrivalTime;
         const arrivalDate = arrivalTimeISO ? new Date(arrivalTimeISO) : null;
         const now = new Date();
         const minutesUntil = arrivalDate ? Math.max(0, Math.round((arrivalDate - now) / 60000)) : null;
-        const lat = journey?.VehicleLocation?.Latitude || "";
-        const lon = journey?.VehicleLocation?.Longitude || "";
-        const nearestStop = await getNearestStopName(lat, lon, baseApiUrl); // Call helper
+        
+        // Fetch nearest stop name only if lat/lon are valid
+        let nearestStop = "";
+        if (journey?.VehicleLocation?.Latitude && journey?.VehicleLocation?.Longitude) {
+            nearestStop = await getNearestStopName(journey.VehicleLocation.Latitude, journey.VehicleLocation.Longitude, baseApiUrl);
+        }
 
         const entry = {
             route_number: journey?.LineRef ? `${journey.LineRef} ${journey?.PublishedLineName ?? ''}`.trim() : journey?.PublishedLineName ?? "Unknown Line",
@@ -137,308 +123,267 @@ const normalizeSiriData = async (visits = [], baseApiUrl) => {
             arrival_time: arrivalTimeISO || "Unknown",
             status: minutesUntil !== null ? (minutesUntil === 0 ? "Due" : `${minutesUntil} min`) : "Unknown",
             minutes_until: minutesUntil,
-            is_realtime: !!call?.ExpectedArrivalTime,
-            vehicle: { lat, lon, nearest_stop: nearestStop || "" }
+            is_realtime: !!call?.ExpectedArrivalTime, // True if ExpectedArrivalTime exists
+            vehicle: { 
+                lat: journey?.VehicleLocation?.Latitude || "", 
+                lon: journey?.VehicleLocation?.Longitude || "", 
+                nearest_stop: nearestStop 
+            },
+            direction_key: (directionRef === "0" || directionRef === "inbound" || journey?.DirectionName?.toLowerCase().includes("inbound")) ? 'inbound' : 'outbound'
         };
-        const directionKey = (directionRef === "0" || directionRef === "inbound" || journey?.DirectionName?.toLowerCase().includes("inbound")) ? 'inbound' : 'outbound';
-        grouped[directionKey].push(entry);
+        processedEntries.push(entry);
     }
+    // Grouping will happen after all entries are processed
+    const grouped = { inbound: [], outbound: [] };
+    processedEntries.forEach(entry => grouped[entry.direction_key].push(entry));
+    
     grouped.inbound.sort((a,b) => (a.minutes_until ?? Infinity) - (b.minutes_until ?? Infinity));
     grouped.outbound.sort((a,b) => (a.minutes_until ?? Infinity) - (b.minutes_until ?? Infinity));
     return grouped;
 };
 
-// **VERY Simple BART Adapter** - Just makes the structure renderable
-const adaptBartDataSimply = (bartData) => {
+const adaptBartData = (bartData) => {
      const adapted = { inbound: [], outbound: [] };
-     if (!bartData || !bartData.inbound || !bartData.outbound) return adapted;
+     if (!bartData || (!bartData.inbound && !bartData.outbound)) return adapted; // Check if either exists
+     
      for (const dir of ['inbound', 'outbound']) {
          if (Array.isArray(bartData[dir])) {
              adapted[dir] = bartData[dir].map(bartRoute => {
                  const minutesUntil = typeof bartRoute.minutes_until === 'number' ? bartRoute.minutes_until : parseInt(bartRoute.arrival_time, 10);
-                 if (isNaN(minutesUntil)) return null;
+                 if (isNaN(minutesUntil)) return null; // Skip if minutes_until is not a number
                  return {
-                     route_number: bartRoute.route_number || "BART", destination: bartRoute.destination || "Unknown",
-                     arrival_time: null, status: minutesUntil === 0 ? "Due" : `${minutesUntil} min`,
-                     minutes_until: minutesUntil, is_realtime: true, vehicle: { nearest_stop: "" }
+                     route_number: bartRoute.route_number || "BART",
+                     destination: bartRoute.destination || "Unknown BART Dest.",
+                     arrival_time: null, // BART API might not provide ISO time in this format
+                     status: minutesUntil === 0 ? "Due" : `${minutesUntil} min`,
+                     minutes_until: minutesUntil,
+                     is_realtime: true, // BART data is generally realtime
+                     vehicle: { nearest_stop: "" } // BART vehicle location not typically in this API response
                  };
-             }).filter(Boolean);
+             }).filter(Boolean); // Remove null entries
              adapted[dir].sort((a, b) => (a.minutes_until ?? Infinity) - (b.minutes_until ?? Infinity));
          }
      }
      return adapted;
 };
 
-// --- TransitInfo Component ---
-const TransitInfo = ({ stops, setLiveVehicleMarkers, baseApiUrl }) => {
-    const [selectedStopId, setSelectedStopId] = useState(null); // Uses original normalizeId result
-    const [selectedStopObject, setSelectedStopObject] = useState(null); // Store full stop object for context
+const TransitInfo = ({ stops, baseApiUrl /* setLiveVehicleMarkers removed for now */ }) => {
+    const [selectedStopId, setSelectedStopId] = useState(null); // Stores stop.display_id_for_transit_info
+    const [selectedStopObject, setSelectedStopObject] = useState(null);
     const [stopSchedule, setStopSchedule] = useState(null);
     const [loadingSchedule, setLoadingSchedule] = useState(false);
-    const [scheduleError, setScheduleError] = useState(null); // Changed from 'error' state name
+    const [scheduleError, setScheduleError] = useState(null);
+    
     const listRef = useRef(null);
     const selectedItemRef = useRef(null);
 
-    // Stops array from props (App.jsx handles de-duplication)
     const stopsArray = useMemo(() => Object.values(stops || {}), [stops]);
 
-    // Caching
-    const getCachedSchedule = useCallback((stopId) => { const item = SCHEDULE_CACHE[stopId]; return item && Date.now() - item.timestamp < CACHE_TTL ? item.data : null; }, []);
-    const setCachedSchedule = useCallback((stopId, data) => { SCHEDULE_CACHE[stopId] = { data, timestamp: Date.now() }; }, []);
+    const getCachedSchedule = useCallback((stopId) => {
+        const item = SCHEDULE_CACHE[stopId];
+        return item && (Date.now() - item.timestamp < CACHE_TTL) ? item.data : null;
+    }, []);
+    const setCachedSchedule = useCallback((stopId, data) => {
+        SCHEDULE_CACHE[stopId] = { data, timestamp: Date.now() };
+    }, []);
 
-    // Scroll Effect
     useEffect(() => {
         if (selectedItemRef.current && listRef.current) {
-            const scrollOptions = {
-                behavior: 'smooth',
-                block: window.innerWidth < 600 ? 'start' : 'nearest'
-            };
             const timer = setTimeout(() => {
-                selectedItemRef.current?.scrollIntoView(scrollOptions);
-            }, 100);
+                selectedItemRef.current?.scrollIntoView({
+                    behavior: 'smooth',
+                    block: window.innerWidth < 600 ? 'start' : 'nearest', // More specific block for mobile
+                });
+            }, 150); // Slightly longer delay for layout to settle
             return () => clearTimeout(timer);
         }
     }, [selectedStopId]);
 
-    // handleStopClick based on original logic
     const handleStopClick = useCallback(async (stopObject, forceRefresh = false) => {
-        // Use original normalizeId for selection state
-        const currentSelectedId = normalizeId(stopObject);
-        // *** FIX: Clean BART ID specifically for API call ***
-        let apiStopCode = cleanStopCode(stopObject.stop_code || currentSelectedId);
-        const agency = stopObject.agency?.toLowerCase();
-        if ((agency === 'bart' || agency === 'ba') && apiStopCode) {
-             if (apiStopCode.includes('_')) { apiStopCode = apiStopCode.split('_')[0]; }
-             if (apiStopCode.toLowerCase().startsWith('place_') || apiStopCode.toLowerCase().startsWith('place-')) { apiStopCode = apiStopCode.substring(6); }
-             apiStopCode = apiStopCode.toUpperCase();
+        const currentStopApiId = stopObject.display_id_for_transit_info || getDisplayableStopId(stopObject); // Use ID from App.jsx
+        
+        if (!currentStopApiId) {
+            console.warn("Stop clicked without a valid API identifier:", stopObject);
+            setScheduleError("Cannot fetch schedule for this stop (missing ID).");
+            return;
         }
-      
-        selectedItemRef.current = null;
+        
+        selectedItemRef.current = null; // Reset ref before new selection
 
-        // Toggle selection
-        if (currentSelectedId === selectedStopId && !forceRefresh) {
-            setSelectedStopId(null); 
-            setSelectedStopObject(null); 
-            setStopSchedule(null); 
-            setScheduleError(null);
+        if (currentStopApiId === selectedStopId && !forceRefresh) {
+            setSelectedStopId(null); setSelectedStopObject(null); setStopSchedule(null); setScheduleError(null);
             return;
         }
 
-        setSelectedStopId(currentSelectedId);
-        setSelectedStopObject(stopObject); // Store for context
+        setSelectedStopId(currentStopApiId);
+        setSelectedStopObject(stopObject);
         setStopSchedule(null); setScheduleError(null); setLoadingSchedule(true);
 
-        // Check cache using the original selected ID
-        const cached = getCachedSchedule(currentSelectedId);
-        if (cached) { setStopSchedule(cached); setLoadingSchedule(false); return; }
+        const cached = getCachedSchedule(currentStopApiId);
+        if (cached && !forceRefresh) {
+            setStopSchedule(cached); setLoadingSchedule(false); return;
+        }
 
-        // Fetch from API
         try {
-             // Ensure apiStopCode is valid before making the call
-             if (!apiStopCode) {
-                throw new Error("Missing valid stop code for API call.");
-             }
-             const predictionURL = (agency === "bart" || agency === "ba")
-                ? `${baseApiUrl}/bart-positions/by-stop?stopCode=${apiStopCode}&agency=${agency}` // Use cleaned apiStopCode
-                : `${baseApiUrl}/bus-positions/by-stop?stopCode=${apiStopCode}&agency=${agency}`; // Use cleaned apiStopCode
+            const agency = stopObject.agency?.toLowerCase();
+            const predictionURL = (agency === "bart" || agency === "ba")
+                ? `${baseApiUrl}/bart-positions/by-stop?stopCode=${currentStopApiId}&agency=${agency}`
+                : `${baseApiUrl}/bus-positions/by-stop?stopCode=${currentStopApiId}&agency=${agency}`;
 
-            console.log(`[TransitInfo STABLE BASE] Fetching schedule for ID: ${currentSelectedId} (API Code: ${apiStopCode}, Agency: ${agency})`);
             const res = await axios.get(predictionURL, { timeout: API_TIMEOUT });
-            const responseData = res.data?.realtime || res.data; // Original way to get data
+            const responseData = res.data?.realtime || res.data; // Prefer 'realtime' key if exists
             const siriVisits = responseData?.ServiceDelivery?.StopMonitoringDelivery?.MonitoredStopVisit;
 
-            let schedule;
-            // Use original logic for processing
+            let scheduleData;
             if (Array.isArray(siriVisits)) {
-                console.log("[TransitInfo STABLE BASE] Processing SIRI data...");
-                schedule = await normalizeSiriData(siriVisits, baseApiUrl);
-                schedule.inbound = groupScheduleEntries(schedule.inbound);
-                schedule.outbound = groupScheduleEntries(schedule.outbound);
+                const normalized = await normalizeSiriData(siriVisits, baseApiUrl);
+                scheduleData = {
+                    inbound: groupScheduleEntries(normalized.inbound),
+                    outbound: groupScheduleEntries(normalized.outbound)
+                };
+            } else if ((agency === "bart" || agency === "ba") && responseData && (responseData.inbound || responseData.outbound)) {
+                scheduleData = adaptBartData(responseData); // Use adapted BART data
+                 scheduleData = { // BART data might already be grouped like this from backend
+                    inbound: groupScheduleEntries(scheduleData.inbound),
+                    outbound: groupScheduleEntries(scheduleData.outbound)
+                };
+            } else {
+                scheduleData = { inbound: [], outbound: [] };
+                if (responseData && Object.keys(responseData).length > 0) { // If there's data but not processable
+                    setScheduleError('Schedule format not recognized.');
+                } else { // No data at all
+                    setScheduleError('No schedule data received for this stop.');
+                }
             }
-            // ** MODIFICATION: Handle BART pre-grouped data simply **
-            else if ((agency === "bart" || agency === "ba") && responseData && responseData.inbound && responseData.outbound) {
-                 console.log("[TransitInfo STABLE BASE] Adapting pre-grouped BART data...");
-                 schedule = adaptBartDataSimply(responseData);
-            }
-            else { // Treat anything else (including non-array 'visits' or direct data) as potentially unusable for now
-                 console.warn(`[TransitInfo STABLE BASE] No processable schedule data found for ${currentSelectedId}. Response data:`, responseData);
-                 schedule = { inbound: [], outbound: [] }; // Default to empty
-                 // Set error only if there was response data but it wasn't processable
-                 if(responseData) {
-                    setScheduleError('Could not understand schedule format.');
-                 } else {
-                     setScheduleError('No schedule data received.');
-                 }
-            }
-
-             // Final check
-             if (!schedule || !schedule.inbound || !schedule.outbound) {
-                 schedule = { inbound: [], outbound: [] };
-             }
-
-            setCachedSchedule(currentSelectedId, schedule);
-            setStopSchedule(schedule);
-
-            // Original fetchVehiclePositions call (optional)
-            // if (setLiveVehicleMarkers) { await fetchVehiclePositions(stopObject); }
+            
+            setCachedSchedule(currentStopApiId, scheduleData);
+            setStopSchedule(scheduleData);
 
         } catch (err) {
-            console.error(`[TransitInfo STABLE BASE] Failed fetch/process for ${currentSelectedId}:`, err);
-             // *** Use setScheduleError ***
-            setScheduleError(`Failed to load schedule. ${err.message}`);
-            setStopSchedule({ inbound: [], outbound: [] }); // Set empty schedule
+            console.error(`[TransitInfo] Schedule fetch error for ${currentStopApiId}:`, err);
+            let errorMsg = "Failed to load schedule.";
+            if (err.response) errorMsg += ` Server responded with ${err.response.status}.`;
+            else if (err.request) errorMsg += " No response from server.";
+            else errorMsg += ` ${err.message}`;
+            setScheduleError(errorMsg);
+            setStopSchedule({ inbound: [], outbound: [] });
         } finally {
             setLoadingSchedule(false);
         }
-    // Keep original dependencies, add baseApiUrl
-    }, [selectedStopId, selectedStopObject, getCachedSchedule, setCachedSchedule, baseApiUrl, setLiveVehicleMarkers]);
+    }, [selectedStopId, baseApiUrl, getCachedSchedule, setCachedSchedule]);
 
-
-    // handleRefresh based on original logic
-    const handleRefreshSchedule = useCallback(async () => {
+    const handleRefreshSchedule = useCallback(() => {
         if (!selectedStopId || !selectedStopObject) return;
-        delete SCHEDULE_CACHE[selectedStopId];
-        await handleStopClick(selectedStopObject, true);
+        // No need to delete from SCHEDULE_CACHE here, handleStopClick with forceRefresh will bypass it
+        handleStopClick(selectedStopObject, true);
     }, [selectedStopId, selectedStopObject, handleStopClick]);
 
-
-// Use original renderRouteInfo function signature
-    // Apply new CSS classes and updated icon/chip rendering
-    const renderRouteInfo = (routeEntry) => {
-      const agency = selectedStopObject?.agency; // Get agency from selected stop
-    
+    const renderRouteInfo = useCallback((routeEntry) => {
+      const agency = selectedStopObject?.agency;
       return (
         <Box className="route-info-box">
           <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1} mb={0.5}>
-            <Typography
-              variant="h6"
-              component="div"
-              className="route-title"
-              noWrap
-              sx={{ flexGrow: 1, mr: 1 }}
-            >
-              {renderRouteTypeIconOriginal(routeEntry.route_number, agency)}
+            <Typography variant="body1" component="div" className="route-title" noWrap sx={{ flexGrow: 1, mr: 1 }}>
+              {renderRouteTypeIcon(routeEntry.route_number, agency)}
               {routeEntry.route_number || "Route ?"}
               <Typography component="span" className="route-destination">
-                {" "}
-                → {routeEntry.destination || "Unknown"}
+                → {routeEntry.destination || "Unknown Destination"}
               </Typography>
             </Typography>
+             {routeEntry.is_realtime && <Chip label="Live" size="small" color="success" sx={{height: '18px', fontSize:'0.65rem', backgroundColor: 'var(--greenDark)', color:'white'}}/>}
           </Stack>
     
-          {/* Show Arrival time always if available */}
-          {routeEntry.arrival_time && routeEntry.arrival_time !== "Unknown" && (
+          {routeEntry.earliest_arrival_time && routeEntry.earliest_arrival_time !== "Unknown" && (
             <Typography variant="body2" className="route-arrival-detail">
-              Arrival: <b>{formatTime(routeEntry.arrival_time)}</b>
+              Next: <b>{formatTime(routeEntry.earliest_arrival_time)}</b>
+              {routeEntry.earliest_minutes_until !== null && ` (${routeEntry.earliest_minutes_until === 0 ? "Due" : `${routeEntry.earliest_minutes_until} min`})`}
             </Typography>
           )}
-    
-          <Typography
-            variant="body2"
-            className={
-              routeEntry.vehicle?.nearest_stop
-                ? "route-vehicle-location"
-                : "route-vehicle-location-unavailable"
-            }
-            sx={{
-              display: "flex",
-              flexWrap: "wrap",
-              alignItems: "center",
-              gap: "6px",
-              mt: 0.5,
-            }}
-          >
-            {routeEntry.vehicle?.nearest_stop && (
-              <>Vehicle near: {routeEntry.vehicle.nearest_stop}</>
-            )}
-    
-            {routeEntry.arrivals?.map((a, i) => {
-              let bg = "#9e9e9e";
-              const clean = a.replace(/\[|\]/g, '').replace(' min', '').replace('Due', 'Due');
-              const num = parseInt(clean);
-              if (a === "[Due]" || clean === "Due") bg = "#e53935";
-              else if (!isNaN(num) && num <= 5) bg = "#43a047";
-              else if (!isNaN(num) && num <= 15) bg = "#2f4875";
-              else if (!isNaN(num) && num <= 30) bg = "#A8F2DC";
-    
-              return (
-                <Chip
-                  key={i}
-                  size="small"
-                  label={clean + (i === routeEntry.arrivals.length - 1 && !isNaN(num) ? " min" : "")}
-                  sx={{
-                    backgroundColor: bg,
-                    color: "white",
-                    fontWeight: "bold",
-                    fontSize: "0.7rem",
-                    height: "20px",
-                  }}
-                />
-              );
-            })}
-          </Typography>
+          
+          {routeEntry.arrival_labels && routeEntry.arrival_labels.length > 0 && (
+            <Stack direction="row" spacing={0.5} mt={0.5} flexWrap="wrap">
+                {routeEntry.arrival_labels.map((label, i) => {
+                    let chipColor = "default";
+                    const cleanLabel = label.replace(/\[|\]/g, '').replace(' min', '');
+                    const minutes = parseInt(cleanLabel);
+                    if (label === "[Due]") chipColor = "error";
+                    else if (!isNaN(minutes)) {
+                        if (minutes <= 5) chipColor = "success";
+                        else if (minutes <= 15) chipColor = "warning";
+                    }
+                    return <Chip key={i} size="small" label={cleanLabel + (label.includes('min') ? " min" : "")} color={chipColor} />;
+                })}
+            </Stack>
+          )}
+
+          {routeEntry.vehicle?.nearest_stop && (
+            <Typography variant="caption" className="route-vehicle-location" sx={{ mt: 0.5, display: 'block' }}>
+              Vehicle near: {routeEntry.vehicle.nearest_stop}
+            </Typography>
+          )}
         </Box>
       );
-    };
+    }, [selectedStopObject]);
 
-    // --- Main Render ---
     return (
-        // Apply new Card class
         <Card elevation={0} className="transit-card-custom">
-            <CardContent sx={{ p: { xs: 1, sm: 1.5 }, display: 'flex', flexDirection: 'column', flexGrow: 1 }}>
-                 {/* Apply new header class */}
-                 <Typography className="transit-section-header" sx={{ pl: { xs: 0, sm: 1 }, flexShrink: 0 }}> Nearby Stops ({stopsArray.length}) </Typography>
-                 {stopsArray.length === 0 && !loadingSchedule && ( <Typography align="center" color="text.secondary" sx={{ py: 3, flexGrow: 1, display:'flex', alignItems:'center', justifyContent:'center' }}> No stops found. </Typography> )}
+            <CardContent>
+                 <Typography className="transit-section-header"> Nearby Stops ({stopsArray.length}) </Typography>
+                 {stopsArray.length === 0 && !loadingSchedule && (
+                    <Typography className="transit-empty"> No stops found. Adjust search or radius. </Typography>
+                 )}
 
-                {/* Attach ref to the List */}
-                <List ref={listRef} disablePadding className="nearby-stops-list" sx={{flexGrow: 1, overflowY: 'auto'}}>
+                <List ref={listRef} dense disablePadding className="nearby-stops-list">
                     {stopsArray.map((stop) => {
-                        const sid = normalizeId(stop); // Use original ID for selection state
-                        if (!sid) return null;
-                        const isSelected = sid === selectedStopId;
-                        const itemKey = stop.display_id_for_transit_info || stop.stop_id || sid; // Use App's ID for key
+                        const stopApiId = stop.display_id_for_transit_info || getDisplayableStopId(stop);
+                        const reactKey = stop.original_stop_id_for_key || stopApiId || stop.stop_name; // Ensure unique key
+                        const isSelected = stopApiId === selectedStopId;
 
                         return (
-                            <React.Fragment key={itemKey}>
-                                <ListItemButton ref={isSelected ? selectedItemRef : null} onClick={() => handleStopClick(stop)} sx={{ pt: 1, pb: 1, borderRadius: '4px', '&:hover': { backgroundColor: 'action.hover' }, mb: 0.5 }} className={isSelected ? "stop-list-item stop-list-item-selected" : "stop-list-item"}>
-                                    <Box flexGrow={1}>
-                                        <Stack direction="row" spacing={1} alignItems="center" mb={0.25}> <LocationOnIcon color="primary" fontSize="small" /> <Typography fontWeight={500} noWrap sx={{ fontSize: '0.95rem' }}>{stop.stop_name || 'Unknown Stop'}</Typography> </Stack>
+                            <React.Fragment key={reactKey}>
+                                <ListItemButton 
+                                    ref={isSelected ? selectedItemRef : null} 
+                                    onClick={() => handleStopClick(stop)}
+                                    selected={isSelected}
+                                    sx={{ mb: 0.5 }}
+                                >
+                                    <Box flexGrow={1} overflow="hidden">
+                                        <Stack direction="row" spacing={1} alignItems="center" mb={0.25}>
+                                            <LocationOnIcon color={isSelected ? "primary" : "action"} fontSize="small" />
+                                            <Typography fontWeight={500} noWrap sx={{ fontSize: '0.95rem' }}>
+                                                {stop.stop_name || 'Unknown Stop Name'}
+                                            </Typography>
+                                        </Stack>
                                         <Stack direction="row" justifyContent="space-between" alignItems="center">
-                                            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.75rem' }}> ID: {stop.stop_code || sid} </Typography>
-                                            {/* *** SAFER toFixed Rendering *** */}
-                                            {(() => {
-                                                const distanceVal = stop.distance_miles; let displayDistanceLabel = null;
-                                                if (distanceVal != null) { let numValue; if (typeof distanceVal === 'number') { numValue = distanceVal; } else { numValue = parseFloat(distanceVal); } if (typeof numValue === 'number' && isFinite(numValue)) { try { displayDistanceLabel = `${numValue.toFixed(3)} mi`; } catch (e) { console.error(`Error in toFixed for stop ${itemKey}:`, e); } } }
-                                                return displayDistanceLabel ? (<Chip component="span" size="small" label={displayDistanceLabel} sx={{ fontSize: '0.7rem', height: '18px', mr: 1 }} />) : null;
-                                            })()}
-                                            {/* *** END SAFER toFixed *** */}
+                                            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.75rem', ml: 3.5 /* Align with icon */ }}>
+                                                ID: {getDisplayableStopId(stop)} {stop.agency && `(${stop.agency.toUpperCase()})`}
+                                            </Typography>
+                                            {stop.distance_miles != null && (
+                                                <Chip component="span" size="small" label={`${Number(stop.distance_miles).toFixed(2)} mi`} sx={{ fontSize: '0.7rem', height: '18px' }} />
+                                            )}
                                         </Stack>
                                     </Box>
                                     {isSelected ? <ExpandLessIcon /> : <ExpandMoreIcon />}
                                 </ListItemButton>
 
                                 <Collapse in={isSelected} timeout="auto" unmountOnExit>
-                                     {/* Apply minHeight and flex styles */}
-                                    <Box px={{ xs: 1, sm: 1.5 }} pb={1.5} pt={1} sx={{ borderLeft: '3px solid var(--purpleLight)', ml: { xs: 0.5, sm: 1 }, mr: { xs: 0.5, sm: 1 }, mb: 1, minHeight: '150px', display: 'flex', flexDirection: 'column' }} className="stop-details-collapse">
-                                        {/* Use original Refresh Button style */}
-                                        <Button size="small" variant="outlined" startIcon={<RefreshIcon />} onClick={handleRefreshSchedule} sx={{ mb: 1, alignSelf: 'flex-start', textTransform: 'none', color: 'var(--purple)', '&:hover': { backgroundColor: 'var(--purpleLight)' } }} disabled={loadingSchedule}>
-                                            {loadingSchedule && isSelected ? "Refreshing..." : "Refresh"}
+                                    <Box role="region" sx={{ px: { xs: 0.5, sm: 1 }, pb: 1.5, pt: 1, borderLeft: '3px solid var(--purpleMid)', ml: 1, mr: 0.5, mb: 1, minHeight: '120px', display: 'flex', flexDirection: 'column' }}>
+                                        <Button size="small" variant="outlined" startIcon={<RefreshIcon />} onClick={handleRefreshSchedule} sx={{ mb: 1, alignSelf: 'flex-start' }} disabled={loadingSchedule}>
+                                            {loadingSchedule && isSelected ? "Refreshing..." : "Refresh Times"}
                                         </Button>
-                                        {/* Original Loading/Error/Schedule rendering */}
-                                        {loadingSchedule ? (
-                                            <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-start' }}><CircularProgress size={28} /></Box>
-                                        ) : stopSchedule ? (
+                                        {loadingSchedule && isSelected ? ( /* Show loader only if this stop is loading */
+                                            <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '80px' }}><CircularProgress size={28} /></Box>
+                                        ) : scheduleError && isSelected ? (
+                                            <Alert severity="warning" sx={{ fontSize: '0.8rem' }}>{scheduleError}</Alert>
+                                        ) : stopSchedule && isSelected ? (
                                             <>
-                                                {scheduleError && <Alert severity="warning" sx={{ mb: 2, fontSize: '0.8rem' }}>{scheduleError}</Alert>}
                                                 {['inbound', 'outbound'].map((dir) => (
                                                     stopSchedule[dir]?.length > 0 && (
-                                                        <Box key={dir} mb={1}>
-                                                            {/* Use original subtitle style */}
-                                                            <Typography variant="subtitle1" gutterBottom sx={{fontSize: '0.8rem', fontWeight:'bold', color:'var(--current-grayMid-val)'}}>{dir.charAt(0).toUpperCase() + dir.slice(1)}</Typography>
+                                                        <Box key={dir} mb={1.5}>
+                                                            <Typography variant="overline" display="block" gutterBottom>{dir}</Typography>
                                                             <List dense disablePadding>
                                                                 {stopSchedule[dir].map((routeEntry, i) => (
-                                                                    <ListItem key={`${dir}-${i}`} disablePadding sx={{mb: 0.5}} className="transit-list-item-custom">
-                                                                        {/* Call original render function */}
+                                                                    <ListItem key={`${dir}-${routeEntry.route_number}-${routeEntry.destination}-${i}`} disablePadding sx={{mb: 0.5}} className="transit-list-item-custom">
                                                                         <ListItemText primary={renderRouteInfo(routeEntry)} disableTypography />
                                                                     </ListItem>
                                                                 ))}
@@ -446,13 +391,13 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers, baseApiUrl }) => {
                                                         </Box>
                                                     )
                                                 ))}
-                                                {(stopSchedule.inbound?.length === 0 && stopSchedule.outbound?.length === 0) && (
-                                                    <Typography className="transit-empty" sx={{ fontSize: '0.9rem', mt: 'auto', pt: 2 }}>No upcoming transit found.</Typography>
+                                                {(stopSchedule.inbound?.length === 0 && stopSchedule.outbound?.length === 0) && !scheduleError && (
+                                                    <Typography className="transit-empty" sx={{mt:1}}>No upcoming departures found for this stop.</Typography>
                                                 )}
                                             </>
-                                        ) : ( // No schedule data available
-                                            <Typography variant="body2" color="text.secondary" sx={{mt:'auto', pt: 2, textAlign:'center'}}>No schedule available.</Typography>
-                                        )}
+                                        ) : isSelected && !scheduleError ? ( // Selected, not loading, no error, but no schedule (could be initial state)
+                                            <Typography className="transit-empty" sx={{mt:1}}>Select a stop to see schedule.</Typography>
+                                        ) : null}
                                     </Box>
                                 </Collapse>
                             </React.Fragment>
@@ -464,5 +409,4 @@ const TransitInfo = ({ stops, setLiveVehicleMarkers, baseApiUrl }) => {
     );
 };
 
-export default TransitInfo;
-
+export default React.memo(TransitInfo);

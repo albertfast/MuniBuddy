@@ -1,197 +1,120 @@
 // frontend/src/App.jsx
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Container, Box, Typography, Alert, TextField, InputAdornment,
   Slider, Grid, Button, Dialog, DialogTitle, DialogContent, DialogActions,
-  CircularProgress, Paper // Import Paper for the sticky top panel
+  CircularProgress
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import MyLocationIcon from '@mui/icons-material/MyLocation';
-import Map from './components/Map'; // Use the version that renders the logo as a control
+import Map from './components/Map';
 import TransitInfo from './components/TransitInfo';
 import { geocodeAddress, parseCoordinates, formatCoordinates } from './utility/geocode';
-import './assets/style.css'; // Import global styles
+import './assets/style.css';
 
-// --- Constants ---
-const BASE_URL = import.meta.env.VITE_API_BASE ?? 'http://localhost:8000/api/v1'; // API Base URL
-const DEFAULT_CENTER = { lat: 37.7749, lng: -122.4194 }; // Default map center
+const BASE_URL = import.meta.env.VITE_API_BASE ?? 'http://localhost:8000/api/v1';
+const DEFAULT_CENTER = { lat: 37.7749, lng: -122.4194 };
 
-// --- Helper Functions ---
-
-// Get a canonical (standardized) ID for BART stations for de-duplication
 const getCanonicalBartId = (stop) => {
   if (stop.agency?.toLowerCase() !== 'bart' && stop.agency?.toLowerCase() !== 'ba') {
-    return stop.stop_id; // Return original ID if not BART
+    return stop.stop_id;
   }
-  // Derive base ID from stop_code or stop_id (e.g., POWL_7 -> POWL)
   let idPart = (stop.stop_code || stop.stop_id || '').split('_')[0].toUpperCase();
-  // Handle 'place_' prefix
   if (idPart.startsWith('PLACE-')) { idPart = idPart.substring(6); }
   else if (idPart.startsWith('PLACE_')) { idPart = idPart.substring(6); }
 
-  // Check against known main station codes first
   const knownMainStationCodes = ['POWL', 'MONT', 'EMBR', 'CIVC', 'DALY', 'GLEN', 'BALB', 'COLM', 'SSAN', 'SBRN', 'SFIA', 'MLBR'];
-  if (knownMainStationCodes.includes(idPart)) {
-    return idPart;
-  }
-  // Fallback: Check stop_name
+  if (knownMainStationCodes.includes(idPart)) return idPart;
+
   const name = stop.stop_name?.toLowerCase() || '';
   if (name.includes('powell street')) return 'POWL';
   if (name.includes('montgomery st')) return 'MONT';
   if (name.includes('embarcadero')) return 'EMBR';
   if (name.includes('civic center') || name.includes('civic ctr')) return 'CIVC';
-  // Add more name mappings if needed
-
-  // Final fallback
-  return idPart || (stop.stop_id || 'UNKNOWN_BART').toUpperCase();
+  // Add more specific name mappings if necessary
+  return idPart || `BART_${(stop.stop_id || 'UNKNOWN')}`.toUpperCase(); // Fallback with prefix
 };
 
-// --- Main App Component ---
 const App = () => {
-  // --- State ---
-  const [userLocation, setUserLocation] = useState(null); // Current location {lat, lng}
-  const [nearbyStops, setNearbyStops] = useState({}); // Processed stops for TransitInfo { displayKey: stopObject }
-  const [error, setError] = useState(null); // Error messages
-  const [markers, setMarkers] = useState([]); // Markers for the Map component
-  const [liveVehicleMarkers, setLiveVehicleMarkers] = useState([]); // Live vehicle markers (optional)
-  const [searchAddress, setSearchAddress] = useState(''); // Search input value
-  const [radius, setRadius] = useState(0.15); // Search radius
-  const [isLoading, setIsLoading] = useState(false); // Loading state indicator
-  const [theme, setTheme] = useState('system'); // Theme state ('light', 'dark', 'system')
-  const [showLocationDialog, setShowLocationDialog] = useState(true); // Initial location prompt visibility
+  const [userLocation, setUserLocation] = useState(null);
+  const [nearbyStops, setNearbyStops] = useState({});
+  const [error, setError] = useState(null);
+  const [markers, setMarkers] = useState([]);
+  // const [liveVehicleMarkers, setLiveVehicleMarkers] = useState([]); // Kept if needed by TransitInfo
+  const [searchAddress, setSearchAddress] = useState('');
+  const [radius, setRadius] = useState(0.15);
+  const [isLoading, setIsLoading] = useState(false);
+  const [theme, setTheme] = useState('system');
+  const [showLocationDialog, setShowLocationDialog] = useState(true);
 
-  // --- Effects ---
-  // Load theme from localStorage on mount
   useEffect(() => {
     const storedTheme = localStorage.getItem('theme') || 'system';
     setTheme(storedTheme);
     document.documentElement.setAttribute('data-theme', storedTheme);
   }, []);
 
-  // Fetch stops when location or radius changes
-  useEffect(() => {
-    if (userLocation) {
-      fetchNearbyStops(userLocation);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userLocation, radius]); // fetchNearbyStops is memoized
-
-  // --- Callbacks ---
-  // Toggle theme
-  const toggleTheme = () => {
-    let newTheme = theme === 'light' ? 'dark' : (theme === 'dark' ? 'system' : 'light');
-    setTheme(newTheme);
-    document.documentElement.setAttribute('data-theme', newTheme);
-    localStorage.setItem('theme', newTheme);
-  };
-
-  // Get text for theme button
-  const getThemeButtonText = () => {
-    if (theme === 'light') return 'Switch to Dark Theme';
-    if (theme === 'dark') return 'Use System Setting';
-    return 'Switch to Light Theme';
-  };
-
-  // Request geolocation
-  const requestLocation = useCallback(() => {
-    setShowLocationDialog(false);
-    if (navigator.geolocation) {
-      setIsLoading(true);
-      setError(null);
-      navigator.geolocation.getCurrentPosition(
-        pos => {
-          const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-          setUserLocation(loc); // Triggers fetch via useEffect
-          setSearchAddress(formatCoordinates(loc.lat, loc.lng));
-        },
-        err => {
-          setError(`Location access denied: ${err.message}. Search manually.`);
-          setIsLoading(false);
-        }
-      );
-    } else {
-      setError('Geolocation not supported.');
-      setIsLoading(false);
-    }
-  }, []);
-
-  // Fetch nearby stops from API
-  const fetchNearbyStops = useCallback(async (location) => {
+  const fetchNearbyStops = useCallback(async (location, currentRadius) => {
     if (!location) return;
     setIsLoading(true);
     setError(null);
-    const processedStopsForDisplay = {};
-    const addedBartCanonicalIds = new Set();
-
+    
     try {
-      const apiUrl = `${BASE_URL}/nearby-stops?lat=${location.lat}&lon=${location.lng}&radius=${radius}`;
+      const apiUrl = `${BASE_URL}/nearby-stops?lat=${location.lat}&lon=${location.lng}&radius=${currentRadius}`;
       const res = await fetch(apiUrl);
       if (!res.ok) throw new Error(`API error (${res.status}): ${await res.text()}`);
       const rawStopsFromApi = await res.json();
 
-      // Step 1: De-duplicate stops from API based on original stop_id
-      const uniqueStopsById = {};
-      for (const stop of rawStopsFromApi) {
-        if (stop.stop_id != null && !uniqueStopsById[stop.stop_id]) {
-          uniqueStopsById[stop.stop_id] = stop;
-        }
-      }
-      const uniqueRawStopsList = Object.values(uniqueStopsById);
+      const processedStops = {};
+      const addedBartCanonicalIds = new Set();
 
-      // Step 2: Process unique stops, handle BART canonicalization and prioritization
-      for (const stop of uniqueRawStopsList) {
-        const agency = stop.agency?.toLowerCase();
+      for (const stop of rawStopsFromApi) {
+        if (stop.stop_id == null && stop.stop_code == null) continue; // Skip stops with no identifier
+
         let displayKey;
-        let stopDataToProcess = { ...stop };
+        let stopDataForTransitInfo = { 
+            ...stop, 
+            original_stop_id_for_key: stop.stop_id || `${stop.agency}-${stop.stop_code}` // Stable key for React
+        };
+        const agency = stop.agency?.toLowerCase();
 
         if (agency === 'bart' || agency === 'ba') {
           const canonicalId = getCanonicalBartId(stop);
-          displayKey = canonicalId;
-          // Check if this stop represents the main station (e.g., name includes "Street")
-          const isCurrentStopMainStation = stop.stop_name?.toLowerCase().includes('street'); // Define *before* using it
+          displayKey = `BART_${canonicalId}`; // Ensure BART keys are distinct
+          
+          const isCurrentStopMainStation = stop.stop_name?.toLowerCase().includes('street');
 
-          if (addedBartCanonicalIds.has(canonicalId)) { // If we already processed this BART station
-            const existingStop = processedStopsForDisplay[canonicalId];
+          if (addedBartCanonicalIds.has(canonicalId)) {
+            const existingStop = processedStops[displayKey];
             const isExistingStopMainStation = existingStop?.stop_name?.toLowerCase().includes('street');
-
-            // If current is main station and existing was not, we will overwrite (let code proceed)
-            // Otherwise (if existing was main, or both are not), skip the current one.
-            if (!isCurrentStopMainStation || isExistingStopMainStation) {
-              continue; // Skip this stop
+            if (isExistingStopMainStation && !isCurrentStopMainStation) {
+              continue; // Prefer existing main station entry
             }
-            // console.log(`[App] Replacing BART entrance '${existingStop.stop_name}' with main station '${stop.stop_name}'`);
-          } else {
-            // First time seeing this canonical ID
-            addedBartCanonicalIds.add(canonicalId);
           }
-
-          // Prepare data for TransitInfo
-          stopDataToProcess.display_id_for_transit_info = stop.stop_code || canonicalId; // ID for API calls in TransitInfo
-          stopDataToProcess.original_stop_id_for_key = stop.stop_id; // For React key prop
-        } else { // For non-BART agencies
-          displayKey = stop.stop_id || `${stop.stop_code}-${agency}`;
-          stopDataToProcess.display_id_for_transit_info = stop.stop_code || stop.stop_id;
-          stopDataToProcess.original_stop_id_for_key = stop.stop_id;
+          addedBartCanonicalIds.add(canonicalId);
+          stopDataForTransitInfo.display_id_for_transit_info = canonicalId; // Clean ID for API calls
+          stopDataForTransitInfo.stop_code_for_display = canonicalId; // Use canonical for display ID too
+        } else {
+          displayKey = stop.stop_id || `${agency}-${stop.stop_code}`;
+          stopDataForTransitInfo.display_id_for_transit_info = stop.stop_code || stop.stop_id;
+          stopDataForTransitInfo.stop_code_for_display = stop.stop_code || stop.stop_id;
         }
-
-        // Add or update the stop in the final display list
-        processedStopsForDisplay[displayKey] = stopDataToProcess;
+        
+        processedStops[displayKey] = stopDataForTransitInfo;
       }
+      
+      setNearbyStops(processedStops);
 
-      setNearbyStops(processedStopsForDisplay); // Update state
-
-      // Create map markers
-      const stopMarkersArr = Object.values(processedStopsForDisplay).map(s => ({
+      const stopMarkersArr = Object.values(processedStops).map(s => ({
         position: { lat: parseFloat(s.stop_lat), lng: parseFloat(s.stop_lon) },
         title: s.stop_name,
-        stopId: s.display_id_for_transit_info, // ID matching what TransitInfo uses
+        stopId: s.display_id_for_transit_info, // Consistent ID
+        agency: s.agency, // Pass agency for icon selection
         icon: {
           url: (s.agency?.toLowerCase() === 'bart' || s.agency?.toLowerCase() === 'ba') ? '/images/bart-station-icon.svg' : '/images/bus-stop-icon.svg',
           scaledSize: { width: 28, height: 28 }
         }
       }));
 
-      // Add user location marker
       if (userLocation) {
         stopMarkersArr.push({
           position: userLocation, title: 'You Are Here', stopId: 'user-location',
@@ -200,124 +123,150 @@ const App = () => {
       }
       setMarkers(stopMarkersArr);
 
-    } catch (err) { // Handle fetch/processing errors
+    } catch (err) {
       console.error('Could not fetch or process nearby stops:', err);
       setError(`Could not fetch stops: ${err.message}`);
-      setNearbyStops({}); // Clear stops
-      setMarkers(userLocation ? [{ // Keep only user marker
+      setNearbyStops({});
+      setMarkers(userLocation ? [{
         position: userLocation, title: 'You Are Here', stopId: 'user-location',
         icon: { url: '/images/user-location-icon.svg', scaledSize: { width: 30, height: 30 } }
       }] : []);
     } finally {
-      setIsLoading(false); // Always reset loading state
+      setIsLoading(false);
     }
-  }, [radius, BASE_URL]); // Dependencies
+  }, [userLocation, BASE_URL]); // Removed radius from here, pass it directly
 
-  // Handle manual search button click
+  useEffect(() => {
+    if (userLocation) {
+      fetchNearbyStops(userLocation, radius);
+    }
+  }, [userLocation, radius, fetchNearbyStops]);
+
+
+  const requestLocation = useCallback(() => {
+    setShowLocationDialog(false);
+    if (navigator.geolocation) {
+      setIsLoading(true); setError(null);
+      navigator.geolocation.getCurrentPosition(
+        pos => {
+          const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+          setUserLocation(loc);
+          setSearchAddress(formatCoordinates(loc.lat, loc.lng));
+        },
+        err => {
+          setError(`Location access denied: ${err.message}. Search manually.`);
+          setIsLoading(false);
+        },
+        { timeout: 10000 } // Added timeout for geolocation
+      );
+    } else {
+      setError('Geolocation not supported.'); setIsLoading(false);
+    }
+  }, []);
+
   const handleManualLocationSearch = useCallback(async () => {
     const input = searchAddress.trim();
     if (!input) { setError('Please enter address or coordinates.'); return; }
     setIsLoading(true); setError(null);
     const coords = parseCoordinates(input);
-    if (coords) { setUserLocation(coords); return; } // Let useEffect trigger fetch
+    if (coords) {
+      setUserLocation(coords); // This will trigger fetchNearbyStops via useEffect
+      // setIsLoading(false); // fetchNearbyStops will handle this
+      return;
+    }
     try {
       const data = await geocodeAddress(input);
-      if (data?.lat && data?.lng) { setUserLocation({ lat: data.lat, lng: data.lng }); }
-      else { setError('Address not found.'); setIsLoading(false); }
-    } catch (err) { setError(`Geocoding error: ${err.message}`); setIsLoading(false); }
+      if (data?.lat && data?.lng) {
+        setUserLocation({ lat: data.lat, lng: data.lng }); // Triggers fetch
+      } else {
+        setError('Address not found.'); setIsLoading(false);
+      }
+    } catch (err) {
+      setError(`Geocoding error: ${err.message}`); setIsLoading(false);
+    }
   }, [searchAddress]);
+  
+  // Memoize stops for TransitInfo to prevent unnecessary re-renders if props object reference changes but content is same
+  const memoizedStops = useMemo(() => nearbyStops, [nearbyStops]);
 
-  // --- Render ---
   return (
     <Box className="overall-layout">
-
-      {/* Map Area */}
-      <Box maxWidth="lg" className="main-content-scrollable-area">
-            {/* Hide Theme Switch Button
-              <Button onClick={toggleTheme} variant="outlined" size="small" sx={{ textTransform: 'none', color: 'var(--purple)', borderColor: 'var(--purple)', '&:hover': { backgroundColor: 'var(--purpleLight)' } }}>
-              {getThemeButtonText()}
-            </Button>*/}        
+      <Box className="map-area" sx={{ backgroundColor: 'var(--current-grayLight2-val)' }}> {/* Added a subtle bg to map area for contrast */}
         <Map
-            center={userLocation || DEFAULT_CENTER}
-            markers={markers}
-            onMapClick={(e) => {
-              const location = { lat: e.latLng.lat(), lng: e.latLng.lng() };
-              setUserLocation(location);
-              setSearchAddress(formatCoordinates(location.lat, location.lng));
-            }}
-          // showLogoOnMap={true} // Pass prop to Map if logo rendering is conditional
-          />
-          {/* Loading Overlay */}
-          {isLoading && (
-            <Box sx={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(var(--current-bg-color-rgb, 255,255,255),0.6)', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', zIndex: 10, borderRadius: 'inherit' }}>
-              <CircularProgress />
-              <Typography sx={{ mt: 1, color: 'var(--current-text-color)' }}>Loading map & stops...</Typography>
-            </Box>
-          )}
+          center={userLocation || DEFAULT_CENTER}
+          markers={markers}
+          onMapClick={(e) => {
+            const location = { lat: e.latLng.lat(), lng: e.latLng.lng() };
+            setUserLocation(location);
+            setSearchAddress(formatCoordinates(location.lat, location.lng));
+          }}
+        />
+        {isLoading && (
+          <Box sx={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(var(--current-bg-color-rgb, 255,255,255),0.7)', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', zIndex: 10, borderRadius: 'inherit' }}>
+            <CircularProgress />
+            <Typography sx={{ mt: 1.5, color: 'var(--current-text-color)' }}>Loading...</Typography>
+          </Box>
+        )}
       </Box>
 
-      {/* Right Panel */} 
-        <Container maxWidth="lg" className="right-panel" sx={{ display: 'flex', flexDirection: 'column', pt: 1, pb: 1, height: '100%' }}>
-          {/* Controls Row */}
-          <Grid container className="searchbar_inner">
-            {/* Locate Me Button */}
+      <Box className="right-panel-container">
+        <Box className="controls-panel">
+          <Grid container spacing={1} alignItems="center" className="searchbar_inner">
             <Grid item>
-              <Button variant="outlined" onClick={requestLocation} startIcon={<MyLocationIcon />} disabled={isLoading && !userLocation && !searchAddress} size="medium">
-                <span class="hidden">Locate Me</span>
+              <Button variant="outlined" onClick={requestLocation} disabled={isLoading && !userLocation && !searchAddress} size="medium" aria-label="Locate Me">
+                <MyLocationIcon />
+                <span className="hidden">Locate Me</span>
               </Button>
             </Grid>
-            {/* Search Input */}
-            <Grid item className="searchbar_location">
-              <TextField fullWidth placeholder="Starting Location" value={searchAddress}
+            <Grid item xs className="searchbar_location">
+              <TextField fullWidth placeholder="Address or Coordinates" value={searchAddress}
                 onChange={(e) => setSearchAddress(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleManualLocationSearch()}
                 InputProps={{ startAdornment: (<InputAdornment position="start"><SearchIcon sx={{ color: 'var(--current-grayMid-val)' }} /></InputAdornment>) }}
                 variant="outlined" size="small"
               />
             </Grid>
-            {/* Search Button */}
             <Grid item>
               <Button variant="contained" onClick={handleManualLocationSearch} disabled={isLoading} size="medium">
                 {isLoading && searchAddress ? <CircularProgress size={20} color="inherit" /> : "Search"}
               </Button>
             </Grid>
-            {/* Radius Slider */}
-            <Grid item xs={12} sx={{ display: 'flex', alignItems: 'center', mt: 0.5 }}>
-              <Typography sx={{ mr: 1.5, fontSize: '0.85rem', color: 'var(--current-grayMid-val)' }}>Radius:</Typography>
+          </Grid>
+          <Box className="radius-controls">
+              <Typography>Radius:</Typography>
               <Slider value={radius} min={0.1} max={1.0} step={0.05} onChange={(e, v) => setRadius(v)}
                 valueLabelDisplay="auto" valueLabelFormat={(value) => `${value.toFixed(2)} mi`}
-                size="small" sx={{ flexGrow: 1, maxWidth: '250px' }}
+                size="small" aria-labelledby="radius-slider-label"
               />
-              <Typography sx={{ ml: 1.5, fontSize: '0.85rem', color: 'var(--current-text-color)', minWidth: '45px', textAlign: 'right' }}>{radius.toFixed(2)} mi</Typography>
-            </Grid>
-          </Grid>
-          {error && <Alert severity="error" sx={{ mt: 1, mb: 1 }} onClose={() => setError(null)}>{error}</Alert>}
-          {/* Transit Info Panel */}
-          <Grid item xs={12} md={5} lg={4} className="transit-info-panel-dynamic-height">
-            {(isLoading && Object.keys(nearbyStops).length === 0) ? (
-              <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', minHeight: '200px' }}>
-                {/* Optional placeholder/loader */}
-              </Box>
-            ) : Object.keys(nearbyStops).length > 0 ? (
-              <TransitInfo stops={nearbyStops} setLiveVehicleMarkers={setLiveVehicleMarkers} baseApiUrl={BASE_URL} />
-            ) : (
-              !isLoading && (
-                <Typography align="center" color="text.secondary" sx={{ py: 3, height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  {userLocation ? 'No nearby stops found.' : 'Use "Locate Me" or search.'}
-                </Typography>
-              )
-            )}
-          </Grid>
-        </Container>
-      
+              <Typography>{radius.toFixed(2)} mi</Typography>
+          </Box>
+        </Box>
 
-      {/* Initial Location Dialog */}
+        {error && <Alert severity="error" sx={{ mt: 1, mb: 1 }} onClose={() => setError(null)}>{error}</Alert>}
+        
+        <Box className="transit-info-panel">
+          {(isLoading && Object.keys(memoizedStops).length === 0 && !error) ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', minHeight: '200px' }}>
+              {/* Placeholder while initial stops load, distinct from map loading */}
+            </Box>
+          ) : Object.keys(memoizedStops).length > 0 ? (
+            <TransitInfo stops={memoizedStops} /* setLiveVehicleMarkers={setLiveVehicleMarkers} */ baseApiUrl={BASE_URL} />
+          ) : (
+            !isLoading && !error && (
+              <Typography align="center" color="text.secondary" sx={{ py: 3, height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {userLocation ? 'No nearby stops found for this location and radius.' : 'Use "Locate Me" or search for a location.'}
+              </Typography>
+            )
+          )}
+        </Box>
+      </Box>
+
       <Dialog open={showLocationDialog && !userLocation} onClose={() => setShowLocationDialog(false)}>
         <DialogTitle>Use Your Location?</DialogTitle>
-        <DialogContent><Typography>Allow MuniBuddy to use your current location?</Typography></DialogContent>
+        <DialogContent><Typography>Allow MuniBuddy to use your current location to find nearby transit stops?</Typography></DialogContent>
         <DialogActions>
           <Button onClick={() => setShowLocationDialog(false)}>No Thanks</Button>
-          <Button onClick={requestLocation} variant="contained">Use Location</Button>
+          <Button onClick={requestLocation} variant="contained" autoFocus>Use Location</Button>
         </DialogActions>
       </Dialog>
     </Box>
