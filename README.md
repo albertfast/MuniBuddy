@@ -1,129 +1,136 @@
-# **MuniBuddy 🚍⏳**  
-*A smart app to track Muni buses in real-time*  
+# MuniBuddy
 
-## **📌 Project Overview**  
-MuniBuddy is a public transit companion app for San Francisco’s **Muni and BART systems**. It provides real-time bus and train arrival predictions, live location tracking, and notifications to help users reach their stops on time.  
+MuniBuddy is a real-time public transit web application for San Francisco. It displays nearby bus and BART stops, arrival times, and vehicle locations on an interactive map.
 
-## **🎯 Features**  
-✅ **Real-Time Tracking** – Get minute and second-level accuracy on arrival times  
-✅ **Notification & Alarm System** – Set alerts when your bus/train is X minutes away  
-✅ **Delay & Early Arrival Alerts** – Get notified about unexpected schedule changes  
-✅ **Live Map Tracking** – View real-time bus/train locations on a map *(if possible)*  
-✅ **BART Support** – Includes BART stops along with Muni *(if possible)*  
+**Live Site:** [https://munibuddy.live](https://munibuddy.live)  
+**API Docs:** [https://munibuddy.live/docs](https://munibuddy.live/docs)
+
+> Real-time transit tracking · GTFS/SIRI API · FastAPI · React · Docker · DigitalOcean
 
 ---
 
-## **🛠️ Tech Stack**  
-- **Frontend:** React Native (Mobile) or Next.js (Web)  
-- **Backend:** Node.js (Express) or Firebase  
-- **API:** [511 SF Bay Transit API](https://511.org/open-data/transit)  
-- **Maps:** Google Maps or OpenStreetMap  
-- **Notifications:** Firebase Cloud Messaging (FCM) or OneSignal  
+## Features
 
----
+- Real-time Muni bus and BART arrivals
+- Google Maps integration with vehicle markers
+- Stop-level predictions grouped by direction and destination
+- Support for light/dark/system themes
+- Mobile-first responsive design
+- Click-to-search and locate-me geolocation functionality
 
-## **📂 Installation & Setup**  
+## Tech Stack
 
-### **1️⃣ Prerequisites**  
-- Node.js `>= 16.x`  
-- npm or yarn  
-- Git  
+**Frontend:**
+- React + Vite
+- Material UI (MUI)
+- Axios, Google Maps JS API
+- Responsive SCSS/CSS with custom theming
 
-### **2️⃣ Clone the Repository**  
-```sh
-git clone https://github.com/albertfast/MuniBuddy.git
-cd MuniBuddy
+**Backend:**
+- FastAPI (Python)
+- GTFS parsing and real-time SIRI API integration
+- PostgreSQL + SQLAlchemy
+- Redis caching
+- Dockerized microservice architecture
+
+**DevOps:**
+- Docker + Docker Compose
+- Caddy (reverse proxy + SSL)
+- DigitalOcean deployment
+- CI/CD via GitHub Actions
+
+## Project Structure (Simplified)
+
+```
+munibuddy/
+├── backend/             # FastAPI backend with GTFS, SIRI integration
+│   └── app/
+│       ├── routers/     # API route handlers
+│       ├── services/    # GTFS, cache, and SIRI logic
+├── frontend/            # React frontend with Google Maps + Material UI
+│   └── src/
+│       ├── components/  # Map and TransitInfo display
+│       └── assets/      # CSS and visual styles
 ```
 
-### **3️⃣ Install Dependencies**  
-```sh
-npm install
-```
-or  
-```sh
-yarn install
-```
+## API Endpoints
 
-### **4️⃣ Run the Project**  
-```sh
-npm start
-```
-or  
-```sh
-yarn start
-```
+- Nearby Stops: `/api/v1/nearby-stops`
+- Muni Predictions: `/api/v1/bus-positions/by-stop`
+- BART Predictions: `/api/v1/bart-positions/by-stop`
+- Swagger Docs: `/api/v1/docs`
 
-🚀 The project will now be running on **localhost:3000** or **Expo (for mobile)!**  
+## GTFS
 
----
+- Located in `backend/gtfs_data/`
+- Use `load_gtfs_to_postgres.py` to import into PostgreSQL
 
-## **👥 Team Members**  
-- **Ahmet Sahiner** – Backend & API Integration  
-- **Jeanelle Cristobal** – Mobile Notifications & Map Integration  
-- **Leslie Cain** – Frontend (UI/UX)    
+## Getting Started
 
----
+### Prerequisites
 
-## **📅 Roadmap**  
-✅ **Project Name: "MuniBuddy"**  
-✅ **GitHub Repository Created & Team Members Added**  
-🔄 **API Integration with 511 Transit Data**  
-🔄 **Basic UI Development for the First Version**  
-🚀 **Beta Release Coming Soon!**  
+- Python 3.10+
+- Node.js 18+
+- Docker & Docker Compose
+- PostgreSQL
 
----
+### Setup
 
-## **📢 Contributing**  
-Want to contribute? Follow these steps:  
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/albertfast/MuniBuddy.git
+   cd MuniBuddy
+   ```
 
-1. Fork the repo  
-2. Create a new branch ('feature/your-feature-name')  
-3. Make your changes and commit them  
-4. Open a PR for review  
+2. Set up the backend:
+   ```bash
+   cd backend
+   python -m venv venv
+   source venv/bin/activate
+   pip install -r requirements.txt
+   ```
 
-We welcome all contributions! 🎉  
+3. Set up the frontend:
+   ```bash
+   cd frontend
+   npm install
+   npm run dev
+   ```
 
----
+4. To run with Docker:
+   ```bash
+   docker-compose up --build
+   ```
 
-### **📜 511 Data Usage & Compliance**  
-MuniBuddy uses real-time transit data provided by **511 SF Bay Transit API**, which is managed by the **Metropolitan Transportation Commission (MTC)**. Our use of this data follows the **511 Data Disseminator Agreement**, ensuring proper attribution and compliance with data usage terms.  
+## Team
 
-#### **⚠️ Important Compliance Points:**  
-- **Attribution Requirement**:  
-  - The app must include the tagline **"Powered by 511.org"** or **"Data provided by 511.org"** near any display of transit data.  
-  - A **link to 511.org** must be provided in a visible location.  
+- Ahmet Sahiner
+- Leslie Cain
+- Linda Fernandez
+- Jeanelle Cristobal
 
-- **Data Usage Rules**:  
-  - We do not sell or redistribute **raw** 511 data as a standalone product.  
-  - Our app updates transit information in a **timely and accurate manner** to ensure users receive the latest data.  
-  - We do not modify or falsify transit data provided by 511.  
+## Contributions
 
-- **Intellectual Property & Branding**:  
-  - We do not use **511’s logo, trademarks, or branding** in our app or marketing materials unless explicitly approved by MTC.  
-  - Any use of **Muni, BART, or other transit agency branding** must comply with their respective intellectual property policies.  
+This project was collaboratively developed as a capstone for CNIT 198. Each team member contributed to both frontend and backend development, testing, deployment, and UX design.
 
-- **Data Documentation Requirement**:  
-  - Within **30 days of launch**, we must provide **MTC with documentation** proving our app uses their data.  
-  - This can include screenshots, press releases, or a live URL of the app.  
+## License
 
-- **Future Data Fees**:  
-  - 511 data is currently **free**, but MTC reserves the right to charge a fee in the future with a **90-day notice**.  
-
-For full details on 511's data policies, visit: **[511 Data Agreement](https://511.org/open-data/transit)**.  
+This project is open source under the MIT License.
 
 ---
 
-### **📢 How to Contribute While Following Data Policies**  
-If you contribute to this project, ensure that:  
-1. **All transit data displayed respects 511’s attribution requirements.**  
-2. **You do not use unauthorized branding (Muni, BART, etc.).**  
-3. **Your code updates comply with the latest 511 API terms.**  
+## Attribution
 
-🚀 With **MuniBuddy**, we aim to provide **accurate, real-time transit information** while respecting data provider policies!  
+This project uses public data and services from:
 
----
+- [511.org](https://511.org/open-data) for Muni and BART real-time transit data (SIRI + GTFS)
+- [BART API](https://www.bart.gov/schedules/developers) for live train departure data (ETD)
+- [Google Maps JavaScript API](https://developers.google.com/maps/documentation/javascript/overview) for mapping and geolocation
 
-## **📜 License**  
-This project is licensed under the **MIT License**.  
+All data and APIs are used under their respective terms of service. This project is not officially affiliated with BART, SFMTA, MTC, or Google.
 
-🚀 **Never miss your Muni bus again with MuniBuddy!** 🚌💨
+## License
+
+This project is licensed under the [MIT License](./LICENSE).
+
+© 2025 MuniBuddy. Built for CNIT 195 - Web Development Capstone Project.
