@@ -1,26 +1,26 @@
-SPDX-License-Identifier: MIT
+# Proprietary License – MuniBuddy Only
 
-MIT License
+SPDX-License-Identifier: Proprietary-MuniBuddy-Only
 
 Copyright (c) 2025 Ahmet Sahiner, Leslie Cain, Linda Fernandez, Jeanelle Cristobal
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+All rights reserved.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+Permission is granted to use, view, and contribute to this software exclusively as part of the **MuniBuddy project** hosted at [https://munibuddy.live](https://munibuddy.live) and its related repositories.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+You may not:
+
+- Reuse or copy this code in unrelated personal, academic, or commercial projects.
+- Sell, sublicense, or redistribute any part of the codebase or its derivatives.
+- Remove or alter the authorship and attribution notices.
+
+This software is provided "as is", without warranty of any kind.
+
+All contributors retain ownership of their contributions and grant the project maintainers a license to use their work solely within the context of the MuniBuddy project.
+
+For inquiries regarding other uses or licensing, please contact the authors directly.
+
+SPDX-License-Identifier: Proprietary-MuniBuddy-Only
 
 ---
 

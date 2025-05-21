@@ -113,12 +113,6 @@ munibuddy/
 
 This project was collaboratively developed as a capstone for CNIT 198. Each team member contributed to both frontend and backend development, testing, deployment, and UX design.
 
-## License
-
-This project is open source under the MIT License.
-
----
-
 ## Attribution
 
 This project uses public data and services from:
@@ -131,7 +125,12 @@ All data and APIs are used under their respective terms of service. This project
 
 ## License
 
-This project is licensed under the [MIT License](./LICENSE).
+This project is released under a custom license: **"Proprietary – MuniBuddy Only"**.
+
+You may view and contribute to the code for the MuniBuddy project only.
+Any other use, including reuse, redistribution, or replication, is **strictly prohibited**.
+
+See [LICENSE](./LICENSE) for full details.
 
 © 2025 MuniBuddy. Developed as part of CNIT 195 — Web Development Capstone Course at City College of San Francisco.
 
