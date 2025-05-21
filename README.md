@@ -133,4 +133,5 @@ All data and APIs are used under their respective terms of service. This project
 
 This project is licensed under the [MIT License](./LICENSE).
 
-© 2025 MuniBuddy. Built for CNIT 195 - Web Development Capstone Project.
+© 2025 MuniBuddy. Developed as part of CNIT 195 — Web Development Capstone Course at City College of San Francisco.
+
